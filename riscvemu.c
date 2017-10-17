@@ -263,7 +263,7 @@ static int bf_read_async(BlockDevice *bs,
     } else {
         fseek(bf->f, sector_num * SECTOR_SIZE, SEEK_SET);
         size_t got = fread(buf, 1, n * SECTOR_SIZE, bf->f);
-        assert(got == SECTOR_SIZE);
+        assert(got == n * SECTOR_SIZE);
     }
     /* synchronous read */
     return 0;
@@ -746,7 +746,7 @@ int main(int argc, char **argv)
             break;
 #endif
         case 'm':
-            ram_size = (uint64_t)strtoul(optarg, NULL, 0) << 20;
+            ram_size = (uint64_t)strtoul(optarg, NULL, 0);
             break;
         default:
             exit(1);

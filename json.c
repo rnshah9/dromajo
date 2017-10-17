@@ -71,11 +71,11 @@ static JSONValue parse_string(const char **pp)
                 case 'x':
                     h = from_hex(*p++);
                     if (h < 0)
-                        return json_error_new("invalig hex digit");
+                        return json_error_new("invalid hex digit");
                     c = h << 4;
                     h = from_hex(*p++);
                     if (h < 0)
-                        return json_error_new("invalig hex digit");
+                        return json_error_new("invalid hex digit");
                     c |= h;
                     goto add_char;
                 default:
