@@ -33,6 +33,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
+#include <sys/sysmacros.h>
 
 #include "cutils.h"
 #include "fs_utils.h"
