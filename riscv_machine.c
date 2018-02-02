@@ -744,19 +744,20 @@ static void copy_kernel(RISCVMachine *s, const uint8_t *buf, int buf_len,
     memcpy(ram_ptr, buf, buf_len);
 
     ram_ptr = get_ram_ptr(s, 0);
-    
-    fdt_addr = 0x1000 + 8 * 8;
 
+    fdt_addr = 0x1000 + 8 * 4;
     riscv_build_fdt(s, ram_ptr + fdt_addr, cmd_line);
 
     /* jump_addr = 0x80000000 */
-    
+
     q = (uint32_t *)(ram_ptr + 0x1000);
-    q[0] = 0x297 + 0x80000000 - 0x1000; /* auipc t0, jump_addr */
-    q[1] = 0x597; /* auipc a1, dtb */
-    q[2] = 0x58593 + ((fdt_addr - 4) << 20); /* addi a1, a1, dtb */
-    q[3] = 0xf1402573; /* csrr a0, mhartid */
-    q[4] = 0x00028067; /* jalr zero, t0, jump_addr */
+    q[0] = 0x00000297; // auipc   t0, 0x0
+    q[1] = 0x02028593; // addi    a1, t0, 32
+    q[2] = 0xf1402573; // csrr    a0, mhartid
+    q[3] = 0x0182b283; // ld      t0, 24(t0)
+    q[4] = 0x00028067; // jr      t0
+    q[5] = 0;
+    q[6] = 0x80000000; // the target address
 }
 
 static void riscv_flush_tlb_write_range(void *opaque, uint8_t *ram_addr,
