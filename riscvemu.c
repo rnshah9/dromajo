@@ -746,7 +746,7 @@ int main(int argc, char **argv)
             break;
 #endif
         case 'm':
-            ram_size = (uint64_t)strtoul(optarg, NULL, 0);
+            ram_size = strtoull(optarg, NULL, 0);
             break;
         default:
             exit(1);

@@ -197,7 +197,7 @@ static int virt_machine_parse_config(VirtMachineParams *p,
     tag_name = "memory_size";
     if (vm_get_int(cfg, tag_name, &val) < 0)
         goto tag_fail;
-    p->ram_size = val << 20;
+    p->ram_size = (size_t)val << 20;
     
     tag_name = "bios";
     if (vm_get_str_opt(cfg, tag_name, &str) < 0)
