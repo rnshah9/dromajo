@@ -30,6 +30,7 @@ CONFIG_FS_NET=y
 CONFIG_INT128=y
 # build x86emu
 CONFIG_X86EMU=y
+CONFIG_VERIFICATION=y
 
 CROSS_PREFIX=
 CC=$(CROSS_PREFIX)gcc
@@ -57,6 +58,11 @@ ifdef CONFIG_FS_NET
 PROGS+=build_filelist
 endif
 
+ifdef CONFIG_VERIFICATION
+CFLAGS+=-DVERIFICATION
+PROGS:=vharness
+endif
+
 all: $(PROGS)
 
 EMU_OBJS:=virtio.o fs.o fs_disk.o cutils.o iomem.o
@@ -70,6 +76,14 @@ endif
 RISCVEMU_OBJS:=$(EMU_OBJS) riscvemu.o riscv_machine.o softfp.o 
 
 X86EMU_OBJS:=$(EMU_OBJS) x86emu.o x86_cpu.o x86_machine.o
+
+ifdef CONFIG_VERIFICATION
+vharness: verification_harness.o riscv_cpu64.o $(RISCVEMU_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
+
+verification_harness.o: verification_harness.c
+	$(CC) $(CFLAGS) -DMAX_XLEN=64 -c -o $@ $<
+endif
 
 riscvemu32: riscv_cpu32.o $(RISCVEMU_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^ $(EMU_LIBS)

@@ -49,6 +49,12 @@
 
 #define CONFIG_EXT_C /* compressed instructions */
 
+#ifdef VERIFICATION
+#define DUMP_INVALID_MEM_ACCESS
+#define DUMP_MMU_EXCEPTIONS
+#define DUMP_INTERRUPTS
+#define DUMP_INVALID_CSR
+#else
 //#define DUMP_INVALID_MEM_ACCESS
 //#define DUMP_MMU_EXCEPTIONS
 //#define DUMP_INTERRUPTS
@@ -56,6 +62,7 @@
 //#define DUMP_EXCEPTIONS
 //#define DUMP_CSR
 //#define CONFIG_LOGFILE
+#endif
 
 #if defined(EMSCRIPTEN)
 #define USE_GLOBAL_STATE
@@ -349,6 +356,14 @@ static __attribute__((unused)) void cpu_abort(RISCVCPUState *s)
     dump_regs(s);
     abort();
 }
+#ifdef VERIFICATION
+uint64_t checker_last_addr=0;
+uint64_t checker_last_data=0;
+int      checker_last_size=0;
+#define TRACK_MEM(addr,size,val)  do{ checker_last_addr = addr; checker_last_size = size; checker_last_data = val; }while(0)
+#else
+#define TRACK_MEM(addr,size,val)
+#endif
 
 /* addr must be aligned. Only RAM accesses are supported */
 #define PHYS_MEM_READ_WRITE(size, uint_type) \
@@ -358,6 +373,7 @@ static inline void phys_write_u ## size(RISCVCPUState *s, target_ulong addr,\
     PhysMemoryRange *pr = get_phys_mem_range(s->mem_map, addr);\
     if (!pr || !pr->is_ram)\
         return;\
+    TRACK_MEM(addr,size,val);\
     *(uint_type *)(s->phys_mem + pr->phys_mem_offset +\
                  (uintptr_t)(addr - pr->addr)) = val;\
 }\
@@ -367,8 +383,10 @@ static inline uint_type phys_read_u ## size(RISCVCPUState *s, target_ulong addr)
     PhysMemoryRange *pr = get_phys_mem_range(s->mem_map, addr);\
     if (!pr || !pr->is_ram)\
         return 0;\
-    return *(uint_type *)(s->phys_mem + pr->phys_mem_offset +\
+    uint_type pval =  *(uint_type *)(s->phys_mem + pr->phys_mem_offset +\
                           (uintptr_t)(addr - pr->addr));     \
+    TRACK_MEM(addr,size,pval);\
+    return pval;\
 }
 
 PHYS_MEM_READ_WRITE(8, uint8_t)
@@ -391,6 +409,7 @@ static inline __exception int target_read_u ## size(RISCVCPUState *s, uint_type 
             return ret;\
         *pval = val;\
     }\
+    TRACK_MEM(addr,size,*pval);\
     return 0;\
 }\
 \
@@ -401,9 +420,13 @@ static inline __exception int target_write_u ## size(RISCVCPUState *s, target_ul
     tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);\
     if (likely(s->tlb_write[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
         *(uint_type *)(s->tlb_write[tlb_idx].mem_addend + (uintptr_t)addr) = val;\
+        TRACK_MEM(addr,size,val);\
         return 0;\
     } else {\
-        return target_write_slow(s, addr, val, size_log2);\
+        int r = target_write_slow(s, addr, val, size_log2);\
+        if (r) return r; \
+        TRACK_MEM(addr,size,val);\
+        return 0; \
     }\
 }
 
@@ -1553,6 +1576,60 @@ void riscv_cpu_end(RISCVCPUState *s)
     free(s);
 #endif
 }
+
+#ifdef VERIFICATION
+void  riscv_set_pc(RISCVCPUState *s, uint64_t pc)
+{
+  s->pc = pc;
+}
+
+uint64_t  riscv_get_pc(RISCVCPUState *s)
+{
+  return s->pc;
+}
+
+uint64_t  riscv_get_reg(RISCVCPUState *s, int rn)
+{
+  assert(rn>=0 && rn<32);
+  return s->reg[rn];
+}
+
+void  riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val)
+{
+  assert(rn>=0 && rn<32);
+  s->reg[rn] = val;
+}
+
+void riscv_dump_regs(RISCVCPUState *s)
+{
+  dump_regs(s);
+}
+
+int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, target_ulong addr) 
+{
+  uintptr_t mem_addend;
+
+  int i = target_read_insn_slow(s,&mem_addend,addr);
+  if (i)
+    return i;
+
+  *insn = *(uint32_t *)(mem_addend + (uintptr_t)addr);
+
+  return 0;
+}
+int riscv_read_u64(RISCVCPUState *s, uint64_t *data, target_ulong addr)
+{
+  *data = phys_read_u64(s, addr);
+  printf("data:0x%" PRIx64 " addr:0x%08" PRIx64 "\n", *data, addr);
+  int i = 0; // target_read_u64(s,data,addr);
+  if (i) {
+    printf("Illegal read addr:%llx\n",(long long)addr);
+    return i;
+  }
+
+  return 0;
+}
+#endif
 
 uint32_t riscv_cpu_get_misa(RISCVCPUState *s)
 {

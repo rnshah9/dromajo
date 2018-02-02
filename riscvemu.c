@@ -354,7 +354,11 @@ static BlockDevice *block_device_init(const char *filename,
     return bs;
 }
 
+#ifdef VERIFICATION
+#define MAX_EXEC_CYCLE 1
+#else
 #define MAX_EXEC_CYCLE 500000
+#endif
 #define MAX_SLEEP_TIME 10 /* in ms */
 
 void virt_machine_run(VirtMachine *m)
@@ -539,7 +543,11 @@ void launch_alternate_executable(char **argv, int xlen)
 }
 #endif
 
+#ifdef VERIFICATION
+VirtMachine *virt_machine_main(int argc, char **argv)
+#else
 int main(int argc, char **argv)
+#endif
 {
     VirtMachine *s;
     const char *kernel_filename, *netif_name, *path;
@@ -711,9 +719,13 @@ int main(int argc, char **argv)
     }
     setup_linux_config(s);
 
+#ifdef VERIFICATION
+    return s;
+#else
     for(;;) {
         virt_machine_run(s);
     }
     virt_machine_end(s);
     return 0;
+#endif
 }

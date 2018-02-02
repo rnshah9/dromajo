@@ -134,7 +134,9 @@ static void htif_handle_cmd(RISCVMachine *s)
     if (s->htif_tohost == 1) {
         /* shuthost */
         printf("\nPower off.\n");
+#ifndef VERIFICATION
         exit(0);
+#endif
     } else if (device == 1 && cmd == 1) {
         uint8_t buf[1];
         buf[0] = s->htif_tohost & 0xff;
@@ -933,3 +935,57 @@ void virt_machine_interp(VirtMachine *s1, int max_exec_cycle)
     RISCVMachine *s = (RISCVMachine *)s1;
     riscv_cpu_interp(s->cpu_state, max_exec_cycle);
 }
+
+#ifdef VERIFICATION
+void  riscv_set_pc(RISCVCPUState *s, uint64_t pc);
+uint64_t  riscv_get_pc(RISCVCPUState *s);
+uint64_t  riscv_get_reg(RISCVCPUState *s, int rn);
+void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);
+void riscv_dump_regs(RISCVCPUState *s);
+int riscv_read_insn(RISCVCPUState *s, uintptr_t *pmem_addend, uint64_t addr);
+int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr);
+
+void virt_machine_set_pc(VirtMachine *m, uint64_t pc)
+{
+  RISCVMachine *s = (RISCVMachine *)m;
+  riscv_set_pc(s->cpu_state,pc);
+}
+
+void virt_machine_set_reg(VirtMachine *m, int rn, uint64_t val)
+{
+  RISCVMachine *s = (RISCVMachine *)m;
+  riscv_set_reg(s->cpu_state,rn,val);
+}
+
+uint64_t  virt_machine_get_pc(VirtMachine *m)
+{
+  RISCVMachine *s = (RISCVMachine *)m;
+  return riscv_get_pc(s->cpu_state);
+}
+
+uint64_t  virt_machine_get_reg(VirtMachine *m, int rn)
+{
+  RISCVMachine *s = (RISCVMachine *)m;
+  return riscv_get_reg(s->cpu_state,rn);
+}
+
+void virt_machine_dump_regs(VirtMachine *m)
+{
+  RISCVMachine *s = (RISCVMachine *)m;
+  riscv_dump_regs(s->cpu_state);
+}
+
+int virt_machine_read_insn(VirtMachine *m, uintptr_t *pmem_addend, uint64_t addr)
+{
+  RISCVMachine *s = (RISCVMachine *)m;
+  return riscv_read_insn(s->cpu_state,pmem_addend,addr);
+}
+
+int virt_machine_read_u64(VirtMachine *m, uint64_t *data, uint64_t addr)
+{
+  RISCVMachine *s = (RISCVMachine *)m;
+  return riscv_read_u64(s->cpu_state,data,addr);
+}
+
+#endif
+
