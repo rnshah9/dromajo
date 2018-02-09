@@ -1,6 +1,6 @@
 /*
  * RISCV CPU emulator
- * 
+ *
  * Copyright (c) 2016-2017 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1634,7 +1634,7 @@ void riscv_dump_regs(RISCVCPUState *s)
   dump_regs(s);
 }
 
-int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, target_ulong addr) 
+int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, target_ulong addr)
 {
   uintptr_t mem_addend;
 
@@ -1646,10 +1646,11 @@ int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, target_ulong addr)
 
   return 0;
 }
+
 int riscv_read_u64(RISCVCPUState *s, uint64_t *data, target_ulong addr)
 {
   *data = phys_read_u64(s, addr);
-  printf("data:0x%" PRIx64 " addr:0x%08" PRIx64 "\n", *data, addr);
+  printf("data:0x%" PRIx64 " addr:0x%08" PRIx64 "\n", *data, (uint64_t)addr);
   int i = 0; // target_read_u64(s,data,addr);
   if (i) {
     printf("Illegal read addr:%llx\n",(long long)addr);

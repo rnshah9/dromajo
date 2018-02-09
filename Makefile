@@ -71,7 +71,7 @@ endif
 
 ifdef CONFIG_VERIFICATION
 CFLAGS+=-DVERIFICATION
-PROGS:=vharness
+PROGS+=vharness
 endif
 
 all: $(PROGS)
