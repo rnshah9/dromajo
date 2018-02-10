@@ -1,6 +1,6 @@
 /*
  * VM definitions
- * 
+ *
  * Copyright (c) 2016-2017 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,6 +39,14 @@ struct FBDevice {
     void (*refresh)(struct FBDevice *fb_dev,
                     SimpleFBDrawFunc *redraw_func, void *opaque);
 };
+
+#ifndef MACHINE_H
+#define MACHINE_H
+
+#include <stdint.h>
+
+#include "virtio.h"
+
 
 #define MAX_DRIVE_DEVICE 4
 #define MAX_FS_DEVICE 4
@@ -97,7 +105,7 @@ typedef struct {
     char *cmdline; /* bios or kernel command line */
     BOOL accel_enable; /* enable acceleration (KVM) */
     char *input_device; /* NULL means no input */
-    
+
     /* kernel, bios and other auxiliary files */
     VMFileEntry files[VM_FILE_COUNT];
 } VirtMachineParams;
@@ -151,9 +159,13 @@ typedef struct VGAState VGAState;
 VGAState *pci_vga_init(PCIBus *bus, FBDevice *fb_dev,
                        int width, int height,
                        const uint8_t *vga_rom_buf, int vga_rom_size);
-                      
+
 /* block_net.c */
 BlockDevice *block_device_init_http(const char *url,
                                     int max_cache_size_kb,
                                     void (*start_cb)(void *opaque),
                                     void *start_opaque);
+VirtMachine *virt_machine_main(int argc, char **argv);
+void virt_machine_run(VirtMachine *m);
+
+#endif

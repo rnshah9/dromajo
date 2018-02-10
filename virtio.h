@@ -26,6 +26,7 @@
 
 #include "iomem.h"
 #include "pci.h"
+#include "cutils.h"
 
 #define VIRTIO_PAGE_SIZE 4096
 

@@ -1,6 +1,6 @@
 /*
  * Pseudo JSON parser
- * 
+ *
  * Copyright (c) 2017 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,6 +23,8 @@
  */
 #ifndef JSON_H
 #define JSON_H
+
+#include "cutils.h"
 
 typedef enum {
     JSON_STR,

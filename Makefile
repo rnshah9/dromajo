@@ -1,6 +1,6 @@
 #
 # RISCV emulator
-# 
+#
 # Copyright (c) 2016-2017 Fabrice Bellard
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -105,12 +105,15 @@ LDFLAGS+=-mwindows
 endif
 endif
 
-RISCVEMU_OBJS:=$(EMU_OBJS) riscvemu.o riscv_machine.o softfp.o
+RISCVEMU_OBJS:=$(EMU_OBJS) riscvemu.o riscv_machine.o softfp.o \
+	riscvemu_main.o
 
-X86EMU_OBJS:=$(EMU_OBJS) x86emu.o x86_cpu.o x86_machine.o ide.o ps2.o vmmouse.o pckbd.o vga.o
+X86EMU_OBJS:=$(EMU_OBJS) x86emu.o x86_cpu.o x86_machine.o riscvemu_main.o \
+	ide.o ps2.o vmmouse.o pckbd.o vga.o
 
 ifdef CONFIG_VERIFICATION
-vharness: verification_harness.o riscv_cpu64.o $(RISCVEMU_OBJS)
+vharness: verification_harness.o riscv_cpu64.o riscvemu.o \
+	  riscv_machine.o softfp.o $(EMU_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
 
 verification_harness.o: verification_harness.c
