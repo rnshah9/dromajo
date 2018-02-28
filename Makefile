@@ -48,7 +48,10 @@ EXE=
 endif
 CC=$(CROSS_PREFIX)gcc
 STRIP=$(CROSS_PREFIX)strip
-CFLAGS=-O2 -Wall -g -Werror -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -MMD -Werror=format-truncation=0
+# XXX We need to find a better way to handle this GCC 7 difference
+#CFLAGS_EXTRA=-Werror=format-truncation=0
+CFLAGS_EXTRA=
+CFLAGS=-O2 -Wall -g -Werror -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -MMD $(CFLAGS_EXTRA)
 CFLAGS+=-D_GNU_SOURCE -DCONFIG_VERSION=\"$(shell cat VERSION)\"
 LDFLAGS=
 
