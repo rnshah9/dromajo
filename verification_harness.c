@@ -36,8 +36,8 @@ uint64_t  virt_machine_get_reg(VirtMachine *m, int rn);
 
 #define TRACE2
 
-int main(int argc, char **argv) {
-
+int main(int argc, char **argv)
+{
   VirtMachine *m = virt_machine_main(argc,argv);
 
   uint64_t last_pc = 0;
@@ -62,6 +62,6 @@ int main(int argc, char **argv) {
   }
 
   virt_machine_end(m);
+
+  return 0;
 }
-
-
