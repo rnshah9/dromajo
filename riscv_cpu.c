@@ -50,10 +50,10 @@
 #define CONFIG_EXT_C /* compressed instructions */
 
 #ifdef VERIFICATION
-#define DUMP_INVALID_MEM_ACCESS
-#define DUMP_MMU_EXCEPTIONS
-#define DUMP_INTERRUPTS
-#define DUMP_INVALID_CSR
+//#define DUMP_INVALID_MEM_ACCESS
+//#define DUMP_MMU_EXCEPTIONS
+//#define DUMP_INTERRUPTS
+//#define DUMP_INVALID_CSR
 #else
 //#define DUMP_INVALID_MEM_ACCESS
 //#define DUMP_MMU_EXCEPTIONS
