@@ -69,7 +69,7 @@ PhysMemoryRange *get_phys_mem_range(PhysMemoryMap *s, uint64_t paddr)
 {
     PhysMemoryRange *pr;
     int i;
-    for(i = 0; i < s->n_phys_mem_range; i++) {
+    for (i = s->n_phys_mem_range-1; i >= 0; --i) {
         pr = &s->phys_mem_range[i];
         if (paddr >= pr->addr && paddr < pr->addr + pr->size)
             return pr;

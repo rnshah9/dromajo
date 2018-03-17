@@ -219,6 +219,12 @@ static int virt_machine_parse_config(VirtMachineParams *p,
         p->cmdline = cmdline_subst(str);
     }
     
+    tag_name = "htif_base_addr";
+    val = 0;
+    if (!json_is_undefined(json_object_get(cfg, tag_name)))
+      vm_get_int(cfg, tag_name, &val);
+    p->htif_base_addr = (uint32_t)val; // Avoid sign-extension
+    
     for(;;) {
         snprintf(buf1, sizeof(buf1), "drive%d", p->drive_count);
         obj = json_object_get(cfg, buf1);

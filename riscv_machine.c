@@ -160,6 +160,8 @@ static void htif_write(void *opaque, uint32_t offset, uint32_t val,
     switch(offset) {
     case 0:
         s->htif_tohost = (s->htif_tohost & ~0xffffffff) | val;
+        // fesvr/Spike, processes commands when this is non-zero
+        htif_handle_cmd(s);
         break;
     case 4:
         s->htif_tohost = (s->htif_tohost & 0xffffffff) | ((uint64_t)val << 32);
@@ -808,8 +810,9 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
         irq_init(&s->plic_irq[i], plic_set_irq, s, i);
     }
 
-    cpu_register_device(s->mem_map, HTIF_BASE_ADDR, 16,
-                        s, htif_read, htif_write, DEVIO_SIZE32);
+    cpu_register_device(s->mem_map,
+			p->htif_base_addr ? p->htif_base_addr : HTIF_BASE_ADDR,
+			16, s, htif_read, htif_write, DEVIO_SIZE32);
     s->common.console = p->console;
 
     memset(vbus, 0, sizeof(*vbus));
