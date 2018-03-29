@@ -999,6 +999,12 @@ int virt_machine_read_u64(VirtMachine *m, uint64_t *data, uint64_t addr)
   return riscv_read_u64(s->cpu_state,data,addr);
 }
 
+uint64_t virt_machine_read_htif_tohost(VirtMachine *m)
+{
+    RISCVMachine *s = (RISCVMachine *)m;
+    return s->htif_tohost;
+}
+
 #endif
 
 const char *virt_machine_get_name(void)
