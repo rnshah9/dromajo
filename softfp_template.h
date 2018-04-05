@@ -775,9 +775,13 @@ F_UINT glue(min_sf, F_SIZE)(F_UINT a, F_UINT b, uint32_t *pfflags)
     if (isnan_sf(a) || isnan_sf(b)) {
         if (issignan_sf(a) || issignan_sf(b)) {
             *pfflags |= FFLAG_INVALID_OP;
-            return F_QNAN;
-        } else if (isnan_sf(a)) {
-            if (isnan_sf(b)) 
+            /* RISC-V User ISA 2.2 used to return a QNaN, but
+             * follows Java/IEEE 754-201x from 2.3 onwards
+             * return F_QNAN;
+             */
+        }
+        if (isnan_sf(a)) {
+            if (isnan_sf(b))
                 return F_QNAN;
             else
                 return b;
@@ -808,8 +812,12 @@ F_UINT glue(max_sf, F_SIZE)(F_UINT a, F_UINT b, uint32_t *pfflags)
     if (isnan_sf(a) || isnan_sf(b)) {
         if (issignan_sf(a) || issignan_sf(b)) {
             *pfflags |= FFLAG_INVALID_OP;
-            return F_QNAN;
-        } else if (isnan_sf(a)) {
+            /* RISC-V User ISA 2.2 used to return a QNaN, but
+             * follows Java/IEEE 754-201x from 2.3 onwards
+             * return F_QNAN;
+             */
+        }
+        if (isnan_sf(a)) {
             if (isnan_sf(b)) 
                 return F_QNAN;
             else
