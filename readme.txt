@@ -5,7 +5,7 @@ RISCV Emulator by Fabrice Bellard
 -----------
 
 - RISC-V system emulator supporting the RV128IMAFDQC base ISA (user
-  level ISA version 2.2, priviledged architecture version 1.10)
+  level ISA version 2.3, priviledged architecture version 1.10)
   including:
 
   - 32/64/128 bit integer registers
