@@ -156,8 +156,6 @@ static int64_t bf_get_sector_count(BlockDevice *bs)
     return bf->nb_sectors;
 }
 
-#define BLK_FMT "%sblk%09u.bin"
-
 static void bf_start_load_block(BlockDevice *bs, int block_num)
 {
     BlockDeviceHTTP *bf = bs->opaque;
@@ -177,7 +175,9 @@ static void bf_start_load_block(BlockDevice *bs, int block_num)
            (int)(bf->n_write_sectors / 2),
            (int)(bf->n_allocated_clusters * bf->sectors_per_cluster / 2));
 #endif
-    snprintf(filename, sizeof(filename), BLK_FMT, bf->url, block_num);
+    size_t l = strlen(bf->url);
+    strncpy(filename, bf->url, sizeof filename);
+    snprintf(filename + l, sizeof filename - l, "blk%09u.bin", block_num);
     //    printf("wget %s\n", filename);
     fs_wget(filename, NULL, NULL, b, bf_read_onload, TRUE);
 }
