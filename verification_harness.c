@@ -43,24 +43,18 @@ int main(int argc, char **argv)
 
   uint64_t last_pc = 0;
 
-  virt_machine_set_pc(m, 0x80000000);
-
   while (virt_machine_read_htif_tohost(m) != 1 && virt_machine_get_pc(m) != last_pc) {
     last_pc = virt_machine_get_pc(m);
 
 #ifdef TRACE2
-    uint32_t insn_raw=0;
+    uint32_t insn_raw = 0;
     virt_machine_read_insn(m, &insn_raw, last_pc);
     int rd = (insn_raw >> 7) & 0x1F;
+    printf("core   0: 0x%016jx (0x%08x) r%d=0x%08llx\n", last_pc, insn_raw,
+	   rd, (long long)virt_machine_get_reg(m,rd));
 #endif
 
     virt_machine_run(m);
-
-#ifdef TRACE2
-    printf("insn:%llx pc:%8lx rd:%d data:%llx\n", (long long)insn_raw, last_pc,
-	   rd, (long long)virt_machine_get_reg(m,rd));
-    //virt_machine_dump_regs(m);
-#endif
   }
 
   virt_machine_end(m);

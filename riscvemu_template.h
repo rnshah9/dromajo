@@ -282,12 +282,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
             /* fast path */
             insn = get_insn32(code_ptr);
         }
-#if 0
-        if (1) {
-            printf("pc=0x"); print_target_ulong(GET_PC()); printf(" insn=%08x\n", insn);
-            //            dump_regs(s);
-        }
-#endif
+
         opcode = insn & 0x7f;
         rd = (insn >> 7) & 0x1f;
         rs1 = (insn >> 15) & 0x1f;

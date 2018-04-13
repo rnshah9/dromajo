@@ -50,10 +50,14 @@
 #define CONFIG_EXT_C /* compressed instructions */
 
 #ifdef VERIFICATION
-//#define DUMP_INVALID_MEM_ACCESS
-//#define DUMP_MMU_EXCEPTIONS
-//#define DUMP_INTERRUPTS
+#define DUMP_INVALID_MEM_ACCESS
+#define DUMP_MMU_EXCEPTIONS
+#define DUMP_INTERRUPTS
 //#define DUMP_INVALID_CSR
+#define DUMP_ILLEGAL_INSTRUCTION
+#define DUMP_EXCEPTIONS
+//#define DUMP_CSR
+#define CONFIG_LOGFILE
 #else
 //#define DUMP_INVALID_MEM_ACCESS
 //#define DUMP_MMU_EXCEPTIONS
@@ -1319,39 +1323,38 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
 {
     BOOL deleg;
     target_ulong causel;
-    
-#if defined(DUMP_EXCEPTIONS) || defined(DUMP_MMU_EXCEPTIONS) || defined(DUMP_INTERRUPTS)
-    {
-        int flag;
-        flag = 0;
-#ifdef DUMP_MMU_EXCEPTIONS
-        if (cause == CAUSE_FAULT_FETCH ||
-            cause == CAUSE_FAULT_LOAD ||
-            cause == CAUSE_FAULT_STORE ||
-            cause == CAUSE_FETCH_PAGE_FAULT ||
-            cause == CAUSE_LOAD_PAGE_FAULT ||
-            cause == CAUSE_STORE_PAGE_FAULT)
-            flag = 1;
-#endif
-#ifdef DUMP_INTERRUPTS
-        flag |= (cause & CAUSE_INTERRUPT) != 0;
-#endif
-#ifdef DUMP_EXCEPTIONS
-        flag = 1;
-        flag = (cause & CAUSE_INTERRUPT) == 0;
-        if (cause == CAUSE_SUPERVISOR_ECALL || cause == CAUSE_ILLEGAL_INSTRUCTION)
-            flag = 0;
-#endif
-        if (flag) {
-            log_printf("raise_exception: cause=0x%08x tval=0x", cause);
-#ifdef CONFIG_LOGFILE
-            fprint_target_ulong(log_file, tval);
-#else
-            print_target_ulong(tval);
-#endif
-            log_printf("\n");
-            dump_regs(s);
-        }
+
+#if defined(DUMP_EXCEPTIONS)
+    const static char *cause_s[] = {
+        "misaligned_fetch",
+        "fault_fetch",
+        "illegal_instruction",
+        "breakpoint",
+        "misaligned_load",
+        "fault_load",
+        "misaligned_store",
+        "fault_store",
+        "user_ecall",
+        "<reserved (supervisor_ecall?)>",
+        "<reserved (hypervisor_ecall?)>",
+        "<reserved (machine_ecall?)>",
+        "fetch_page_fault",
+        "load_page_fault",
+        "<reserved_14>",
+        "store_page_fault",
+    };
+
+    if (cause & CAUSE_INTERRUPT)
+        printf("core   0: exception interrupt #%d, epc 0x%016jx\n",
+               (cause & (MAX_XLEN - 1)), (uintmax_t)s->pc);
+    else if (cause <= CAUSE_STORE_PAGE_FAULT) {
+        printf("core   0: exception %s, epc 0x%016jx\n",
+               cause_s[cause], (uintmax_t)s->pc);
+        printf("core   0:           tval 0x%016jx\n", (uintmax_t)tval);
+    } else {
+        printf("core   0: exception %d, epc 0x%016jx\n",
+               cause, (uintmax_t)s->pc);
+        printf("core   0:           tval 0x%016jx\n", (uintmax_t)tval);
     }
 #endif
 
@@ -1364,11 +1367,11 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
     } else {
         deleg = 0;
     }
-    
+
     causel = cause & 0x7fffffff;
     if (cause & CAUSE_INTERRUPT)
         causel |= (target_ulong)1 << (s->cur_xlen - 1);
-    
+
     if (deleg) {
         s->scause = causel;
         s->sepc = s->pc;
