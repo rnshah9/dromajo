@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 
   uint64_t last_pc = 0;
 
-  while (virt_machine_read_htif_tohost(m) != 1 && virt_machine_get_pc(m) != last_pc) {
+  while (virt_machine_read_htif_tohost(m) == 0 && virt_machine_get_pc(m) != last_pc) {
     last_pc = virt_machine_get_pc(m);
 
 #ifdef TRACE2
