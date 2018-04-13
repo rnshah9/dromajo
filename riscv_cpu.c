@@ -1263,7 +1263,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mie = (s->mie & ~mask) | (val & mask);
         break;
     case 0x305:
-        s->mtvec = val & ~3;
+        s->mtvec = val & ~2;
         break;
     case 0x306:
         s->mcounteren = val & COUNTEREN_MASK;
@@ -1390,7 +1390,10 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
             (s->priv << MSTATUS_MPP_SHIFT);
         s->mstatus &= ~MSTATUS_MIE;
         set_priv(s, PRV_M);
-        s->pc = s->mtvec;
+        if (s->mtvec & 1 && cause & CAUSE_INTERRUPT)
+            s->pc = s->mtvec - 1 + 4 * s->mcause;
+        else
+            s->pc = s->mtvec;
     }
 }
 
