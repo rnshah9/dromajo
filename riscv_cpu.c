@@ -58,6 +58,7 @@
 #define DUMP_EXCEPTIONS
 //#define DUMP_CSR
 #define CONFIG_LOGFILE
+#define CONFIG_SW_MANAGED_A_AND_D 1
 #else
 //#define DUMP_INVALID_MEM_ACCESS
 //#define DUMP_MMU_EXCEPTIONS
@@ -66,6 +67,7 @@
 //#define DUMP_EXCEPTIONS
 //#define DUMP_CSR
 //#define CONFIG_LOGFILE
+#define CONFIG_SW_MANAGED_A_AND_D 0
 #endif
 
 #if defined(EMSCRIPTEN)
@@ -553,17 +555,33 @@ static int get_phys_addr(RISCVCPUState *s,
 
             if (((xwr >> access) & 1) == 0)
                 return -1;
-            need_write = !(pte & PTE_A_MASK) ||
-                (!(pte & PTE_D_MASK) && access == ACCESS_WRITE);
-            pte |= PTE_A_MASK;
-            if (access == ACCESS_WRITE)
-                pte |= PTE_D_MASK;
-            if (need_write) {
-                if (pte_size_log2 == 2)
-                    phys_write_u32(s, pte_addr, pte);
-                else
-                    phys_write_u64(s, pte_addr, pte);
+
+            /*
+              RISC-V Priv. Spec 1.11 (draft) Section 4.3.1 offers two
+              ways to handle the A and D TLB flags.  Spike uses the
+              software managed approach whereas RISC-V used to manage
+              them (causing far fewer exceptios).
+            */
+            if (CONFIG_SW_MANAGED_A_AND_D) {
+                if (!(pte & PTE_A_MASK))
+                    return -1; // Must have A on access
+
+                if (access == ACCESS_WRITE && !(pte & PTE_D_MASK))
+                    return -1; // Must have D on write
+            } else {
+                need_write = !(pte & PTE_A_MASK) ||
+                    (!(pte & PTE_D_MASK) && access == ACCESS_WRITE);
+                pte |= PTE_A_MASK;
+                if (access == ACCESS_WRITE)
+                    pte |= PTE_D_MASK;
+                if (need_write) {
+                    if (pte_size_log2 == 2)
+                        phys_write_u32(s, pte_addr, pte);
+                    else
+                        phys_write_u64(s, pte_addr, pte);
+                }
             }
+
             vaddr_mask = ((target_ulong)1 << vaddr_shift) - 1;
             *ppaddr = (vaddr & vaddr_mask) | (paddr  & ~vaddr_mask);
             return 0;
