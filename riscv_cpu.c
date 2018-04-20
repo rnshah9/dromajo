@@ -245,6 +245,9 @@ struct RISCVCPUState {
     target_ulong mepc;
     target_ulong mcause;
     target_ulong mtval;
+    target_ulong mvendorid; /* ro */
+    target_ulong marchid; /* ro */
+    target_ulong mimpid; /* ro */
     target_ulong mhartid; /* ro */
     uint32_t misa;
     uint32_t mie;
@@ -252,6 +255,7 @@ struct RISCVCPUState {
     uint32_t medeleg;
     uint32_t mideleg;
     uint32_t mcounteren;
+    uint32_t tselect;
     
     target_ulong stvec;
     target_ulong sscratch;
@@ -1138,6 +1142,16 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0xf14:
         val = s->mhartid;
         break;
+    case 0xf13:
+        val = s->mimpid;
+    case 0xf12:
+        val = s->marchid;
+    case 0xf11:
+        val = s->mvendorid;
+        break;
+    case 0x7a0:
+        val = s->tselect;
+        break;
     default:
     invalid_csr:
 #ifdef DUMP_INVALID_CSR
@@ -1301,6 +1315,9 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
     case 0x343:
         s->mtval = val;
+        break;
+    case 0x7a0:
+        s->tselect = val;
         break;
     case 0x344:
         mask = MIP_SSIP | MIP_STIP;
