@@ -35,8 +35,6 @@ uint64_t  virt_machine_get_pc(VirtMachine *m);
 uint64_t  virt_machine_get_reg(VirtMachine *m, int rn);
 uint64_t  virt_machine_read_htif_tohost(VirtMachine *m);
 
-#define TRACE2
-
 int main(int argc, char **argv)
 {
   VirtMachine *m = virt_machine_main(argc, argv);
@@ -46,16 +44,20 @@ int main(int argc, char **argv)
   while (virt_machine_read_htif_tohost(m) == 0 && virt_machine_get_pc(m) != last_pc) {
     last_pc = virt_machine_get_pc(m);
 
-#ifdef TRACE2
     uint32_t insn_raw = 0;
     virt_machine_read_insn(m, &insn_raw, last_pc);
     int rd = (insn_raw >> 7) & 0x1F;
-    printf("core   0: 0x%016jx (0x%08x) r%d=0x%08llx\n", last_pc, insn_raw,
-	   rd, (long long)virt_machine_get_reg(m,rd));
-#endif
-
+    long long old_value = (long long)virt_machine_get_reg(m,rd);
     virt_machine_run(m);
-  }
+    long long new_value = (long long)virt_machine_get_reg(m,rd);
+
+    /* Slightly hackish as I should really find out what the first "3"
+     * is for */
+    printf("3 0x%016jx (0x%08x)", last_pc, insn_raw);
+    if (old_value != new_value) // XXX not ideal
+        printf(" x%2d %016llx", rd, new_value);
+    putchar('\n');
+}
 
   virt_machine_end(m);
 
