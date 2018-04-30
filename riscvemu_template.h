@@ -774,6 +774,14 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 ((insn >> (20 - 11)) & (1 << 11)) |
                 (insn & 0xff000);
             imm = (imm << 11) >> 11;
+            {
+                intx_t new_pc = (intx_t)(GET_PC() + imm);
+                if (!(s->misa & MCPUID_C) && (new_pc & 3) != 0) {
+                    s->pending_exception = CAUSE_MISALIGNED_FETCH;
+                    s->pending_tval = new_pc;
+                    goto exception;
+                }
+            }
             if (rd != 0)
                 s->reg[rd] = GET_PC() + 4;
             s->pc = (intx_t)(GET_PC() + imm);
@@ -781,6 +789,14 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
         case 0x67: /* jalr */
             imm = (int32_t)insn >> 20;
             val = GET_PC() + 4;
+            {
+                intx_t new_pc = (intx_t)(s->reg[rs1] + imm) & ~1;
+                if (!(s->misa & MCPUID_C) && (new_pc & 3) != 0) {
+                    s->pending_exception = CAUSE_MISALIGNED_FETCH;
+                    s->pending_tval = new_pc;
+                    goto exception;
+                }
+            }
             s->pc = (intx_t)(s->reg[rs1] + imm) & ~1;
             if (rd != 0)
                 s->reg[rd] = val;
@@ -807,6 +823,14 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                     ((insn >> (8 - 1)) & 0x1e) |
                     ((insn << (11 - 7)) & (1 << 11));
                 imm = (imm << 19) >> 19;
+
+                intx_t new_pc = (intx_t)(GET_PC() + imm);
+                if (!(s->misa & MCPUID_C) && (new_pc & 3) != 0) {
+                    s->pending_exception = CAUSE_MISALIGNED_FETCH;
+                    s->pending_tval = new_pc;
+                    goto exception;
+                }
+
                 s->pc = (intx_t)(GET_PC() + imm);
                 JUMP_INSN;
             }

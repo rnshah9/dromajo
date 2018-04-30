@@ -47,7 +47,7 @@
 #endif
 #endif /* !FLEN */
 
-#define CONFIG_EXT_C /* compressed instructions */
+//#define CONFIG_EXT_C /* compressed instructions */
 
 #ifdef VERIFICATION
 #define DUMP_INVALID_MEM_ACCESS
@@ -1285,6 +1285,11 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
             }
         }
 #endif
+        /*
+         * We don't support turning C on dynamically, but if we did we
+         * would have to check for PC alignment here and potentially
+         * suppress the C per 3.1.1 in the priv 1.11 (draft) spec.
+         */
         break;
     case 0x302:
         mask = (1 << (CAUSE_STORE_PAGE_FAULT + 1)) - 1;
