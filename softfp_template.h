@@ -73,7 +73,7 @@
 #define cvt_sf32_sf glue(cvt_sf32_sf, F_SIZE)
 #define cvt_sf64_sf glue(cvt_sf64_sf, F_SIZE)
 
-static const F_UINT F_QNAN = (((F_UINT)EXP_MASK << MANT_SIZE) | ((F_UINT)1 << (MANT_SIZE - 1)));
+const F_UINT F_QNAN = (((F_UINT)EXP_MASK << MANT_SIZE) | ((F_UINT)1 << (MANT_SIZE - 1)));
 
 static inline F_UINT pack_sf(uint32_t a_sign, uint32_t a_exp, F_UINT a_mant)
 {
