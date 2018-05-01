@@ -266,7 +266,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     goto illegal_insn;
                 switch(rm) {
 #if F_SIZE <= XLEN
-                case 0: /* fmv.x.s */
+                case 0: /* fmv.x.w */
 #if F_SIZE == 32
                     val = (int32_t)s->fp_reg[rs1];
 #elif F_SIZE == 64
@@ -287,15 +287,15 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 break;
 
 #if F_SIZE <= XLEN
-            case (0x1e << 2) | OPID: /* fmv.s.x */
+            case (0x1e << 2) | OPID: /* fmv.w.x */
                 if (rs2 != 0 || rm != 0)
                     goto illegal_insn;
 #if F_SIZE == 32
-                s->fp_reg[rd] = (int32_t)s->reg[rs1];
+                s->fp_reg[rd] = (int32_t)s->reg[rs1] | F_HIGH;
 #elif F_SIZE == 64
-                s->fp_reg[rd] = (int64_t)s->reg[rs1];
+                s->fp_reg[rd] = (int64_t)s->reg[rs1] | F_HIGH;
 #else
-                s->fp_reg[rd] = (int128_t)s->reg[rs1];
+                s->fp_reg[rd] = (int128_t)s->reg[rs1] | F_HIGH;
 #endif
                 s->fs = 3;
                 break;
