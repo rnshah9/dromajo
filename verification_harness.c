@@ -33,6 +33,7 @@ int  virt_machine_read_insn(VirtMachine *m, uint32_t *insn, uint64_t addr);
 void      virt_machine_set_pc(VirtMachine *m, uint64_t pc);
 uint64_t  virt_machine_get_pc(VirtMachine *m);
 uint64_t  virt_machine_get_reg(VirtMachine *m, int rn);
+uint64_t  virt_machine_get_fpreg(VirtMachine *m, int rn);
 uint64_t  virt_machine_read_htif_tohost(VirtMachine *m);
 
 int main(int argc, char **argv)
@@ -47,15 +48,19 @@ int main(int argc, char **argv)
     uint32_t insn_raw = 0;
     virt_machine_read_insn(m, &insn_raw, last_pc);
     int rd = (insn_raw >> 7) & 0x1F;
-    long long old_value = (long long)virt_machine_get_reg(m,rd);
+    uint64_t old_value = (uint64_t)virt_machine_get_reg(m,rd);
+    uint64_t old_fvalue = (uint64_t)virt_machine_get_fpreg(m,rd);
     virt_machine_run(m);
-    long long new_value = (long long)virt_machine_get_reg(m,rd);
+    uint64_t new_value = (uint64_t)virt_machine_get_reg(m,rd);
+    uint64_t new_fvalue = (uint64_t)virt_machine_get_fpreg(m,rd);
 
     /* Slightly hackish as I should really find out what the first "3"
      * is for */
     printf("3 0x%016jx (0x%08x)", last_pc, insn_raw);
     if (old_value != new_value) // XXX not ideal
-        printf(" x%2d %016llx", rd, new_value);
+        printf(" x%2d 0x%016jx", rd, new_value);
+    if (old_fvalue != new_fvalue) // XXX not ideal
+        printf(" f%2d 0x%016jx", rd, new_fvalue);
     putchar('\n');
 }
 

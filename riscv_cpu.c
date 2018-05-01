@@ -1669,6 +1669,12 @@ uint64_t  riscv_get_reg(RISCVCPUState *s, int rn)
   return s->reg[rn];
 }
 
+uint64_t  riscv_get_fpreg(RISCVCPUState *s, int rn)
+{
+  assert(rn>=0 && rn<32);
+  return s->fp_reg[rn];
+}
+
 void  riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val)
 {
   assert(rn>=0 && rn<32);

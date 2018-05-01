@@ -952,6 +952,7 @@ void virt_machine_interp(VirtMachine *s1, int max_exec_cycle)
 void  riscv_set_pc(RISCVCPUState *s, uint64_t pc);
 uint64_t  riscv_get_pc(RISCVCPUState *s);
 uint64_t  riscv_get_reg(RISCVCPUState *s, int rn);
+uint64_t  riscv_get_fpreg(RISCVCPUState *s, int rn);
 void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);
 void riscv_dump_regs(RISCVCPUState *s);
 int riscv_read_insn(RISCVCPUState *s, uintptr_t *pmem_addend, uint64_t addr);
@@ -979,6 +980,12 @@ uint64_t  virt_machine_get_reg(VirtMachine *m, int rn)
 {
   RISCVMachine *s = (RISCVMachine *)m;
   return riscv_get_reg(s->cpu_state,rn);
+}
+
+uint64_t  virt_machine_get_fpreg(VirtMachine *m, int rn)
+{
+  RISCVMachine *s = (RISCVMachine *)m;
+  return riscv_get_fpreg(s->cpu_state,rn);
 }
 
 void virt_machine_dump_regs(VirtMachine *m)
