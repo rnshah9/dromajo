@@ -47,8 +47,6 @@
 #endif
 #endif /* !FLEN */
 
-//#define CONFIG_EXT_C /* compressed instructions */
-
 #ifdef VERIFICATION
 #define DUMP_INVALID_MEM_ACCESS
 #define DUMP_MMU_EXCEPTIONS
@@ -60,6 +58,7 @@
 #define CONFIG_LOGFILE
 #define CONFIG_SW_MANAGED_A_AND_D 1
 #else
+#define CONFIG_EXT_C /* compressed instructions */
 //#define DUMP_INVALID_MEM_ACCESS
 //#define DUMP_MMU_EXCEPTIONS
 //#define DUMP_INTERRUPTS
