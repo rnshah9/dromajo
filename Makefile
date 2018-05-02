@@ -24,9 +24,9 @@
 
 # if set, network filesystem is enabled. libcurl and libcrypto
 # (openssl) must be installed.
-CONFIG_FS_NET=y
+#CONFIG_FS_NET=y
 # SDL support (optional)
-CONFIG_SDL=y
+#CONFIG_SDL=y
 # if set, compile the 128 bit emulator. Note: the 128 bit target does
 # not compile if gcc does not support the int128 type (32 bit hosts).
 CONFIG_INT128=y
@@ -72,7 +72,7 @@ endif
 
 ifeq ($(CONFIG_VERIFICATION),y)
 CFLAGS+=-DVERIFICATION
-PROGS+=vharness
+PROGS+=vharness libvharness.a
 endif
 
 all: $(PROGS)
@@ -116,6 +116,10 @@ ifdef CONFIG_VERIFICATION
 vharness: verification_harness.o riscv_cpu64.o riscvemu.o \
 	  riscv_machine.o softfp.o $(EMU_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
+
+libvharness.a: verification_harness.o riscv_cpu64.o riscvemu.o \
+	riscv_machine.o softfp.o $(EMU_OBJS)
+	ar rvs $@ $^
 
 verification_harness.o: verification_harness.c
 	$(CC) $(CFLAGS) -DMAX_XLEN=64 -c -o $@ $<
