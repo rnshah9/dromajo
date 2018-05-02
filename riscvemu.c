@@ -610,15 +610,26 @@ void virt_machine_run(VirtMachine *m)
 
 /*******************************************************/
 
+//static struct option options[] = {
+//    { "help", no_argument, NULL, 'h' },
+//    { "ctrlc", no_argument },
+//    { "rw", no_argument },
+//    { "ro", no_argument },
+//    { "append", required_argument },
+//    { "no-accel", no_argument },
+//    { NULL },
+//};
+/*
 static struct option options[] = {
     { "help", no_argument, NULL, 'h' },
-    { "ctrlc", no_argument },
-    { "rw", no_argument },
-    { "ro", no_argument },
-    { "append", required_argument },
-    { "no-accel", no_argument },
+    { "ctrlc", no_argument, NULL, 0   },
+    { "rw", no_argument, NULL, 0   },
+    { "ro", no_argument, NULL, 0   },
+    { "append", required_argument, NULL, 0   },
+    { "no-accel", no_argument, NULL, 0   },
     { NULL },
 };
+*/
 
 void help(void)
 {
@@ -689,11 +700,17 @@ static BOOL net_poll_cb(void *arg)
 
 #endif
 
+extern int optind;
+
+#ifdef VERIFICATION
 VirtMachine *virt_machine_main(int argc, char **argv)
+#else
+int main(int argc, char **argv)
+#endif
 {
     VirtMachine *s;
     const char *path, *cmdline;
-    int c, option_index, i, ram_size, accel_enable;
+    int i, ram_size, accel_enable;
     BOOL allow_ctrlc;
     BlockDeviceModeEnum drive_mode;
     VirtMachineParams p_s, *p = &p_s;
@@ -704,64 +721,8 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     drive_mode = BF_MODE_SNAPSHOT;
     accel_enable = -1;
     cmdline = NULL;
-    for(;;) {
-        c = getopt_long_only(argc, argv, "hb:m:", options, &option_index);
-        if (c == -1)
-            break;
-        switch(c) {
-        case 0:
-            switch(option_index) {
-            case 1: /* ctrlc */
-                allow_ctrlc = TRUE;
-                break;
-            case 2: /* rw */
-                drive_mode = BF_MODE_RW;
-                break;
-            case 3: /* ro */
-                drive_mode = BF_MODE_RO;
-                break;
-            case 4: /* append */
-                cmdline = optarg;
-                break;
-            case 5: /* no-accel */
-                accel_enable = FALSE;
-                break;
-            default:
-                fprintf(stderr, "unknown option index: %d\n", option_index);
-                exit(1);
-            }
-            break;
-        case 'h':
-            help();
-            break;
-#ifdef CONFIG_CPU_RISCV
-        case 'b':
-            {
-                int xlen;
-                xlen = atoi(optarg);
-                if (xlen != 32 && xlen != 64 && xlen != 128) {
-                    fprintf(stderr, "Invalid integer register width\n");
-                    exit(1);
-                }
-                if (xlen != riscv_cpu_get_max_xlen()) {
-                    launch_alternate_executable(argv, xlen);
-                }
-            }
-            break;
-#endif
-        case 'm':
-            ram_size = strtoull(optarg, NULL, 0);
-            break;
-        default:
-            exit(1);
-        }
-    }
 
-    if (optind >= argc) {
-        help();
-    }
-
-    path = argv[optind++];
+    path = argv[0];
 
     virt_machine_set_defaults(p);
 #ifdef CONFIG_FS_NET
