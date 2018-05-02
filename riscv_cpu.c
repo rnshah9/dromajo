@@ -1667,6 +1667,11 @@ uint64_t  riscv_get_pc(RISCVCPUState *s)
   return s->pc;
 }
 
+uint64_t  riscv_get_pending_exception(RISCVCPUState *s)
+{
+  return s->pending_exception;
+}
+
 uint64_t  riscv_get_reg(RISCVCPUState *s, int rn)
 {
   assert(rn>=0 && rn<32);

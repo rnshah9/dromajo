@@ -957,6 +957,7 @@ void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);
 void riscv_dump_regs(RISCVCPUState *s);
 int riscv_read_insn(RISCVCPUState *s, uintptr_t *pmem_addend, uint64_t addr);
 int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr);
+uint64_t  riscv_get_pending_exception(RISCVCPUState *s);
 
 void virt_machine_set_pc(VirtMachine *m, uint64_t pc)
 {
@@ -974,6 +975,12 @@ uint64_t  virt_machine_get_pc(VirtMachine *m)
 {
   RISCVMachine *s = (RISCVMachine *)m;
   return riscv_get_pc(s->cpu_state);
+}
+
+uint64_t  virt_machine_get_pending_exception(VirtMachine *m)
+{
+  RISCVMachine *s = (RISCVMachine *)m;
+  return riscv_get_pending_exception(s->cpu_state);
 }
 
 uint64_t  virt_machine_get_reg(VirtMachine *m, int rn)
