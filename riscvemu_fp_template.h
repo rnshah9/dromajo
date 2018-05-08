@@ -228,11 +228,11 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 switch(rs2) {
 #if F_SIZE == 32 && FLEN >= 64
                 case 1: /* cvt.s.d */
-                    s->fp_reg[rd] = cvt_sf64_sf32(unbox(s->fp_reg[rs1]), rm, &s->fflags) | F32_HIGH;
+                    s->fp_reg[rd] = cvt_sf64_sf32(s->fp_reg[rs1], rm, &s->fflags) | F32_HIGH;
                     break;
 #if FLEN >= 128
                 case 3: /* cvt.s.q */
-                    s->fp_reg[rd] = cvt_sf128_sf32(unbox(s->fp_reg[rs1]), rm, &s->fflags) | F32_HIGH;
+                    s->fp_reg[rd] = cvt_sf128_sf32(s->fp_reg[rs1], rm, &s->fflags) | F32_HIGH;
                     break;
 #endif
 #endif /* F_SIZE == 32 */
@@ -242,7 +242,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     break;
 #if FLEN >= 128
                 case 1: /* cvt.d.q */
-                    s->fp_reg[rd] = cvt_sf128_sf64(unbox(s->fp_reg[rs1]), rm, &s->fflags) | F64_HIGH;
+                    s->fp_reg[rd] = cvt_sf128_sf64(s->fp_reg[rs1], rm, &s->fflags) | F64_HIGH;
                     break;
 #endif
 #endif /* F_SIZE == 64 */
