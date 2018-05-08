@@ -40,6 +40,7 @@
 #endif
 #include <sys/stat.h>
 #include <signal.h>
+#include <err.h>
 
 #include "cutils.h"
 #include "iomem.h"
@@ -722,7 +723,10 @@ int main(int argc, char **argv)
     accel_enable = -1;
     cmdline = NULL;
 
-    path = argv[0];
+    if (argc < 2)
+        errx(1, "Missing config file");
+
+    path = argv[1];
 
     virt_machine_set_defaults(p);
 #ifdef CONFIG_FS_NET
