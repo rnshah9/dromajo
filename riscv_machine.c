@@ -953,11 +953,12 @@ void  riscv_set_pc(RISCVCPUState *s, uint64_t pc);
 uint64_t  riscv_get_pc(RISCVCPUState *s);
 uint64_t  riscv_get_reg(RISCVCPUState *s, int rn);
 uint64_t  riscv_get_fpreg(RISCVCPUState *s, int rn);
-void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);
-void riscv_dump_regs(RISCVCPUState *s);
-int riscv_read_insn(RISCVCPUState *s, uintptr_t *pmem_addend, uint64_t addr);
-int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr);
+void      riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);
+void      riscv_dump_regs(RISCVCPUState *s);
+int       riscv_read_insn(RISCVCPUState *s, uintptr_t *pmem_addend, uint64_t addr);
+int       riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr);
 uint64_t  riscv_get_pending_exception(RISCVCPUState *s);
+void      riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val);
 
 void virt_machine_set_pc(VirtMachine *m, uint64_t pc)
 {
@@ -1017,6 +1018,12 @@ uint64_t virt_machine_read_htif_tohost(VirtMachine *m)
 {
     RISCVMachine *s = (RISCVMachine *)m;
     return s->htif_tohost;
+}
+
+void virt_machine_repair_csr(VirtMachine *m, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val)
+{
+  RISCVMachine *s = (RISCVMachine *)m;
+  riscv_repair_csr(s->cpu_state,reg_num,csr_num,csr_val);
 }
 
 #endif

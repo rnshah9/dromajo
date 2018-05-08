@@ -1678,6 +1678,19 @@ uint64_t  riscv_get_reg(RISCVCPUState *s, int rn)
   return s->reg[rn];
 }
 
+void  riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val)
+{
+  switch(csr_num & 0xFFF) {
+    case 0xb00:
+    case 0xb02:
+      s->insn_counter = csr_val;
+      s->reg[reg_num] = csr_val;
+      break;
+    default:
+      printf("riscv_repair_csr: This CSR is unsupported for repairing: %lx",csr_num);
+  }
+}
+
 uint64_t  riscv_get_fpreg(RISCVCPUState *s, int rn)
 {
   assert(rn>=0 && rn<32);
