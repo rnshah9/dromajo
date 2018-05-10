@@ -57,6 +57,7 @@
 //#define DUMP_CSR
 #define CONFIG_LOGFILE
 #define CONFIG_SW_MANAGED_A_AND_D 1
+#define CONFIG_ALLOW_MISALIGNED_ACCESS 0
 #else
 #define CONFIG_EXT_C /* compressed instructions */
 //#define DUMP_INVALID_MEM_ACCESS
@@ -67,6 +68,7 @@
 //#define DUMP_CSR
 //#define CONFIG_LOGFILE
 #define CONFIG_SW_MANAGED_A_AND_D 0
+#define CONFIG_ALLOW_MISALIGNED_ACCESS 1
 #endif
 
 #if defined(EMSCRIPTEN)
@@ -418,6 +420,11 @@ PHYS_MEM_READ_WRITE(64, uint64_t)
 static inline __exception int target_read_u ## size(RISCVCPUState *s, uint_type *pval, target_ulong addr)                              \
 {\
     uint32_t tlb_idx;\
+    if (!CONFIG_ALLOW_MISALIGNED_ACCESS && (addr & (size/8 - 1)) != 0) { \
+        s->pending_tval = addr;                                         \
+        s->pending_exception = CAUSE_MISALIGNED_LOAD;                   \
+        return -1;                                                      \
+    }                                                                   \
     tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);\
     if (likely(s->tlb_read[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
         *pval = *(uint_type *)(s->tlb_read[tlb_idx].mem_addend + (uintptr_t)addr);\
@@ -437,6 +444,11 @@ static inline __exception int target_write_u ## size(RISCVCPUState *s, target_ul
                                           uint_type val)                \
 {\
     uint32_t tlb_idx;\
+    if (!CONFIG_ALLOW_MISALIGNED_ACCESS && (addr & (size/8 - 1)) != 0) { \
+        s->pending_tval = addr;                                         \
+        s->pending_exception = CAUSE_MISALIGNED_STORE;                  \
+        return -1;                                                      \
+    }                                                                   \
     tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);\
     if (likely(s->tlb_write[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
         *(uint_type *)(s->tlb_write[tlb_idx].mem_addend + (uintptr_t)addr) = val;\
@@ -613,7 +625,11 @@ static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
     /* first handle unaligned accesses */
     size = 1 << size_log2;
     al = addr & (size - 1);
-    if (al != 0) {
+    if (!CONFIG_ALLOW_MISALIGNED_ACCESS && al != 0) {
+        s->pending_tval = addr;
+        s->pending_exception = CAUSE_MISALIGNED_LOAD;
+        return -1;
+    } else if (al != 0) {
         switch(size_log2) {
         case 1:
             {
@@ -750,10 +766,14 @@ static no_inline int target_write_slow(RISCVCPUState *s, target_ulong addr,
     target_ulong paddr, offset;
     uint8_t *ptr;
     PhysMemoryRange *pr;
-    
+
     /* first handle unaligned accesses */
     size = 1 << size_log2;
-    if ((addr & (size - 1)) != 0) {
+    if (!CONFIG_ALLOW_MISALIGNED_ACCESS && (addr & (size - 1)) != 0) {
+        s->pending_tval = addr;
+        s->pending_exception = CAUSE_MISALIGNED_STORE;
+        return -1;
+    } else if ((addr & (size - 1)) != 0) {
         /* XXX: should avoid modifying the memory in case of exception */
         for(i = 0; i < size; i++) {
             err = target_write_u8(s, addr + i, (val >> (8 * i)) & 0xff);
