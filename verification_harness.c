@@ -20,9 +20,7 @@
 #include "iomem.h"
 #include "virtio.h"
 #include "machine.h"
-#ifdef CONFIG_CPU_RISCV
 #include "riscv_cpu.h"
-#endif
 
 VirtMachine *virt_machine_main(int argc, char **argv);
 void virt_machine_run(VirtMachine *m);
@@ -35,6 +33,7 @@ uint64_t  virt_machine_get_pc(VirtMachine *m);
 uint64_t  virt_machine_get_reg(VirtMachine *m, int rn);
 uint64_t  virt_machine_get_fpreg(VirtMachine *m, int rn);
 uint64_t  virt_machine_read_htif_tohost(VirtMachine *m);
+int       virt_machine_get_pending_exception(VirtMachine *m);
 
 int main(int argc, char **argv)
 {
@@ -44,6 +43,7 @@ int main(int argc, char **argv)
 
   while (virt_machine_read_htif_tohost(m) == 0 && virt_machine_get_pc(m) != last_pc) {
     last_pc = virt_machine_get_pc(m);
+    int priv = 3; // XXX extract the actual value from RISCVEMU
 
     uint32_t insn_raw = 0;
     virt_machine_read_insn(m, &insn_raw, last_pc);
@@ -54,9 +54,10 @@ int main(int argc, char **argv)
     uint64_t new_value = (uint64_t)virt_machine_get_reg(m,rd);
     uint64_t new_fvalue = (uint64_t)virt_machine_get_fpreg(m,rd);
 
-    /* Slightly hackish as I should really find out what the first "3"
-     * is for */
-    printf("3 0x%016jx (0x%08x)", last_pc, insn_raw);
+    if (virt_machine_get_pending_exception(m) >= 0)
+        continue;
+
+    printf("%d 0x%016jx (0x%08x)", priv, last_pc, insn_raw);
     if (old_value != new_value) // XXX not ideal
         printf(" x%2d 0x%016jx", rd, new_value);
     if (old_fvalue != new_fvalue) // XXX not ideal
