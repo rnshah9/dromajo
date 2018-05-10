@@ -168,6 +168,9 @@ install: $(PROGS)
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+debug:
+	$(MAKE) CFLAGS_OPT=
+
 clean:
 	rm -f *.o *.d *~ $(PROGS) slirp/*.o slirp/*.d slirp/*~
 
