@@ -1687,7 +1687,7 @@ uint64_t  riscv_get_pc(RISCVCPUState *s)
   return s->pc;
 }
 
-uint64_t  riscv_get_pending_exception(RISCVCPUState *s)
+int riscv_get_pending_exception(RISCVCPUState *s)
 {
   return s->pending_exception;
 }
