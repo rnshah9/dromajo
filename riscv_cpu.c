@@ -550,11 +550,6 @@ static int get_phys_addr(RISCVCPUState *s,
         //printf("pte=0x%08" PRIx64 "\n", pte);
         if (!(pte & PTE_V_MASK))
             return -1; /* invalid PTE */
-        unsigned ppn = pte >> 10;
-        /* 6. Check for misaligned superpages */
-        int j = levels-1 - i;
-        if (((1 << j) - 1) & ppn)
-            return -1;
         paddr = (pte >> 10) << PG_SHIFT;
         xwr = (pte >> 1) & 7;
         if (xwr != 0) {
