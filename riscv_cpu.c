@@ -571,10 +571,16 @@ static int get_phys_addr(RISCVCPUState *s,
             if (((xwr >> access) & 1) == 0)
                 return -1;
 
+            /* 6. Check for misaligned superpages */
+            unsigned ppn = pte >> 10;
+            int j = levels-1 - i;
+            if (((1 << j) - 1) & ppn)
+                return -1;
+
             /*
               RISC-V Priv. Spec 1.11 (draft) Section 4.3.1 offers two
               ways to handle the A and D TLB flags.  Spike uses the
-              software managed approach whereas RISC-V used to manage
+              software managed approach whereas RISCVEMU used to manage
               them (causing far fewer exceptios).
             */
             if (CONFIG_SW_MANAGED_A_AND_D) {
