@@ -1404,7 +1404,6 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         if (target_read_u ## size(s, &(s->store_repair_val ## size), addr)) \
                             goto mmu_exception;                         \
                         s->store_repair_addr = addr; \
-                        printf("DEBUG1, STORE_REPAIR_VAL = %lx, STORE_REPAIR_ADDR = %lx\n",(unsigned long)s->store_repair_val ## size,(unsigned long)s->store_repair_addr); \
                         if (target_write_u ## size(s, addr, s->reg[rs2])) \
                             goto mmu_exception;                         \
                         val = 0;                                        \
