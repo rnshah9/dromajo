@@ -271,6 +271,10 @@ struct RISCVCPUState {
     uint32_t scounteren;
 
     target_ulong load_res; /* for atomic LR/SC */
+    uint32_t store_repair_val32; /* saving previous value of memory so it can be repaired */
+    uint64_t store_repair_val64;
+    uint128_t store_repair_val128;
+    target_ulong store_repair_addr; /* saving which address to repair */
 
     PhysMemoryMap *mem_map;
 
@@ -1710,6 +1714,24 @@ void  riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uin
     default:
       printf("riscv_repair_csr: This CSR is unsupported for repairing: %lx",csr_num);
   }
+}
+
+int  riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3)
+{
+  switch(funct3){
+  case 2:
+    if(target_write_u32(s, s->store_repair_addr, s->store_repair_val32)) return 1;
+    else s->reg[reg_num] = 1;
+    break;
+  case 3:
+    if(target_write_u64(s, s->store_repair_addr, s->store_repair_val64)) return 1;
+    else s->reg[reg_num] = 1;
+    break;
+  default:
+    printf("riscv_repair_store: Store repairing not successful.");
+    return 2;
+  }
+  return 0;
 }
 
 uint64_t  riscv_get_fpreg(RISCVCPUState *s, int rn)
