@@ -27,7 +27,7 @@
 
 int main(int argc, char **argv)
 {
-    VirtMachine *s = virt_machine_main(argc, argv);
+    VirtMachine *s = virt_machine_main(argc, argv, FALSE);
 
     if (s->net) {
         s->net->device_set_carrier(s->net, TRUE);

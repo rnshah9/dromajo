@@ -24,7 +24,7 @@
 
 int main(int argc, char **argv)
 {
-    VirtMachine *m = virt_machine_main(argc, argv);
+    VirtMachine *m = virt_machine_main(argc, argv, TRUE);
 
     uint64_t last_pc = 0;
 

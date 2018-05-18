@@ -689,12 +689,11 @@ static BOOL net_poll_cb(void *arg)
 
 #endif
 
-VirtMachine *virt_machine_main(int argc, char **argv)
+VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc)
 {
     VirtMachine *s;
     const char *path, *cmdline;
     int c, option_index, i, ram_size, accel_enable;
-    BOOL allow_ctrlc;
     BlockDeviceModeEnum drive_mode;
     VirtMachineParams p_s, *p = &p_s;
 
