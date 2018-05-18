@@ -167,6 +167,14 @@ BlockDevice *block_device_init_http(const char *url,
                                     void (*start_cb)(void *opaque),
                                     void *start_opaque);
 VirtMachine *virt_machine_main(int argc, char **argv);
-void virt_machine_run(VirtMachine *m);
+void         virt_machine_run(VirtMachine *m);
+void         virt_machine_dump_regs(VirtMachine *m);
+int          virt_machine_read_insn(VirtMachine *m, uint32_t *insn, uint64_t addr);
+uint64_t     virt_machine_get_pc(VirtMachine *m);
+void         virt_machine_set_pc(VirtMachine *m, uint64_t pc);
+uint64_t     virt_machine_get_reg(VirtMachine *m, int rn);
+uint64_t     virt_machine_get_fpreg(VirtMachine *m, int rn);
+uint64_t     virt_machine_read_htif_tohost(VirtMachine *m);
+int          virt_machine_get_pending_exception(VirtMachine *m);
 
 #endif

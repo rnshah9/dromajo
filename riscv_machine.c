@@ -923,7 +923,7 @@ int virt_machine_get_sleep_duration(VirtMachine *s1, int delay)
     RISCVMachine *m = (RISCVMachine *)s1;
     RISCVCPUState *s = m->cpu_state;
     int64_t delay1;
-    
+
     /* wait for an event: the only asynchronous event is the RTC timer */
     if (!(riscv_cpu_get_mip(s) & MIP_MTIP)) {
         delay1 = m->timecmp - rtc_get_time(m);
@@ -948,69 +948,58 @@ void virt_machine_interp(VirtMachine *s1, int max_exec_cycle)
     riscv_cpu_interp(s->cpu_state, max_exec_cycle);
 }
 
-#ifdef VERIFICATION
-void  riscv_set_pc(RISCVCPUState *s, uint64_t pc);
-uint64_t  riscv_get_pc(RISCVCPUState *s);
-uint64_t  riscv_get_reg(RISCVCPUState *s, int rn);
-uint64_t  riscv_get_fpreg(RISCVCPUState *s, int rn);
-void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);
-void riscv_dump_regs(RISCVCPUState *s);
-int riscv_read_insn(RISCVCPUState *s, uintptr_t *pmem_addend, uint64_t addr);
-int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr);
-int riscv_get_pending_exception(RISCVCPUState *s);
-
 void virt_machine_set_pc(VirtMachine *m, uint64_t pc)
 {
-  RISCVMachine *s = (RISCVMachine *)m;
-  riscv_set_pc(s->cpu_state,pc);
+    RISCVMachine *s = (RISCVMachine *)m;
+    riscv_set_pc(s->cpu_state,pc);
 }
 
 void virt_machine_set_reg(VirtMachine *m, int rn, uint64_t val)
 {
-  RISCVMachine *s = (RISCVMachine *)m;
-  riscv_set_reg(s->cpu_state,rn,val);
+    RISCVMachine *s = (RISCVMachine *)m;
+    riscv_set_reg(s->cpu_state,rn,val);
 }
 
-uint64_t  virt_machine_get_pc(VirtMachine *m)
+uint64_t virt_machine_get_pc(VirtMachine *m)
 {
-  RISCVMachine *s = (RISCVMachine *)m;
-  return riscv_get_pc(s->cpu_state);
+    RISCVMachine *s = (RISCVMachine *)m;
+    return riscv_get_pc(s->cpu_state);
 }
 
 int virt_machine_get_pending_exception(VirtMachine *m)
 {
-  RISCVMachine *s = (RISCVMachine *)m;
-  return riscv_get_pending_exception(s->cpu_state);
+    RISCVMachine *s = (RISCVMachine *)m;
+    return riscv_get_pending_exception(s->cpu_state);
 }
 
-uint64_t  virt_machine_get_reg(VirtMachine *m, int rn)
+uint64_t virt_machine_get_reg(VirtMachine *m, int rn)
 {
-  RISCVMachine *s = (RISCVMachine *)m;
-  return riscv_get_reg(s->cpu_state,rn);
+    RISCVMachine *s = (RISCVMachine *)m;
+    return riscv_get_reg(s->cpu_state,rn);
 }
 
-uint64_t  virt_machine_get_fpreg(VirtMachine *m, int rn)
+uint64_t virt_machine_get_fpreg(VirtMachine *m, int rn)
 {
-  RISCVMachine *s = (RISCVMachine *)m;
-  return riscv_get_fpreg(s->cpu_state,rn);
+    RISCVMachine *s = (RISCVMachine *)m;
+    return riscv_get_fpreg(s->cpu_state,rn);
 }
 
 void virt_machine_dump_regs(VirtMachine *m)
 {
-  RISCVMachine *s = (RISCVMachine *)m;
-  riscv_dump_regs(s->cpu_state);
+    RISCVMachine *s = (RISCVMachine *)m;
+    riscv_dump_regs(s->cpu_state);
 }
 
-int virt_machine_read_insn(VirtMachine *m, uintptr_t *pmem_addend, uint64_t addr)
+int virt_machine_read_insn(VirtMachine *m, uint32_t *pmem_addend, uint64_t addr)
 {
-  RISCVMachine *s = (RISCVMachine *)m;
-  return riscv_read_insn(s->cpu_state,pmem_addend,addr);
+    RISCVMachine *s = (RISCVMachine *)m;
+    return riscv_read_insn(s->cpu_state, pmem_addend, addr);
 }
 
 int virt_machine_read_u64(VirtMachine *m, uint64_t *data, uint64_t addr)
 {
-  RISCVMachine *s = (RISCVMachine *)m;
-  return riscv_read_u64(s->cpu_state,data,addr);
+    RISCVMachine *s = (RISCVMachine *)m;
+    return riscv_read_u64(s->cpu_state,data,addr);
 }
 
 uint64_t virt_machine_read_htif_tohost(VirtMachine *m)
@@ -1018,8 +1007,6 @@ uint64_t virt_machine_read_htif_tohost(VirtMachine *m)
     RISCVMachine *s = (RISCVMachine *)m;
     return s->htif_tohost;
 }
-
-#endif
 
 const char *virt_machine_get_name(void)
 {
