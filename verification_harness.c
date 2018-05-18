@@ -22,50 +22,37 @@
 #include "machine.h"
 #include "riscv_cpu.h"
 
-VirtMachine *virt_machine_main(int argc, char **argv);
-void virt_machine_run(VirtMachine *m);
-void virt_machine_end(VirtMachine *m);
-void virt_machine_dump_regs(VirtMachine *m);
-int  virt_machine_read_insn(VirtMachine *m, uint32_t *insn, uint64_t addr);
-
-void      virt_machine_set_pc(VirtMachine *m, uint64_t pc);
-uint64_t  virt_machine_get_pc(VirtMachine *m);
-uint64_t  virt_machine_get_reg(VirtMachine *m, int rn);
-uint64_t  virt_machine_get_fpreg(VirtMachine *m, int rn);
-uint64_t  virt_machine_read_htif_tohost(VirtMachine *m);
-int       virt_machine_get_pending_exception(VirtMachine *m);
-
 int main(int argc, char **argv)
 {
-  VirtMachine *m = virt_machine_main(argc, argv);
+    VirtMachine *m = virt_machine_main(argc, argv, TRUE);
 
-  uint64_t last_pc = 0;
+    uint64_t last_pc = 0;
 
-  while (virt_machine_read_htif_tohost(m) == 0 && virt_machine_get_pc(m) != last_pc) {
-    last_pc = virt_machine_get_pc(m);
-    int priv = 3; // XXX extract the actual value from RISCVEMU
+    while (virt_machine_read_htif_tohost(m) == 0 && virt_machine_get_pc(m) != last_pc) {
+        last_pc = virt_machine_get_pc(m);
+        int priv = 3; // XXX extract the actual value from RISCVEMU
 
-    uint32_t insn_raw = 0;
-    virt_machine_read_insn(m, &insn_raw, last_pc);
-    int rd = (insn_raw >> 7) & 0x1F;
-    uint64_t old_value = (uint64_t)virt_machine_get_reg(m,rd);
-    uint64_t old_fvalue = (uint64_t)virt_machine_get_fpreg(m,rd);
-    virt_machine_run(m);
-    uint64_t new_value = (uint64_t)virt_machine_get_reg(m,rd);
-    uint64_t new_fvalue = (uint64_t)virt_machine_get_fpreg(m,rd);
+        uint32_t insn_raw = 0;
+        virt_machine_read_insn(m, &insn_raw, last_pc);
+        int rd = (insn_raw >> 7) & 0x1F;
+        uint64_t old_value = (uint64_t)virt_machine_get_reg(m,rd);
+        uint64_t old_fvalue = (uint64_t)virt_machine_get_fpreg(m,rd);
+        virt_machine_run(m);
+        uint64_t new_value = (uint64_t)virt_machine_get_reg(m,rd);
+        uint64_t new_fvalue = (uint64_t)virt_machine_get_fpreg(m,rd);
 
-    if (virt_machine_get_pending_exception(m) >= 0)
-        continue;
+        if (virt_machine_get_pending_exception(m) >= 0)
+            continue;
 
-    printf("%d 0x%016jx (0x%08x)", priv, last_pc, insn_raw);
-    if (old_value != new_value) // XXX not ideal
-        printf(" x%2d 0x%016jx", rd, new_value);
-    if (old_fvalue != new_fvalue) // XXX not ideal
-        printf(" f%2d 0x%016jx", rd, new_fvalue);
-    putchar('\n');
-}
+        printf("%d 0x%016jx (0x%08x)", priv, last_pc, insn_raw);
+        if (old_value != new_value) // XXX not ideal
+            printf(" x%2d 0x%016jx", rd, new_value);
+        if (old_fvalue != new_fvalue) // XXX not ideal
+            printf(" f%2d 0x%016jx", rd, new_fvalue);
+        putchar('\n');
+    }
 
-  virt_machine_end(m);
+    virt_machine_end(m);
 
-  return 0;
+    return 0;
 }

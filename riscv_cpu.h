@@ -49,3 +49,14 @@ BOOL riscv_cpu_get_power_down(RISCVCPUState *s);
 uint32_t riscv_cpu_get_misa(RISCVCPUState *s);
 void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
                                          uint8_t *ram_ptr, size_t ram_size);
+void riscv_set_pc(RISCVCPUState *s, uint64_t pc);
+uint64_t riscv_get_pc(RISCVCPUState *s);
+int riscv_get_pending_exception(RISCVCPUState *s);
+uint64_t riscv_get_reg(RISCVCPUState *s, int rn);
+uint64_t riscv_get_fpreg(RISCVCPUState *s, int rn);
+void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);
+void riscv_dump_regs(RISCVCPUState *s);
+int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr);
+int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr);
+void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val);
+int riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3);

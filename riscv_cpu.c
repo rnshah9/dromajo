@@ -1644,7 +1644,7 @@ int riscv_cpu_get_max_xlen(void)
 RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map)
 {
     RISCVCPUState *s;
-    
+
 #ifdef USE_GLOBAL_STATE
     s = &riscv_cpu_global_state;
 #else
@@ -1681,102 +1681,108 @@ void riscv_cpu_end(RISCVCPUState *s)
 #endif
 }
 
-#ifdef VERIFICATION
-void  riscv_set_pc(RISCVCPUState *s, uint64_t pc)
+void riscv_set_pc(RISCVCPUState *s, uint64_t pc)
 {
-  s->pc = pc;
+    s->pc = pc;
 }
 
-uint64_t  riscv_get_pc(RISCVCPUState *s)
+uint64_t riscv_get_pc(RISCVCPUState *s)
 {
-  return s->pc;
+    return s->pc;
 }
 
 int riscv_get_pending_exception(RISCVCPUState *s)
 {
-  return s->pending_exception;
+    return s->pending_exception;
 }
 
-uint64_t  riscv_get_reg(RISCVCPUState *s, int rn)
+uint64_t riscv_get_reg(RISCVCPUState *s, int rn)
 {
-  assert(rn>=0 && rn<32);
-  return s->reg[rn];
+    assert(0 <= rn && rn < 32);
+    return s->reg[rn];
 }
 
-void  riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val)
+void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val)
 {
-  switch(csr_num & 0xFFF) {
+    switch (csr_num & 0xFFF) {
     case 0xb00:
     case 0xb02:
-      s->insn_counter = csr_val;
-      s->reg[reg_num] = csr_val;
-      break;
+        s->insn_counter = csr_val;
+        s->reg[reg_num] = csr_val;
+        break;
+
     default:
-      printf("riscv_repair_csr: This CSR is unsupported for repairing: %lx",csr_num);
-  }
+        printf("riscv_repair_csr: This CSR is unsupported for repairing: %lx",csr_num);
+    }
 }
 
-int  riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3)
+int riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3)
 {
-  switch(funct3){
-  case 2:
-    if(target_write_u32(s, s->store_repair_addr, s->store_repair_val32)) return 1;
-    else s->reg[reg_num] = 1;
-    break;
-  case 3:
-    if(target_write_u64(s, s->store_repair_addr, s->store_repair_val64)) return 1;
-    else s->reg[reg_num] = 1;
-    break;
-  default:
-    printf("riscv_repair_store: Store repairing not successful.");
-    return 2;
-  }
-  return 0;
+    switch (funct3) {
+    case 2:
+        if (target_write_u32(s, s->store_repair_addr, s->store_repair_val32))
+            return 1;
+        else
+            s->reg[reg_num] = 1;
+        break;
+
+    case 3:
+        if (target_write_u64(s, s->store_repair_addr, s->store_repair_val64))
+            return 1;
+        else
+            s->reg[reg_num] = 1;
+        break;
+
+    default:
+        printf("riscv_repair_store: Store repairing not successful.");
+        return 2;
+    }
+
+    return 0;
 }
 
-uint64_t  riscv_get_fpreg(RISCVCPUState *s, int rn)
+uint64_t riscv_get_fpreg(RISCVCPUState *s, int rn)
 {
-  assert(rn>=0 && rn<32);
-  return s->fp_reg[rn];
+    assert(0 <= rn && rn < 32);
+    return s->fp_reg[rn];
 }
 
-void  riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val)
+void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val)
 {
-  assert(rn>=0 && rn<32);
-  s->reg[rn] = val;
+    assert(0 < rn && rn < 32);
+    s->reg[rn] = val;
 }
 
 void riscv_dump_regs(RISCVCPUState *s)
 {
-  dump_regs(s);
+    dump_regs(s);
 }
 
-int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, target_ulong addr)
+int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr)
 {
-  uintptr_t mem_addend;
+    uintptr_t mem_addend;
 
-  int i = target_read_insn_slow(s,&mem_addend,addr);
-  if (i)
-    return i;
+    int i = target_read_insn_slow(s, &mem_addend, addr);
+    if (i)
+        return i;
 
-  *insn = *(uint32_t *)(mem_addend + (uintptr_t)addr);
+    *insn = *(uint32_t *)(mem_addend + addr);
 
-  return 0;
+    return 0;
 }
 
-int riscv_read_u64(RISCVCPUState *s, uint64_t *data, target_ulong addr)
+int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr)
 {
-  *data = phys_read_u64(s, addr);
-  printf("data:0x%" PRIx64 " addr:0x%08" PRIx64 "\n", *data, (uint64_t)addr);
-  int i = 0; // target_read_u64(s,data,addr);
-  if (i) {
-    printf("Illegal read addr:%llx\n",(long long)addr);
-    return i;
-  }
+    *data = phys_read_u64(s, addr);
+    printf("data:0x%" PRIx64 " addr:0x%08" PRIx64 "\n", *data, addr);
+    int i = 0;
+    if (i) {
+        printf("Illegal read addr:%"  PRIx64 "\n", addr);
+        return i;
+    }
 
-  return 0;
+    return 0;
 }
-#endif
 
 uint32_t riscv_cpu_get_misa(RISCVCPUState *s)
 {

@@ -704,7 +704,7 @@ static BOOL net_poll_cb(void *arg)
 extern int optind;
 
 #ifdef VERIFICATION
-VirtMachine *virt_machine_main(int argc, char **argv)
+VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc)
 #else
 int main(int argc, char **argv)
 #endif
@@ -712,7 +712,6 @@ int main(int argc, char **argv)
     VirtMachine *s;
     const char *path, *cmdline;
     int i, ram_size, accel_enable;
-    BOOL allow_ctrlc;
     BlockDeviceModeEnum drive_mode;
     VirtMachineParams p_s, *p = &p_s;
 
