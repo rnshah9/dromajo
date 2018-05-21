@@ -746,7 +746,6 @@ static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
                 /* emulate 64 bit access */
                 ret = pr->read_func(pr->opaque, offset, 2);
                 ret |= (uint64_t)pr->read_func(pr->opaque, offset + 4, 2) << 32;
-                
             }
 #endif
             else {
@@ -780,7 +779,7 @@ static no_inline int target_write_slow(RISCVCPUState *s, target_ulong addr,
         return -1;
     } else if ((addr & (size - 1)) != 0) {
         /* XXX: should avoid modifying the memory in case of exception */
-        for(i = 0; i < size; i++) {
+        for (i = 0; i < size; i++) {
             err = target_write_u8(s, addr + i, (val >> (8 * i)) & 0xff);
             if (err)
                 return err;
