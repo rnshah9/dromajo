@@ -694,6 +694,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         if (rd == 0) {
                             /* c.ebreak */
                             s->pending_exception = CAUSE_BREAKPOINT;
+                            s->pending_tval = 0;
                             goto exception;
                         } else {
                             /* c.jalr */
@@ -1291,11 +1292,13 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                     if (insn & 0x000fff80)
                         goto illegal_insn;
                     s->pending_exception = CAUSE_USER_ECALL + s->priv;
+                    s->pending_tval = 0;
                     goto exception;
                 case 0x001: /* ebreak */
                     if (insn & 0x000fff80)
                         goto illegal_insn;
                     s->pending_exception = CAUSE_BREAKPOINT;
+                    s->pending_tval = 0;
                     goto exception;
                 case 0x102: /* sret */
                     {
