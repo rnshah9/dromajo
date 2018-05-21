@@ -1420,8 +1420,10 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 case 0x14: /* amomax.w */                               \
                 case 0x18: /* amominu.w */                              \
                 case 0x1c: /* amomaxu.w */                              \
-                    if (target_read_u ## size(s, &rval, addr))          \
+                    if (target_read_u ## size(s, &rval, addr)) {        \
+                        s->pending_exception += 2; /* LD -> ST */       \
                         goto mmu_exception;                             \
+                    }                                                   \
                     val = (int## size ## _t)rval;                       \
                     val2 = s->reg[rs2];                                 \
                     switch(funct3) {                                    \
