@@ -1306,6 +1306,8 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                             goto illegal_insn;
                         if (s->priv < PRV_S)
                             goto illegal_insn;
+                        if (s->priv == PRV_S && s->mstatus & MSTATUS_TSR)
+                            goto illegal_insn;
                         s->pc = GET_PC();
                         handle_sret(s);
                         goto done_interp;
@@ -1327,6 +1329,13 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         goto illegal_insn;
                     if (s->priv == PRV_U)
                         goto illegal_insn;
+                    /* "When TW=1, if WFI is executed in S- mode, and
+                       it does not complete within an
+                       implementation-specific, bounded time limit,
+                       the WFI instruction causes an illegal
+                       instruction trap." */
+                    if (s->priv == PRV_S && s->mstatus & MSTATUS_TW)
+                        goto illegal_insn;
                     /* go to power down if no enabled interrupts are
                        pending */
                     if ((s->mip & s->mie) == 0) {
@@ -1341,6 +1350,8 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         if (insn & 0x00007f80)
                             goto illegal_insn;
                         if (s->priv == PRV_U)
+                            goto illegal_insn;
+                        if (s->priv == PRV_S && s->mstatus & MSTATUS_TVM)
                             goto illegal_insn;
                         if (rs1 == 0) {
                             tlb_flush_all(s);
