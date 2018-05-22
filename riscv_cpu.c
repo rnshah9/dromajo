@@ -1,3 +1,4 @@
+
 /*
  * RISCV CPU emulator
  *
@@ -199,9 +200,9 @@ typedef uint128_t mem_uint_t;
 #define MSTATUS_MPRV (1 << 17)
 #define MSTATUS_SUM (1 << 18)
 #define MSTATUS_MXR (1 << 19)
-//#define MSTATUS_TVM (1 << 20)
-//#define MSTATUS_TW (1 << 21)
-//#define MSTATUS_TSR (1 << 22)
+#define MSTATUS_TVM (1 << 20)
+#define MSTATUS_TW (1 << 21)
+#define MSTATUS_TSR (1 << 22)
 #define MSTATUS_UXL_MASK ((uint64_t)3 << MSTATUS_UXL_SHIFT)
 #define MSTATUS_SXL_MASK ((uint64_t)3 << MSTATUS_SXL_SHIFT)
 
@@ -492,7 +493,7 @@ static int get_phys_addr(RISCVCPUState *s,
     target_ulong pte_addr, pte, vaddr_mask, paddr;
 
     if ((s->mstatus & MSTATUS_MPRV) && access != ACCESS_CODE) {
-        /* use previous priviledge */
+        /* use previous privilege */
         priv = (s->mstatus >> MSTATUS_MPP_SHIFT) & 3;
     } else {
         priv = s->priv;
@@ -539,7 +540,7 @@ static int get_phys_addr(RISCVCPUState *s,
     pte_addr = (s->satp & (((target_ulong)1 << pte_addr_bits) - 1)) << PG_SHIFT;
     pte_bits = 12 - pte_size_log2;
     pte_mask = (1 << pte_bits) - 1;
-    for(i = 0; i < levels; i++) {
+    for (i = 0; i < levels; i++) {
         vaddr_shift = PG_SHIFT + pte_bits * (levels - 1 - i);
         pte_idx = (vaddr >> vaddr_shift) & pte_mask;
         pte_addr += pte_idx << pte_size_log2;
@@ -937,7 +938,7 @@ void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
 {
     uint8_t *ptr, *ram_end;
     int i;
-    
+
     ram_end = ram_ptr + ram_size;
     for(i = 0; i < TLB_SIZE; i++) {
         if (s->tlb_write[i].vaddr != -1) {
@@ -967,7 +968,8 @@ void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
                       MSTATUS_UPIE | MSTATUS_SPIE | MSTATUS_MPIE |    \
                       MSTATUS_SPP | MSTATUS_MPP | \
                       MSTATUS_FS | \
-                      MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR)
+                      MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR | \
+                      MSTATUS_TVM | MSTATUS_TW | MSTATUS_TSR)
 
 /* cycle and insn counters */
 #define COUNTEREN_MASK ((1 << 0) | (1 << 2))
@@ -985,7 +987,7 @@ static target_ulong get_mstatus(RISCVCPUState *s, target_ulong mask)
         val |= (target_ulong)1 << (s->cur_xlen - 1);
     return val;
 }
-                              
+
 static int get_base_from_xlen(int xlen)
 {
     if (xlen == 32)
@@ -998,17 +1000,15 @@ static int get_base_from_xlen(int xlen)
 
 static void set_mstatus(RISCVCPUState *s, target_ulong val)
 {
-    target_ulong mod, mask;
-    
     /* flush the TLBs if change of MMU config */
-    mod = s->mstatus ^ val;
+    target_ulong mod = s->mstatus ^ val;
     if ((mod & (MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR)) != 0 ||
         ((s->mstatus & MSTATUS_MPRV) && (mod & MSTATUS_MPP) != 0)) {
         tlb_flush_all(s);
     }
     s->fs = (val >> MSTATUS_FS_SHIFT) & 3;
 
-    mask = MSTATUS_MASK & ~MSTATUS_FS;
+    target_ulong mask = MSTATUS_MASK & ~MSTATUS_FS;
 #if MAX_XLEN >= 64
     {
         int uxl, sxl;
@@ -1034,7 +1034,7 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         return -1; /* read-only CSR */
     if (s->priv < ((csr >> 8) & 3))
         return -1; /* not enough priviledge */
-    
+
     switch(csr) {
 #if FLEN > 0
     case 0x001: /* fflags */
@@ -1085,7 +1085,7 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         }
         val = s->insn_counter >> 32;
         break;
-        
+
     case 0x100:
         val = get_mstatus(s, SSTATUS_MASK);
         break;
@@ -1114,6 +1114,8 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         val = s->mip & s->mideleg;
         break;
     case 0x180:
+        if (s->priv == PRV_S && s->mstatus & MSTATUS_TVM)
+            return -1;
         val = s->satp;
         break;
     case 0x300:
@@ -1268,6 +1270,8 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mip = (s->mip & ~mask) | (val & mask);
         break;
     case 0x180:
+        if (s->priv == PRV_S && s->mstatus & MSTATUS_TVM)
+            return -1;
         /* no ASID implemented */
 #if MAX_XLEN == 32
         {
@@ -1289,7 +1293,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
 #endif
         tlb_flush_all(s);
         return 2;
-        
+
     case 0x300:
         set_mstatus(s, val);
         break;
@@ -1451,8 +1455,17 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
         s->mcause = causel;
         s->mepc = s->pc;
         s->mtval = tval;
+
+        /* When a trap is taken from privilege mode y into privilege
+           mode x, xPIE is set to the value of xIE; xIE is set to 0;
+           and xPP is set to y.
+
+           Here x = M, thus MPIE = MIE; MIE = 0; MPP = s->priv
+        */
+
         s->mstatus = (s->mstatus & ~MSTATUS_MPIE) |
-            (((s->mstatus >> s->priv) & 1) << MSTATUS_MPIE_SHIFT);
+            (!!(s->mstatus & MSTATUS_MIE) << MSTATUS_MPIE_SHIFT);
+
         s->mstatus = (s->mstatus & ~MSTATUS_MPP) |
             (s->priv << MSTATUS_MPP_SHIFT);
         s->mstatus &= ~MSTATUS_MIE;
@@ -1471,32 +1484,28 @@ static void raise_exception(RISCVCPUState *s, uint32_t cause)
 
 static void handle_sret(RISCVCPUState *s)
 {
-    int spp, spie;
-    spp = (s->mstatus >> MSTATUS_SPP_SHIFT) & 1;
-    /* set the IE state to previous IE state */
-    spie = (s->mstatus >> MSTATUS_SPIE_SHIFT) & 1;
-    s->mstatus = (s->mstatus & ~(1 << spp)) |
-        (spie << spp);
-    /* set SPIE to 1 */
+    /* Copy down SPIE to SIE and set SPIE */
+    s->mstatus &= ~MSTATUS_SIE;
+    s->mstatus |= (s->mstatus >> 4) & MSTATUS_SIE;
     s->mstatus |= MSTATUS_SPIE;
-    /* set SPP to U */
+
+    int spp = (s->mstatus & MSTATUS_SPP) >> MSTATUS_SPP_SHIFT;
     s->mstatus &= ~MSTATUS_SPP;
+
     set_priv(s, spp);
     s->pc = s->sepc;
 }
 
 static void handle_mret(RISCVCPUState *s)
 {
-    int mpp, mpie;
-    mpp = (s->mstatus >> MSTATUS_MPP_SHIFT) & 3;
-    /* set the IE state to previous IE state */
-    mpie = (s->mstatus >> MSTATUS_MPIE_SHIFT) & 1;
-    s->mstatus = (s->mstatus & ~(1 << mpp)) |
-        (mpie << mpp);
-    /* set MPIE to 1 */
+    /* Copy down MPIE to MIE and set MPIE */
+    s->mstatus &= ~MSTATUS_MIE;
+    s->mstatus |= (s->mstatus >> 4) & MSTATUS_MIE;
     s->mstatus |= MSTATUS_MPIE;
-    /* set MPP to U */
+
+    int mpp = (s->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
     s->mstatus &= ~MSTATUS_MPP;
+
     set_priv(s, mpp);
     s->pc = s->mepc;
 }
