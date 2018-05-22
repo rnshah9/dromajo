@@ -483,7 +483,8 @@ TARGET_READ_WRITE(128, uint128_t, 4)
 #define ACCESS_CODE  2
 
 /* access = 0: read, 1 = write, 2 = code. Set the exception_pending
-   field if necessary. return 0 if OK, -1 if translation error */
+   field if necessary. return 0 if OK, -1 if translation error, -2 if
+   the physical address is illegal. */
 static int get_phys_addr(RISCVCPUState *s,
                          target_ulong *ppaddr, target_ulong vaddr,
                          int access)
@@ -500,6 +501,10 @@ static int get_phys_addr(RISCVCPUState *s,
     }
 
     if (priv == PRV_M) {
+        /* rv64mi-p-access expects illegal physical addresses to fail.
+           We arbitrarily sets PA to 56. */
+        if (s->cur_xlen > 32 && (uint64_t)vaddr >> 56 != 0)
+            return -2;
         if (s->cur_xlen < MAX_XLEN) {
             /* truncate virtual address */
             *ppaddr = vaddr & (((target_ulong)1 << s->cur_xlen) - 1);
@@ -692,9 +697,11 @@ static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
             abort();
         }
     } else {
-        if (get_phys_addr(s, &paddr, addr, ACCESS_READ)) {
+        int err = get_phys_addr(s, &paddr, addr, ACCESS_READ);
+        if (err) {
             s->pending_tval = addr;
-            s->pending_exception = CAUSE_LOAD_PAGE_FAULT;
+            s->pending_exception = err == -1
+                ? CAUSE_LOAD_PAGE_FAULT : CAUSE_FAULT_LOAD;
             return -1;
         }
         pr = get_phys_mem_range(s->mem_map, paddr);
@@ -782,9 +789,11 @@ static no_inline int target_write_slow(RISCVCPUState *s, target_ulong addr,
                 return err;
         }
     } else {
-        if (get_phys_addr(s, &paddr, addr, ACCESS_WRITE)) {
+        int err = get_phys_addr(s, &paddr, addr, ACCESS_WRITE);
+        if (err) {
             s->pending_tval = addr;
-            s->pending_exception = CAUSE_STORE_PAGE_FAULT;
+            s->pending_exception = err == -1 ?
+                CAUSE_STORE_PAGE_FAULT : CAUSE_FAULT_STORE;
             return -1;
         }
         pr = get_phys_mem_range(s->mem_map, paddr);
@@ -872,10 +881,12 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
     target_ulong paddr;
     uint8_t *ptr;
     PhysMemoryRange *pr;
-    
-    if (get_phys_addr(s, &paddr, addr, ACCESS_CODE)) {
+
+    int err = get_phys_addr(s, &paddr, addr, ACCESS_CODE);
+    if (err) {
         s->pending_tval = addr;
-        s->pending_exception = CAUSE_FETCH_PAGE_FAULT;
+        s->pending_exception = err == -1 ?
+            CAUSE_FETCH_PAGE_FAULT : CAUSE_FAULT_FETCH;
         return -1;
     }
     pr = get_phys_mem_range(s->mem_map, paddr);
