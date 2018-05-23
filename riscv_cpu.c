@@ -1731,7 +1731,7 @@ void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint
         break;
 
     default:
-        printf("riscv_repair_csr: This CSR is unsupported for repairing: %lx",csr_num);
+        printf("riscv_repair_csr: This CSR is unsupported for repairing: %lx\n",csr_num);
     }
 }
 
