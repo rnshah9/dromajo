@@ -1,7 +1,8 @@
 /*
  * RISCV emulator
- * 
+ *
  * Copyright (c) 2016 Fabrice Bellard
+ * Copyright (c) 2018 Esperanto Technologies
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -197,6 +198,16 @@ static inline uintx_t glue(mulhsu, XLEN)(intx_t a, uintx_t b)
         goto jump_insn;            \
     } while (0)
 
+#define chkfp32 glue(chkfp32, XLEN)
+
+static uint32_t chkfp32(target_ulong a)
+{
+    if ((a & 0xFFFFFFFF00000000ULL) != 0xFFFFFFFF00000000ULL)
+        return -1 << 22;  // Not boxed correctedly, return float32 QNAN
+
+    return (uint32_t) a;
+}
+
 static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                                                    int n_cycles)
 {
@@ -229,7 +240,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
     code_ptr = NULL;
     code_end = NULL;
     code_to_pc_addend = s->pc;
-    
+
     /* we use a single execution loop to keep a simple control flow
        for emscripten */
     for(;;) {
@@ -1579,8 +1590,8 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 goto illegal_insn;
             switch(funct3) {
             case 0:
-                s->fp_reg[rd] = fma_sf32(s->fp_reg[rs1], s->fp_reg[rs2],
-                                         s->fp_reg[rs3], rm, &s->fflags) | F32_HIGH;
+                s->fp_reg[rd] = fma_sf32(chkfp32(s->fp_reg[rs1]), chkfp32(s->fp_reg[rs2]),
+                                         chkfp32(s->fp_reg[rs3]), rm, &s->fflags) | F32_HIGH;
                 break;
 #if FLEN >= 64
             case 1:
@@ -1609,9 +1620,9 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 goto illegal_insn;
             switch(funct3) {
             case 0:
-                s->fp_reg[rd] = fma_sf32(s->fp_reg[rs1],
-                                         s->fp_reg[rs2],
-                                         s->fp_reg[rs3] ^ FSIGN_MASK32,
+                s->fp_reg[rd] = fma_sf32(chkfp32(s->fp_reg[rs1]),
+                                         chkfp32(s->fp_reg[rs2]),
+                                         chkfp32(s->fp_reg[rs3]) ^ FSIGN_MASK32,
                                          rm, &s->fflags) | F32_HIGH;
                 break;
 #if FLEN >= 64
@@ -1645,9 +1656,9 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 goto illegal_insn;
             switch(funct3) {
             case 0:
-                s->fp_reg[rd] = fma_sf32(s->fp_reg[rs1] ^ FSIGN_MASK32,
-                                         s->fp_reg[rs2],
-                                         s->fp_reg[rs3],
+                s->fp_reg[rd] = fma_sf32(chkfp32(s->fp_reg[rs1]) ^ FSIGN_MASK32,
+                                         chkfp32(s->fp_reg[rs2]),
+                                         chkfp32(s->fp_reg[rs3]),
                                          rm, &s->fflags) | F32_HIGH;
                 break;
 #if FLEN >= 64
@@ -1681,9 +1692,9 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 goto illegal_insn;
             switch(funct3) {
             case 0:
-                s->fp_reg[rd] = fma_sf32(s->fp_reg[rs1] ^ FSIGN_MASK32,
-                                         s->fp_reg[rs2],
-                                         s->fp_reg[rs3] ^ FSIGN_MASK32,
+                s->fp_reg[rd] = fma_sf32(chkfp32(s->fp_reg[rs1]) ^ FSIGN_MASK32,
+                                         chkfp32(s->fp_reg[rs2]),
+                                         chkfp32(s->fp_reg[rs3]) ^ FSIGN_MASK32,
                                          rm, &s->fflags) | F32_HIGH;
                 break;
 #if FLEN >= 64
