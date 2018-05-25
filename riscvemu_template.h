@@ -790,7 +790,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 intx_t new_pc = (intx_t)(GET_PC() + imm);
                 if (!(s->misa & MCPUID_C) && (new_pc & 3) != 0) {
                     s->pending_exception = CAUSE_MISALIGNED_FETCH;
-                    s->pending_tval = new_pc;
+                    s->pending_tval = 0;
                     goto exception;
                 }
             }
@@ -805,7 +805,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 intx_t new_pc = (intx_t)(s->reg[rs1] + imm) & ~1;
                 if (!(s->misa & MCPUID_C) && (new_pc & 3) != 0) {
                     s->pending_exception = CAUSE_MISALIGNED_FETCH;
-                    s->pending_tval = new_pc;
+                    s->pending_tval = 0;
                     goto exception;
                 }
             }
@@ -839,7 +839,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 intx_t new_pc = (intx_t)(GET_PC() + imm);
                 if (!(s->misa & MCPUID_C) && (new_pc & 3) != 0) {
                     s->pending_exception = CAUSE_MISALIGNED_FETCH;
-                    s->pending_tval = new_pc;
+                    s->pending_tval = 0;
                     goto exception;
                 }
 
