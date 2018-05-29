@@ -54,6 +54,7 @@ typedef struct RISCVMachine {
     IRQSignal plic_irq[32]; /* IRQ 0 is not used */
     /* HTIF */
     uint64_t htif_tohost, htif_fromhost;
+    uint64_t htif_tohost_addr;
 
     VIRTIODevice *keyboard_dev;
     VIRTIODevice *mouse_dev;
@@ -809,6 +810,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     for(i = 1; i < 32; i++) {
         irq_init(&s->plic_irq[i], plic_set_irq, s, i);
     }
+    s->htif_tohost_addr=p->htif_base_addr; 
 
     cpu_register_device(s->mem_map,
 			p->htif_base_addr ? p->htif_base_addr : HTIF_BASE_ADDR,
@@ -1012,6 +1014,11 @@ void virt_machine_repair_csr(VirtMachine *m, uint32_t reg_num, uint64_t csr_num,
 {
     RISCVMachine *s = (RISCVMachine *)m;
     riscv_repair_csr(s->cpu_state,reg_num,csr_num,csr_val);
+}
+int virt_machine_load_repair(VirtMachine *m,uint32_t reg_num,uint64_t reg_val){
+
+    RISCVMachine *s = (RISCVMachine *)m;
+    return riscv_load_repair(s->cpu_state,reg_num,reg_val,s->htif_tohost_addr);
 }
 
 int virt_machine_repair_store(VirtMachine *m, uint32_t reg_num, uint32_t funct3)

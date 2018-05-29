@@ -60,3 +60,5 @@ int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr);
 int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr);
 void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val);
 int riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3);
+int riscv_load_repair(RISCVCPUState *s, uint32_t reg_num, uint64_t reg_val,uint64_t htif_tohost_addr); 
+

@@ -851,6 +851,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
             funct3 = (insn >> 12) & 7;
             imm = (int32_t)insn >> 20;
             addr = s->reg[rs1] + imm;
+	    s->last_addr = addr; 
             switch(funct3) {
             case 0: /* lb */
                 {
@@ -928,7 +929,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
             NEXT_INSN;
         case 0x23: /* store */
             funct3 = (insn >> 12) & 7;
-            imm = rd | ((insn >> (25 - 5)) & 0xfe0);
+	    imm = rd | ((insn >> (25 - 5)) & 0xfe0);
             imm = (imm << 20) >> 20;
             addr = s->reg[rs1] + imm;
             val = s->reg[rs2];
