@@ -29,7 +29,7 @@ typedef void SimpleFBDrawFunc(FBDevice *fb_dev, void *opaque,
                               int x, int y, int w, int h);
 
 struct FBDevice {
-    /* the following is set b  y the device */
+    /* the following is set by the device */
     int width;
     int height;
     int stride; /* current stride in bytes */

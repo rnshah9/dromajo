@@ -276,7 +276,7 @@ struct RISCVCPUState {
     uint64_t  store_repair_val64;
     uint128_t store_repair_val128;
     target_ulong store_repair_addr; /* saving which address to repair */
-    uint64_t last_addr; //saving previous value of address so it can be repaired
+    uint64_t last_addr; /* saving previous value of address so it can be repaired */
 
     PhysMemoryMap *mem_map;
 
@@ -1735,14 +1735,15 @@ void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint
         printf("riscv_repair_csr: This CSR is unsupported for repairing: %lx\n",csr_num);
     }
 }
-int riscv_load_repair(RISCVCPUState *s,uint32_t reg_num,uint64_t reg_val,uint64_t htif_tohost_addr){
 
-	if(s->last_addr==htif_tohost_addr+0x40) {
-		s->reg[reg_num]=reg_val;
-                return 1;
-	}
-        else
-          return 0;
+int riscv_load_repair(RISCVCPUState *s, uint32_t reg_num, uint64_t reg_val,
+                      uint64_t htif_tohost_addr)
+{
+    if (s->last_addr == htif_tohost_addr + 64) {
+        s->reg[reg_num] = reg_val;
+        return 1;
+    } else
+        return 0;
 }
 
 int riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3)

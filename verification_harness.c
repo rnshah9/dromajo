@@ -51,10 +51,8 @@ int main(int argc, char **argv)
             printf(" f%2d 0x%016jx", rd, new_fvalue);
         putchar('\n');
     }
-    	//printf("Execution terminated with %d\n", (int)virt_machine_read_htif_tohost(m));
 
-	virt_machine_end(m);
-
+    virt_machine_end(m);
 
     return 0;
 }
