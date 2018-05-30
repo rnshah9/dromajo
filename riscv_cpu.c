@@ -1561,6 +1561,7 @@ static __exception int raise_interrupt(RISCVCPUState *s)
     return -1;
 }
 
+#ifdef CONFIG_EXT_C
 static inline int32_t sext(int32_t val, int n)
 {
     return (val << (32 - n)) >> (32 - n);
@@ -1577,6 +1578,7 @@ static inline uint32_t get_field1(uint32_t val, int src_pos,
     else
         return (val >> (src_pos - dst_pos)) & mask;
 }
+#endif
 
 #define XLEN 32
 #include "riscvemu_template.h"

@@ -36,7 +36,9 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
+#ifndef __APPLE__
 #include <linux/if_tun.h>
+#endif
 #endif
 #include <sys/stat.h>
 #include <signal.h>
@@ -357,8 +359,7 @@ static BlockDevice *block_device_init(const char *filename,
 #endif
 #define MAX_SLEEP_TIME 10 /* in ms */
 
-#ifndef _WIN32
-
+#if !defined( _WIN32) && !defined(__APPLE__)
 typedef struct {
     int fd;
     BOOL select_filled;
@@ -462,7 +463,7 @@ static EthernetDevice *tun_open(const char *ifname)
     return net;
 }
 
-#endif /* !_WIN32 */
+#endif /* !_WIN32 && !__APPLE__*/
 
 #ifdef CONFIG_SLIRP
 
@@ -818,7 +819,7 @@ VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc)
         } else
 #endif
         {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
             fprintf(stderr, "Filesystem access not supported yet\n");
             exit(1);
 #else
@@ -843,7 +844,7 @@ VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc)
                 exit(1);
         } else
 #endif
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__APPLE__)
         if (!strcmp(p->tab_eth[i].driver, "tap")) {
             p->tab_eth[i].net = tun_open(p->tab_eth[i].ifname);
             if (!p->tab_eth[i].net)

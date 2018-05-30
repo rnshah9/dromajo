@@ -36,6 +36,8 @@ CONFIG_VERIFICATION=y
 
 # win32 build (not usable yet)
 #CONFIG_WIN32=y
+# macOS build
+#CONFIG_MACOS=y
 # user space network redirector
 CONFIG_SLIRP=y
 
@@ -86,8 +88,10 @@ EMU_OBJS+=$(addprefix slirp/, bootp.o ip_icmp.o mbuf.o slirp.o tcp_output.o cksu
 endif
 
 ifndef CONFIG_WIN32
+ifndef CONFIG_MACOS
 EMU_OBJS+=fs_disk.o
 EMU_LIBS=-lrt
+endif
 endif
 ifdef CONFIG_FS_NET
 CFLAGS+=-DCONFIG_FS_NET

@@ -203,7 +203,7 @@ static inline uintx_t glue(mulhsu, XLEN)(intx_t a, uintx_t b)
 static uint32_t chkfp32(target_ulong a)
 {
     if ((a & 0xFFFFFFFF00000000ULL) != 0xFFFFFFFF00000000ULL)
-        return -1 << 22;  // Not boxed correctedly, return float32 QNAN
+        return -1U << 22;  // Not boxed => return float32 QNAN
 
     return (uint32_t) a;
 }

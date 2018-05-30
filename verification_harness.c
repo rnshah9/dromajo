@@ -12,7 +12,6 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
-#include <linux/if_tun.h>
 #include <sys/stat.h>
 #include <signal.h>
 
@@ -44,11 +43,11 @@ int main(int argc, char **argv)
         if (virt_machine_get_pending_exception(m) >= 0)
             continue;
 
-        printf("%d 0x%016jx (0x%08x)", priv, last_pc, insn_raw);
+        printf("%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, insn_raw);
         if (old_value != new_value) // XXX not ideal
-            printf(" x%2d 0x%016jx", rd, new_value);
+            printf(" x%2d 0x%016"PRIx64, rd, new_value);
         if (old_fvalue != new_fvalue) // XXX not ideal
-            printf(" f%2d 0x%016jx", rd, new_fvalue);
+            printf(" f%2d 0x%016"PRIx64, rd, new_fvalue);
         putchar('\n');
     }
 
