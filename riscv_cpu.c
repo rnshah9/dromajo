@@ -1,4 +1,3 @@
-
 /*
  * RISCV CPU emulator
  *
@@ -156,7 +155,7 @@ typedef uint128_t mem_uint_t;
 #define CAUSE_STORE_PAGE_FAULT    0xf
 
 /* Note: converted to correct bit position at runtime */
-#define CAUSE_INTERRUPT  ((uint32_t)1 << 31) 
+#define CAUSE_INTERRUPT  ((uint32_t)1 << 31)
 
 #define PRV_U 0
 #define PRV_S 1
@@ -217,29 +216,35 @@ typedef struct {
 struct RISCVCPUState {
     target_ulong pc;
     target_ulong reg[32];
+    /* reg_ts[x] is the timestamp (in executed instructions) of the most
+     * recent definition of the register. */
+    uint64_t reg_ts[32];
+    int most_recently_written_reg;
 
 #ifdef USE_GLOBAL_VARIABLES
     /* faster to use global variables with emscripten */
     uint8_t *__code_ptr, *__code_end;
     target_ulong __code_to_pc_addend;
 #endif
-    
+
 #if FLEN > 0
     fp_uint fp_reg[32];
+    uint64_t fp_reg_ts[32];
+    int most_recently_written_fp_reg;
     uint32_t fflags;
     uint8_t frm;
 #endif
-    
+
     uint8_t cur_xlen;  /* current XLEN value, <= MAX_XLEN */
     uint8_t priv; /* see PRV_x */
     uint8_t fs; /* MSTATUS_FS value */
     uint8_t mxl; /* MXL field in MISA register */
-    
+
     uint64_t insn_counter;
     BOOL power_down_flag;
     int pending_exception; /* used during MMU exception handling */
     target_ulong pending_tval;
-    
+
     /* CSRs */
     target_ulong mstatus;
     target_ulong mtvec;
@@ -258,7 +263,7 @@ struct RISCVCPUState {
     uint32_t mideleg;
     uint32_t mcounteren;
     uint32_t tselect;
-    
+
     target_ulong stvec;
     target_ulong sscratch;
     target_ulong sepc;
@@ -279,6 +284,16 @@ struct RISCVCPUState {
     TLBEntry tlb_write[TLB_SIZE];
     TLBEntry tlb_code[TLB_SIZE];
 };
+
+#define write_reg(x, val) ({s->most_recently_written_reg = (x); \
+                           s->reg_ts[x] = GET_INSN_COUNTER();   \
+                           s->reg[x] = (val);})
+#define read_reg(x)       (s->reg[x])
+
+#define write_fp_reg(x, val) ({s->most_recently_written_fp_reg = (x); \
+                               s->fp_reg_ts[x] = GET_INSN_COUNTER();  \
+                               s->fp_reg[x] = (val);})
+#define read_fp_reg(x)       (s->fp_reg[x])
 
 static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
                                       target_ulong addr, int size_log2);
@@ -910,7 +925,7 @@ static inline __exception int target_read_insn_u16(RISCVCPUState *s, uint16_t *p
 {
     uint32_t tlb_idx;
     uintptr_t mem_addend;
-    
+
     tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
     if (likely(s->tlb_code[tlb_idx].vaddr == (addr & ~PG_MASK))) {
         mem_addend = s->tlb_code[tlb_idx].mem_addend;
@@ -925,7 +940,7 @@ static inline __exception int target_read_insn_u16(RISCVCPUState *s, uint16_t *p
 static void tlb_init(RISCVCPUState *s)
 {
     int i;
-    
+
     for(i = 0; i < TLB_SIZE; i++) {
         s->tlb_read[i].vaddr = -1;
         s->tlb_write[i].vaddr = -1;
@@ -1567,7 +1582,7 @@ static inline int32_t sext(int32_t val, int n)
     return (val << (32 - n)) >> (32 - n);
 }
 
-static inline uint32_t get_field1(uint32_t val, int src_pos, 
+static inline uint32_t get_field1(uint32_t val, int src_pos,
                                   int dst_pos, int dst_pos_max)
 {
     int mask;
@@ -1679,7 +1694,9 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map)
     s->mstatus = ((uint64_t)s->mxl << MSTATUS_UXL_SHIFT) |
         ((uint64_t)s->mxl << MSTATUS_SXL_SHIFT);
     s->misa |= MCPUID_SUPER | MCPUID_USER | MCPUID_I | MCPUID_M | MCPUID_A;
+    s->most_recently_written_reg = -1;
 #if FLEN >= 32
+    s->most_recently_written_fp_reg = -1;
     s->misa |= MCPUID_F;
 #endif
 #if FLEN >= 64
@@ -1769,4 +1786,24 @@ uint32_t riscv_cpu_get_misa(RISCVCPUState *s)
 int riscv_get_priv_level(RISCVCPUState *s)
 {
     return s->priv;
+}
+
+int riscv_get_most_recently_written_reg(RISCVCPUState *s,
+                                        uint64_t *instret_ts)
+{
+    int regno = s->most_recently_written_reg;
+    if (instret_ts)
+        *instret_ts = s->reg_ts[regno];
+
+    return regno;
+}
+
+int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
+                                           uint64_t *instret_ts)
+{
+    int regno = s->most_recently_written_fp_reg;
+    if (instret_ts)
+        *instret_ts = s->fp_reg_ts[regno];
+
+    return regno;
 }

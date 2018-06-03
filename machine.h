@@ -177,5 +177,9 @@ uint64_t     virt_machine_get_fpreg(VirtMachine *m, int rn);
 uint64_t     virt_machine_read_htif_tohost(VirtMachine *m);
 uint64_t     virt_machine_get_instret(VirtMachine *m);
 int          virt_machine_get_priv_level(VirtMachine *m);
+int virt_machine_get_most_recently_written_reg(VirtMachine *m,
+                                               uint64_t *instret_ts);
+int virt_machine_get_most_recently_written_fp_reg(VirtMachine *m,
+                                                 uint64_t *instret_ts);
 
 #endif
