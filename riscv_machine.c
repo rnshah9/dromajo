@@ -1015,10 +1015,10 @@ void virt_machine_repair_csr(VirtMachine *m, uint32_t reg_num, uint64_t csr_num,
     RISCVMachine *s = (RISCVMachine *)m;
     riscv_repair_csr(s->cpu_state,reg_num,csr_num,csr_val);
 }
-int virt_machine_load_repair(VirtMachine *m,uint32_t reg_num,uint64_t reg_val){
+int virt_machine_repair_load(VirtMachine *m,uint32_t reg_num,uint64_t reg_val){
 
     RISCVMachine *s = (RISCVMachine *)m;
-    return riscv_load_repair(s->cpu_state,reg_num,reg_val,s->htif_tohost_addr);
+    return riscv_repair_load(s->cpu_state,reg_num,reg_val,s->htif_tohost_addr,s->htif_tohost);
 }
 
 int virt_machine_repair_store(VirtMachine *m, uint32_t reg_num, uint32_t funct3)
