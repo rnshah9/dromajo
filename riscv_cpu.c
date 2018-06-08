@@ -1601,8 +1601,12 @@ void riscv_cpu_interp(RISCVCPUState *s, int n_cycles)
     uint64_t timeout;
 
     timeout = s->insn_counter + n_cycles;
+#ifdef VERIFICATION
+    {
+#else
     while (!s->power_down_flag &&
            (int)(timeout - s->insn_counter) > 0) {
+#endif
         n_cycles = timeout - s->insn_counter;
         switch(s->cur_xlen) {
         case 32:
@@ -1706,11 +1710,6 @@ void riscv_set_pc(RISCVCPUState *s, uint64_t pc)
 uint64_t riscv_get_pc(RISCVCPUState *s)
 {
     return s->pc;
-}
-
-int riscv_get_pending_exception(RISCVCPUState *s)
-{
-    return s->pending_exception;
 }
 
 uint64_t riscv_get_reg(RISCVCPUState *s, int rn)

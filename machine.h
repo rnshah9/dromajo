@@ -176,5 +176,6 @@ uint64_t     virt_machine_get_reg(VirtMachine *m, int rn);
 uint64_t     virt_machine_get_fpreg(VirtMachine *m, int rn);
 uint64_t     virt_machine_read_htif_tohost(VirtMachine *m);
 int          virt_machine_get_pending_exception(VirtMachine *m);
+uint64_t     virt_machine_get_instret(VirtMachine *m);
 
 #endif
