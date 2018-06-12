@@ -1737,14 +1737,22 @@ void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint
 }
 
 int riscv_repair_load(RISCVCPUState *s, uint32_t reg_num, uint64_t reg_val,
-                      uint64_t htif_tohost_addr, uint64_t htif_tohost)
+                              uint64_t htif_tohost_addr, uint64_t *htif_tohost, uint64_t *htif_fromhost)
 {
-    if (s->last_addr == htif_tohost_addr         ||
-        s->last_addr == htif_tohost_addr+64      ||
-       ( (s->last_addr >= htif_tohost + 0 ) &&
-         (s->last_addr <  htif_tohost + 32)    )  ) {
+    BOOL repair_load = 0;
+    if (s->last_addr == htif_tohost_addr) {
+        *htif_tohost = reg_val;
+        repair_load = 1;
+    } else if (s->last_addr == htif_tohost_addr + 64) {
+        *htif_fromhost = reg_val;
+        repair_load = 1;
+    } else if ((s->last_addr >= *htif_tohost + 0 ) && (s->last_addr <  *htif_tohost + 32)) {
+        target_write_slow(s, s->last_addr, reg_val, 3);
+        repair_load = 1;
+    }
+
+    if (repair_load) {
         s->reg[reg_num]=reg_val;
-        printf("riscv_repair_load: address=0x%0lx, data=0x%0lx\n",s->last_addr,reg_val);
         return 1;
     } else
         return 0;

@@ -1010,6 +1010,12 @@ uint64_t virt_machine_read_htif_tohost(VirtMachine *m)
     return s->htif_tohost;
 }
 
+uint64_t virt_machine_read_htif_tohost_addr(VirtMachine *m)
+{
+    RISCVMachine *s = (RISCVMachine *)m;
+    return s->htif_tohost_addr;
+}
+
 void virt_machine_repair_csr(VirtMachine *m, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val)
 {
     RISCVMachine *s = (RISCVMachine *)m;
@@ -1018,7 +1024,8 @@ void virt_machine_repair_csr(VirtMachine *m, uint32_t reg_num, uint64_t csr_num,
 int virt_machine_repair_load(VirtMachine *m,uint32_t reg_num,uint64_t reg_val){
 
     RISCVMachine *s = (RISCVMachine *)m;
-    return riscv_repair_load(s->cpu_state,reg_num,reg_val,s->htif_tohost_addr,s->htif_tohost);
+    return riscv_repair_load(s->cpu_state,reg_num,reg_val,s->htif_tohost_addr,&s->htif_tohost,&s->htif_fromhost);
+
 }
 
 int virt_machine_repair_store(VirtMachine *m, uint32_t reg_num, uint32_t funct3)
