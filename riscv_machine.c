@@ -1010,6 +1010,12 @@ uint64_t virt_machine_read_htif_tohost(VirtMachine *m)
     return s->htif_tohost;
 }
 
+void virt_machine_write_htif_tohost(VirtMachine *m, uint64_t tohost_value)
+{
+    RISCVMachine *s = (RISCVMachine *)m;
+    s->htif_tohost = tohost_value;
+}
+
 uint64_t virt_machine_read_htif_tohost_addr(VirtMachine *m)
 {
     RISCVMachine *s = (RISCVMachine *)m;
