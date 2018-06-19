@@ -203,7 +203,7 @@ static inline uintx_t glue(mulhsu, XLEN)(intx_t a, uintx_t b)
 static uint32_t chkfp32(target_ulong a)
 {
     if ((a & 0xFFFFFFFF00000000ULL) != 0xFFFFFFFF00000000ULL)
-        return -1 << 22;  // Not boxed correctedly, return float32 QNAN
+        return -1U << 22;  // Not boxed => return float32 QNAN
 
     return (uint32_t) a;
 }
@@ -230,8 +230,10 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
 
     /* check pending interrupts */
     if (unlikely((s->mip & s->mie) != 0)) {
-        if (raise_interrupt(s))
+        if (raise_interrupt(s)) {
+            --insn_counter_addend;
             goto done_interp;
+        }
     }
 
     s->pending_exception = -1;
@@ -1759,6 +1761,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
     s->pc = GET_PC();
     if (s->pending_exception >= 0) {
         raise_exception2(s, s->pending_exception, s->pending_tval);
+        --insn_counter_addend;
     }
     /* we exit because XLEN may have changed */
  done_interp:

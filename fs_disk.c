@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#if !defined(__APPLE__)
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -653,7 +654,8 @@ FSDevice *fs_disk_init(const char *root_path)
     fs->common.fs_unlinkat = fs_unlinkat;
     fs->common.fs_lock = fs_lock;
     fs->common.fs_getlock = fs_getlock;
-    
+
     fs->root_path = strdup(root_path);
     return (FSDevice *)fs;
 }
+#endif

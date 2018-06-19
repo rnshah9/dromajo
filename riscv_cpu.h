@@ -51,7 +51,6 @@ void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
                                          uint8_t *ram_ptr, size_t ram_size);
 void riscv_set_pc(RISCVCPUState *s, uint64_t pc);
 uint64_t riscv_get_pc(RISCVCPUState *s);
-int riscv_get_pending_exception(RISCVCPUState *s);
 uint64_t riscv_get_reg(RISCVCPUState *s, int rn);
 uint64_t riscv_get_fpreg(RISCVCPUState *s, int rn);
 void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);

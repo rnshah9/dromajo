@@ -968,12 +968,6 @@ uint64_t virt_machine_get_pc(VirtMachine *m)
     return riscv_get_pc(s->cpu_state);
 }
 
-int virt_machine_get_pending_exception(VirtMachine *m)
-{
-    RISCVMachine *s = (RISCVMachine *)m;
-    return riscv_get_pending_exception(s->cpu_state);
-}
-
 uint64_t virt_machine_get_reg(VirtMachine *m, int rn)
 {
     RISCVMachine *s = (RISCVMachine *)m;
@@ -1075,4 +1069,10 @@ void vm_send_mouse_event(VirtMachine *s1, int dx, int dy, int dz,
     if (s->mouse_dev) {
         virtio_input_send_mouse_event(s->mouse_dev, dx, dy, dz, buttons);
     }
+}
+
+uint64_t virt_machine_get_instret(VirtMachine *m)
+{
+    RISCVMachine *s = (RISCVMachine *)m;
+    return riscv_cpu_get_cycles(s->cpu_state);
 }

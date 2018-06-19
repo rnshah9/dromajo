@@ -1566,6 +1566,7 @@ static __exception int raise_interrupt(RISCVCPUState *s)
     return -1;
 }
 
+#ifdef CONFIG_EXT_C
 static inline int32_t sext(int32_t val, int n)
 {
     return (val << (32 - n)) >> (32 - n);
@@ -1582,6 +1583,7 @@ static inline uint32_t get_field1(uint32_t val, int src_pos,
     else
         return (val >> (src_pos - dst_pos)) & mask;
 }
+#endif
 
 #define XLEN 32
 #include "riscvemu_template.h"
@@ -1604,8 +1606,12 @@ void riscv_cpu_interp(RISCVCPUState *s, int n_cycles)
     uint64_t timeout;
 
     timeout = s->insn_counter + n_cycles;
+#ifdef VERIFICATION
+    {
+#else
     while (!s->power_down_flag &&
            (int)(timeout - s->insn_counter) > 0) {
+#endif
         n_cycles = timeout - s->insn_counter;
         switch(s->cur_xlen) {
         case 32:
@@ -1709,11 +1715,6 @@ void riscv_set_pc(RISCVCPUState *s, uint64_t pc)
 uint64_t riscv_get_pc(RISCVCPUState *s)
 {
     return s->pc;
-}
-
-int riscv_get_pending_exception(RISCVCPUState *s)
-{
-    return s->pending_exception;
 }
 
 uint64_t riscv_get_reg(RISCVCPUState *s, int rn)

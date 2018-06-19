@@ -12,7 +12,6 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
-#include <linux/if_tun.h>
 #include <sys/stat.h>
 #include <signal.h>
 
@@ -27,6 +26,7 @@ int main(int argc, char **argv)
     VirtMachine *m = virt_machine_main(argc, argv, TRUE);
 
     uint64_t last_pc = 0;
+    uint64_t instret = virt_machine_get_instret(m);
 
     while (virt_machine_read_htif_tohost(m) == 0 && virt_machine_get_pc(m) != last_pc) {
         last_pc = virt_machine_get_pc(m);
@@ -40,15 +40,17 @@ int main(int argc, char **argv)
         virt_machine_run(m);
         uint64_t new_value = (uint64_t)virt_machine_get_reg(m,rd);
         uint64_t new_fvalue = (uint64_t)virt_machine_get_fpreg(m,rd);
+        uint64_t prev_instret = instret;
+        instret = virt_machine_get_instret(m);
 
-        if (virt_machine_get_pending_exception(m) >= 0)
+        if (prev_instret == instret)
             continue;
 
-        printf("%d 0x%016jx (0x%08x)", priv, last_pc, insn_raw);
+        printf("%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, insn_raw);
         if (old_value != new_value) // XXX not ideal
-            printf(" x%2d 0x%016jx", rd, new_value);
+            printf(" x%2d 0x%016"PRIx64, rd, new_value);
         if (old_fvalue != new_fvalue) // XXX not ideal
-            printf(" f%2d 0x%016jx", rd, new_fvalue);
+            printf(" f%2d 0x%016"PRIx64, rd, new_fvalue);
         putchar('\n');
     }
 
