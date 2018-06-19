@@ -264,11 +264,11 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                     goto the_end;
                 }
             }
-    
+
             addr = s->pc;
             tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
             if (likely(s->tlb_code[tlb_idx].vaddr == (addr & ~PG_MASK))) {
-                /* TLB match */ 
+                /* TLB match */
                 mem_addend = s->tlb_code[tlb_idx].mem_addend;
             } else {
                 if (unlikely(target_read_insn_slow(s, &mem_addend, addr)))
@@ -1760,8 +1760,14 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
  exception:
     s->pc = GET_PC();
     if (s->pending_exception >= 0) {
+        if ((s->pending_exception < CAUSE_USER_ECALL ||
+             s->pending_exception > CAUSE_USER_ECALL + 3) &&
+            s->pending_exception != CAUSE_BREAKPOINT)
+            /* All other causes cancelled the instruction and shouldn't be
+             * counted in minstret */
+            --insn_counter_addend;
+
         raise_exception2(s, s->pending_exception, s->pending_tval);
-        --insn_counter_addend;
     }
     /* we exit because XLEN may have changed */
  done_interp:
