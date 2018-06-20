@@ -57,3 +57,4 @@ void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);
 void riscv_dump_regs(RISCVCPUState *s);
 int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr);
 int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr);
+int riscv_get_priv_level(RISCVCPUState *s);

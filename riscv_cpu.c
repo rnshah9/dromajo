@@ -1765,3 +1765,8 @@ uint32_t riscv_cpu_get_misa(RISCVCPUState *s)
 {
     return s->misa;
 }
+
+int riscv_get_priv_level(RISCVCPUState *s)
+{
+    return s->priv;
+}

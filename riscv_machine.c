@@ -1044,3 +1044,8 @@ uint64_t virt_machine_get_instret(VirtMachine *m)
     RISCVMachine *s = (RISCVMachine *)m;
     return riscv_cpu_get_cycles(s->cpu_state);
 }
+
+int virt_machine_get_priv_level(VirtMachine *m)
+{
+    return riscv_get_priv_level(((RISCVMachine *)m)->cpu_state);
+}

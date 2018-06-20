@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 
     while (virt_machine_read_htif_tohost(m) == 0 && virt_machine_get_pc(m) != last_pc) {
         last_pc = virt_machine_get_pc(m);
-        int priv = 3; // XXX extract the actual value from RISCVEMU
+        int priv = virt_machine_get_priv_level(m);
 
         uint32_t insn_raw = 0;
         virt_machine_read_insn(m, &insn_raw, last_pc);
