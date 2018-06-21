@@ -1,6 +1,6 @@
 /*
  * RISCV CPU emulator
- * 
+ *
  * Copyright (c) 2016-2017 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -57,7 +57,14 @@ void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);
 void riscv_dump_regs(RISCVCPUState *s);
 int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr);
 int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr);
-void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val);
+void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num,
+                      uint64_t csr_val);
 int riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3);
-int riscv_repair_load(RISCVCPUState *s, uint32_t reg_num, uint64_t reg_val,uint64_t htif_tohost_addr, uint64_t *htif_tohost, uint64_t *htif_fromhost); 
-
+int riscv_repair_load(RISCVCPUState *s, uint32_t reg_num, uint64_t reg_val,
+                      uint64_t htif_tohost_addr, uint64_t *htif_tohost,
+                      uint64_t *htif_fromhost);
+int riscv_get_priv_level(RISCVCPUState *s);
+int riscv_get_most_recently_written_reg(RISCVCPUState *s,
+                                        uint64_t *instret_ts);
+int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
+                                           uint64_t *instret_ts);

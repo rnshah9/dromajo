@@ -1,6 +1,6 @@
 /*
  * RISCV machine
- * 
+ *
  * Copyright (c) 2016-2017 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -134,8 +134,8 @@ static void htif_handle_cmd(RISCVMachine *s)
     cmd = (s->htif_tohost >> 48) & 0xff;
     if (s->htif_tohost == 1) {
         /* shuthost */
-        printf("\nPower off.\n");
 #ifndef VERIFICATION
+        printf("\nPower off.\n");
         exit(0);
 #endif
     } else if (device == 1 && cmd == 1) {
@@ -1075,4 +1075,19 @@ uint64_t virt_machine_get_instret(VirtMachine *m)
 {
     RISCVMachine *s = (RISCVMachine *)m;
     return riscv_cpu_get_cycles(s->cpu_state);
+}
+
+int virt_machine_get_priv_level(VirtMachine *m)
+{
+    return riscv_get_priv_level(((RISCVMachine *)m)->cpu_state);
+}
+
+int virt_machine_get_most_recently_written_reg(VirtMachine *m, uint64_t *instret_ts)
+{
+    return riscv_get_most_recently_written_reg(((RISCVMachine *)m)->cpu_state, instret_ts);
+}
+
+int virt_machine_get_most_recently_written_fp_reg(VirtMachine *m, uint64_t *instret_ts)
+{
+    return riscv_get_most_recently_written_fp_reg(((RISCVMachine *)m)->cpu_state, instret_ts);
 }

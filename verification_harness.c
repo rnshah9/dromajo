@@ -30,16 +30,13 @@ int main(int argc, char **argv)
 
     while (virt_machine_read_htif_tohost(m) == 0 && virt_machine_get_pc(m) != last_pc) {
         last_pc = virt_machine_get_pc(m);
-        int priv = 3; // XXX extract the actual value from RISCVEMU
+        int priv = virt_machine_get_priv_level(m);
 
         uint32_t insn_raw = 0;
         virt_machine_read_insn(m, &insn_raw, last_pc);
-        int rd = (insn_raw >> 7) & 0x1F;
-        uint64_t old_value = (uint64_t)virt_machine_get_reg(m,rd);
-        uint64_t old_fvalue = (uint64_t)virt_machine_get_fpreg(m,rd);
+
         virt_machine_run(m);
-        uint64_t new_value = (uint64_t)virt_machine_get_reg(m,rd);
-        uint64_t new_fvalue = (uint64_t)virt_machine_get_fpreg(m,rd);
+
         uint64_t prev_instret = instret;
         instret = virt_machine_get_instret(m);
 
@@ -47,12 +44,22 @@ int main(int argc, char **argv)
             continue;
 
         printf("%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, insn_raw);
-        if (old_value != new_value) // XXX not ideal
-            printf(" x%2d 0x%016"PRIx64, rd, new_value);
-        if (old_fvalue != new_fvalue) // XXX not ideal
-            printf(" f%2d 0x%016"PRIx64, rd, new_fvalue);
+
+        uint64_t regno_ts;
+        int regno = virt_machine_get_most_recently_written_reg(m, &regno_ts);
+        if (regno > 0 && prev_instret == regno_ts)
+            printf(" x%2d 0x%016lx", regno,
+                   virt_machine_get_reg(m, regno));
+
+        regno = virt_machine_get_most_recently_written_fp_reg(m, &regno_ts);
+        if (regno >= 0 && prev_instret == regno_ts)
+            printf(" f%2d 0x%016"PRIx64, regno,
+                   virt_machine_get_fpreg(m, regno));
+
         putchar('\n');
     }
+
+    printf("\nPower off.\n");
 
     virt_machine_end(m);
 
