@@ -34,6 +34,21 @@
 #error unsupported F_SIZE
 #endif
 
+/*
+  This template is included for each of F_SIZE=32 (single precision),
+  F_SIZE=64 (double precision), and F_SIZE=128 (quad precision).
+
+  unbox() checks that the value is corrected NaN-boxed _according to
+  F_SIZE_.  That means, that when XLEN=F_SIZE, it's a no-op, when XLEN
+  < F_SIZE it's undefined and not used.  It's only non-trivial when
+  XLEN > F_SIZE (and the case we case the most about is XLEN=64 and
+  F_SIZE=32.
+
+  However, some of the instruction below are operating on two formats
+  at once and care must applied to only use box() upon generic
+  arguments (that is, values that depend on F_SIZE)
+*/
+
 #define isboxed(r) (((r) & F_HIGH) == F_HIGH)
 #define unbox(r) (isboxed(r) ? (r) : F_QNAN)
 #define F_QNAN glue(F_QNAN, F_SIZE)
@@ -98,8 +113,9 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                                  ((unbox(read_fp_reg(rs2)) & FSIGN_MASK) ^ FSIGN_MASK) | F_HIGH);
                     break;
                 case 2: /* fsgnjx */
-                    write_fp_reg(rd, (unbox(read_fp_reg(rs1)) ^
-                        (unbox(read_fp_reg(rs2)) & FSIGN_MASK)) | F_HIGH);
+                    write_fp_reg(rd,
+                                 (unbox(read_fp_reg(rs1)) ^
+                                  (unbox(read_fp_reg(rs2)) & FSIGN_MASK)) | F_HIGH);
                     break;
                 default:
                     goto illegal_insn;
@@ -110,13 +126,13 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 switch(rm) {
                 case 0: /* fmin */
                     write_fp_reg(rd, glue(min_sf, F_SIZE)(unbox(read_fp_reg(rs1)),
-                                                   unbox(read_fp_reg(rs2)),
-                                                   &s->fflags) | F_HIGH);
+                                                          unbox(read_fp_reg(rs2)),
+                                                          &s->fflags) | F_HIGH);
                     break;
                 case 1: /* fmax */
                     write_fp_reg(rd, glue(max_sf, F_SIZE)(unbox(read_fp_reg(rs1)),
-                                                   unbox(read_fp_reg(rs2)),
-                                                   &s->fflags) | F_HIGH);
+                                                          unbox(read_fp_reg(rs2)),
+                                                          &s->fflags) | F_HIGH);
                     break;
                 default:
                     goto illegal_insn;
@@ -130,31 +146,31 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 switch(rs2) {
                 case 0: /* fcvt.w.[sdq] */
                     val = (int32_t)glue(glue(cvt_sf, F_SIZE), _i32)(unbox(read_fp_reg(rs1)), rm,
-                                                          &s->fflags);
+                                                                    &s->fflags);
                     break;
                 case 1: /* fcvt.wu.[sdq] */
                     val = (int32_t)glue(glue(cvt_sf, F_SIZE), _u32)(unbox(read_fp_reg(rs1)), rm,
-                                                          &s->fflags);
+                                                                    &s->fflags);
                     break;
 #if XLEN >= 64
                 case 2: /* fcvt.l.[sdq] */
                     val = (int64_t)glue(glue(cvt_sf, F_SIZE), _i64)(unbox(read_fp_reg(rs1)), rm,
-                                                          &s->fflags);
+                                                                    &s->fflags);
                     break;
                 case 3: /* fcvt.lu.[sdq] */
                     val = (int64_t)glue(glue(cvt_sf, F_SIZE), _u64)(unbox(read_fp_reg(rs1)), rm,
-                                                          &s->fflags);
+                                                                    &s->fflags);
                     break;
 #endif
 #if XLEN >= 128
                 /* XXX: the index is not defined in the spec */
                 case 4: /* fcvt.t.[sdq] */
                     val = glue(glue(cvt_sf, F_SIZE), _i128)(unbox(read_fp_reg(rs1)), rm,
-                                                          &s->fflags);
+                                                            &s->fflags);
                     break;
                 case 5: /* fcvt.tu.[sdq] */
                     val = glue(glue(cvt_sf, F_SIZE), _u128)(unbox(read_fp_reg(rs1)), rm,
-                                                          &s->fflags);
+                                                            &s->fflags);
                     break;
 #endif
                 default:
@@ -193,31 +209,31 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 switch(rs2) {
                 case 0: /* fcvt.[sdq].w */
                     write_fp_reg(rd, glue(cvt_i32_sf, F_SIZE)(read_reg(rs1), rm,
-                                                       &s->fflags) | F_HIGH);
+                                                              &s->fflags) | F_HIGH);
                     break;
                 case 1: /* fcvt.[sdq].wu */
                     write_fp_reg(rd, glue(cvt_u32_sf, F_SIZE)(read_reg(rs1), rm,
-                                                       &s->fflags) | F_HIGH);
+                                                              &s->fflags) | F_HIGH);
                     break;
 #if XLEN >= 64
                 case 2: /* fcvt.[sdq].l */
                     write_fp_reg(rd, glue(cvt_i64_sf, F_SIZE)(read_reg(rs1), rm,
-                                                       &s->fflags) | F_HIGH);
+                                                              &s->fflags) | F_HIGH);
                     break;
                 case 3: /* fcvt.[sdq].lu */
                     write_fp_reg(rd, glue(cvt_u64_sf, F_SIZE)(read_reg(rs1), rm,
-                                                       &s->fflags) | F_HIGH);
+                                                              &s->fflags) | F_HIGH);
                     break;
 #endif
 #if XLEN >= 128
                 /* XXX: the index is not defined in the spec */
                 case 4: /* fcvt.[sdq].t */
                     write_fp_reg(rd, glue(cvt_i128_sf, F_SIZE)(read_reg(rs1), rm,
-                                                       &s->fflags) | F_HIGH);
+                                                               &s->fflags) | F_HIGH);
                     break;
                 case 5: /* fcvt.[sdq].tu */
                     write_fp_reg(rd, glue(cvt_u128_sf, F_SIZE)(read_reg(rs1), rm,
-                                                       &s->fflags) | F_HIGH);
+                                                               &s->fflags) | F_HIGH);
                     break;
 #endif
                 default:
@@ -243,7 +259,14 @@ extern glue(sfloat, F_SIZE) F_QNAN;
 #endif /* F_SIZE == 32 */
 #if F_SIZE == 64
                 case 0: /* cvt.d.s */
-                    write_fp_reg(rd, cvt_sf32_sf64(unbox(read_fp_reg(rs1)), &s->fflags) | F64_HIGH);
+                    {
+                        /* Check NaN-boxing of the *explictly* 32-bit float */
+                        fp_uint v = read_fp_reg(rs1);
+                        if ((v & F32_HIGH) != F32_HIGH)
+                            v = F_QNAN32;
+                        v = cvt_sf32_sf64(v, &s->fflags) | F64_HIGH;
+                        write_fp_reg(rd, v);
+                    }
                     break;
 #if FLEN >= 128
                 case 1: /* cvt.d.q */
