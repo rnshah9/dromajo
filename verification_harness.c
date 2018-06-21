@@ -59,6 +59,8 @@ int main(int argc, char **argv)
         putchar('\n');
     }
 
+    printf("\nPower off.\n");
+
     virt_machine_end(m);
 
     return 0;

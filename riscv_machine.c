@@ -133,8 +133,8 @@ static void htif_handle_cmd(RISCVMachine *s)
     cmd = (s->htif_tohost >> 48) & 0xff;
     if (s->htif_tohost == 1) {
         /* shuthost */
-        printf("\nPower off.\n");
 #ifndef VERIFICATION
+        printf("\nPower off.\n");
         exit(0);
 #endif
     } else if (device == 1 && cmd == 1) {
