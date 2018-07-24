@@ -43,7 +43,10 @@ int main(int argc, char **argv)
         if (prev_instret == instret)
             continue;
 
-        printf("%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, insn_raw);
+        if ((insn_raw & 3) == 3)
+            printf("%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, insn_raw);
+        else
+            printf("%d 0x%016"PRIx64" (0x%04x)", priv, last_pc, (uint16_t) insn_raw);
 
         uint64_t regno_ts;
         int regno = virt_machine_get_most_recently_written_reg(m, &regno_ts);
