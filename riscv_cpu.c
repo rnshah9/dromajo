@@ -1697,7 +1697,8 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map)
     s->cur_xlen = MAX_XLEN;
     s->mxl = get_base_from_xlen(MAX_XLEN);
     s->mstatus = ((uint64_t)s->mxl << MSTATUS_UXL_SHIFT) |
-        ((uint64_t)s->mxl << MSTATUS_SXL_SHIFT);
+        ((uint64_t)s->mxl << MSTATUS_SXL_SHIFT) |
+        (3 << MSTATUS_MPP_SHIFT);
     s->misa |= MCPUID_SUPER | MCPUID_USER | MCPUID_I | MCPUID_M | MCPUID_A;
     s->most_recently_written_reg = -1;
 #if FLEN >= 32
