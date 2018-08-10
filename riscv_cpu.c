@@ -1227,8 +1227,6 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
 #if FLEN > 0
 static void set_frm(RISCVCPUState *s, unsigned int val)
 {
-    if (val >= 5)
-        val = 0;
     s->frm = val;
 }
 
@@ -1236,7 +1234,8 @@ static void set_frm(RISCVCPUState *s, unsigned int val)
 static int get_insn_rm(RISCVCPUState *s, unsigned int rm)
 {
     if (rm == 7)
-        return s->frm;
+        rm = s->frm;
+
     if (rm >= 5)
         return -1;
     else
