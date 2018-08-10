@@ -1288,7 +1288,10 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->sscratch = val;
         break;
     case 0x141:
-        s->sepc = val & ~1;
+        if (s->misa & MCPUID_C)
+            s->sepc = val & ~1;
+        else
+            s->sepc = val & ~3;
         break;
     case 0x142:
         s->scause = val;
@@ -1372,7 +1375,10 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mscratch = val;
         break;
     case 0x341:
-        s->mepc = val & ~1;
+        if (s->misa & MCPUID_C)
+            s->mepc = val & ~1;
+        else
+            s->mepc = val & ~3;
         break;
     case 0x342:
         s->mcause = val;
