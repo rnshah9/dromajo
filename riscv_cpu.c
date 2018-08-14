@@ -154,6 +154,8 @@ typedef uint128_t mem_uint_t;
 #define CAUSE_LOAD_PAGE_FAULT     0xd
 #define CAUSE_STORE_PAGE_FAULT    0xf
 
+#define CAUSE_MASK 0x1f // not including the MSB for interrupt
+
 /* Note: converted to correct bit position at runtime */
 #define CAUSE_INTERRUPT  ((uint32_t)1 << 31)
 
@@ -1301,7 +1303,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
             s->sepc = val & ~3;
         break;
     case 0x142:
-        s->scause = val;
+        s->scause = val & (CAUSE_MASK | (target_ulong)1 << (s->cur_xlen - 1));
         break;
     case 0x143:
         s->stval = val;
@@ -1379,7 +1381,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
             s->mepc = val & ~3;
         break;
     case 0x342:
-        s->mcause = val;
+        s->mcause = val & (CAUSE_MASK | (target_ulong)1 << (s->cur_xlen - 1));
         break;
     case 0x343:
         s->mtval = val;
@@ -1471,7 +1473,7 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
         deleg = 0;
     }
 
-    causel = cause & 0x7fffffff;
+    causel = cause & CAUSE_MASK;
     if (cause & CAUSE_INTERRUPT)
         causel |= (target_ulong)1 << (s->cur_xlen - 1);
 
