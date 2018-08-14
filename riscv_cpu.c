@@ -208,6 +208,14 @@ typedef uint128_t mem_uint_t;
 #define PG_SHIFT 12
 #define PG_MASK ((1 << PG_SHIFT) - 1)
 
+#define ASID_BITS 0
+
+#if MAX_XLEN == 32
+#define SATP_MASK ((1     << 31) | (((1    << ASID_BITS) - 1) << 22) | ((1    << 22) - 1))
+#else
+#define SATP_MASK ((15ULL << 60) | (((1ULL << ASID_BITS) - 1) << 44) | ((1ULL << 44) - 1))
+#endif
+
 typedef struct {
     target_ulong vaddr;
     uintptr_t mem_addend;
@@ -1305,25 +1313,16 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case 0x180:
         if (s->priv == PRV_S && s->mstatus & MSTATUS_TVM)
             return -1;
-        /* no ASID implemented */
 #if MAX_XLEN == 32
-        {
-            int new_mode;
-            new_mode = (val >> 31) & 1;
-            s->satp = (val & (((target_ulong)1 << 22) - 1)) |
-                (new_mode << 31);
-        }
+        s->satp = val & SATP_MASK;
 #else
         {
-            int mode, new_mode;
-            mode = s->satp >> 60;
-            new_mode = (val >> 60) & 0xf;
-            if (new_mode == 0 || (new_mode >= 8 && new_mode <= 9))
-                mode = new_mode;
-            s->satp = (val & (((uint64_t)1 << 44) - 1)) |
-                ((uint64_t)mode << 60);
+            uint64_t mode = (val >> 60) & 15;
+            if (mode == 0 || mode == 8 || mode == 9)
+                s->satp = val & SATP_MASK;
         }
 #endif
+        /* no ASID implemented [yet] */
         tlb_flush_all(s);
         return 2;
 
