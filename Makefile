@@ -117,15 +117,15 @@ X86EMU_OBJS:=$(EMU_OBJS) x86emu.o x86_cpu.o x86_machine.o riscvemu_main.o \
 	ide.o ps2.o vmmouse.o pckbd.o vga.o
 
 ifdef CONFIG_VERIFICATION
-vharness: verification_harness.o riscv_cpu64.o riscvemu.o \
+vharness: vharness.o riscv_cpu64.o riscvemu.o \
 	  riscv_machine.o softfp.o $(EMU_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
 
-libvharness.a: verification_harness.o riscv_cpu64.o riscvemu.o \
+libvharness.a: vharness.o riscv_cpu64.o riscvemu.o \
 	riscv_machine.o softfp.o $(EMU_OBJS)
 	ar rvs $@ $^
 
-verification_harness.o: verification_harness.c
+vharness.o: vharness.c
 	$(CC) $(CFLAGS) -DMAX_XLEN=64 -c -o $@ $<
 endif
 
