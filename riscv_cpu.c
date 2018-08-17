@@ -993,11 +993,11 @@ void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
 }
 
 
-#define SSTATUS_MASK0 (MSTATUS_UIE | MSTATUS_SIE |       \
-                      MSTATUS_UPIE | MSTATUS_SPIE |     \
-                      MSTATUS_SPP | \
-                      MSTATUS_FS | MSTATUS_XS | \
-                      MSTATUS_SUM | MSTATUS_MXR)
+#define SSTATUS_MASK0 (MSTATUS_SIE |                    \
+                       MSTATUS_SPIE |                   \
+                       MSTATUS_SPP |                    \
+                       MSTATUS_FS | MSTATUS_XS |        \
+                       MSTATUS_SUM | MSTATUS_MXR)
 #if MAX_XLEN >= 64
 #define SSTATUS_MASK (SSTATUS_MASK0 | MSTATUS_UXL_MASK)
 #else
@@ -1005,10 +1005,10 @@ void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
 #endif
 
 
-#define MSTATUS_MASK (MSTATUS_UIE | MSTATUS_SIE | MSTATUS_MIE |      \
-                      MSTATUS_UPIE | MSTATUS_SPIE | MSTATUS_MPIE |    \
-                      MSTATUS_SPP | MSTATUS_MPP | \
-                      MSTATUS_FS | \
+#define MSTATUS_MASK (MSTATUS_SIE | MSTATUS_MIE |                \
+                      MSTATUS_SPIE | MSTATUS_MPIE |              \
+                      MSTATUS_SPP | MSTATUS_MPP |                \
+                      MSTATUS_FS |                               \
                       MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR | \
                       MSTATUS_TVM | MSTATUS_TW | MSTATUS_TSR)
 
