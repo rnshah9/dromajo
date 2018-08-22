@@ -1750,6 +1750,8 @@ void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint
     switch (csr_num & 0xFFF) {
     case 0xb00:
     case 0xb02:
+    case 0xc00:
+    case 0xc02:
         s->insn_counter = csr_val;
         s->reg[reg_num] = csr_val;
         break;
