@@ -1388,7 +1388,22 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         mask = MIP_SSIP | MIP_STIP;
         s->mip = (s->mip & ~mask) | (val & mask);
         break;
+    case 0xc00: /* ucycle */
+    case 0xc02: /* uinstret */
+        if (!counter_access_ok(s, csr))
+            goto invalid_csr;
+        s->insn_counter = val; // XXX not exactly clear what happens in RV32
+        break;
+
+    case 0xc80: /* mcycleh */
+    case 0xc82: /* minstreth */
+        if (s->cur_xlen != 32 || !counter_access_ok(s, csr))
+            goto invalid_csr;
+        s->insn_counter = (uint32_t) s->insn_counter | ((uint64_t)val << 32);
+        break;
+
     default:
+    invalid_csr:
 #ifdef DUMP_INVALID_CSR
         printf("csr_write: invalid CSR=0x%x\n", csr);
 #endif
