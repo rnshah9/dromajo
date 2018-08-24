@@ -1256,7 +1256,8 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
             funct3 &= 3;
             switch(funct3) {
             case 1: /* csrrw */
-                s->insn_counter = GET_INSN_COUNTER();
+                if (!s->stop_the_counter)
+                    s->insn_counter = GET_INSN_COUNTER();
                 if (csr_read(s, &val2, imm, TRUE))
                     goto illegal_insn;
                 val2 = (intx_t)val2;
@@ -1275,7 +1276,8 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 break;
             case 2: /* csrrs */
             case 3: /* csrrc */
-                s->insn_counter = GET_INSN_COUNTER();
+                if (!s->stop_the_counter)
+                    s->insn_counter = GET_INSN_COUNTER();
                 if (csr_read(s, &val2, imm, (rs1 != 0)))
                     goto illegal_insn;
                 val2 = (intx_t)val2;
@@ -1335,6 +1337,17 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                             goto illegal_insn;
                         s->pc = GET_PC();
                         handle_mret(s);
+                        goto done_interp;
+                    }
+                    break;
+                case 0x7b2: /* dret */
+                    {
+                        if (insn & 0x000fff80)
+                            goto illegal_insn;
+                        if (s->priv < PRV_M) // FIXME: It should be illegal even in M, but this is the only that we have now
+                            goto illegal_insn;
+                        s->pc = GET_PC();
+                        handle_dret(s);
                         goto done_interp;
                     }
                     break;
@@ -1783,15 +1796,13 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
         raise_exception2(s, s->pending_exception, s->pending_tval);
     }
     /* we exit because XLEN may have changed */
- done_interp:
+
+done_interp:
     n_cycles--;
+
 the_end:
-    s->insn_counter = GET_INSN_COUNTER();
-#if 0
-    printf("done interp %lx int=%x mstatus=%lx prv=%d\n",
-           (uint64_t)s->insn_counter, s->mip & s->mie, (uint64_t)s->mstatus,
-           s->priv);
-#endif
+    if (!s->stop_the_counter)
+        s->insn_counter = GET_INSN_COUNTER();
 }
 
 #undef uintx_t

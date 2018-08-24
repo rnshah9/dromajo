@@ -167,6 +167,8 @@ BlockDevice *block_device_init_http(const char *url,
                                     void (*start_cb)(void *opaque),
                                     void *start_opaque);
 VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc);
+void         virt_machine_serialize(VirtMachine *m, const char *dump_name);
+void         virt_machine_deserialize(VirtMachine *m, const char *dump_name);
 void         virt_machine_run(VirtMachine *m);
 void         virt_machine_dump_regs(VirtMachine *m);
 int          virt_machine_read_insn(VirtMachine *m, uint32_t *insn, uint64_t addr);

@@ -28,12 +28,33 @@ int main(int argc, char **argv)
     uint64_t last_pc = 0;
     uint64_t instret = virt_machine_get_instret(m);
 
+    const char *dump_name = 0;
+    uint64_t    dump_skip = 0;
+    // vharness foo.cfg foo # reads a checkpoint
+    // vharness foo.cfg foo 33 # writes a checkpoint after 33 instructions
+    if (argc > 2) {
+        dump_name = strdup(argv[2]);
+        if (argc > 3) {
+            dump_skip = atoi(argv[3]);
+            printf("Dumping state to %s with %"PRIu64" skip\n", dump_name, dump_skip);
+        } else {
+            printf("reading state from %s\n", dump_name);
+            virt_machine_deserialize(m, dump_name);
+            dump_name = 0;
+        }
+    }
+
     while (virt_machine_read_htif_tohost(m) == 0 && virt_machine_get_pc(m) != last_pc) {
         last_pc = virt_machine_get_pc(m);
         int priv = virt_machine_get_priv_level(m);
 
         uint32_t insn_raw = 0;
         virt_machine_read_insn(m, &insn_raw, last_pc);
+
+        if (dump_name && dump_skip <= virt_machine_get_instret(m)) {
+          virt_machine_serialize(m, dump_name);
+          exit(0);
+        }
 
         virt_machine_run(m);
 

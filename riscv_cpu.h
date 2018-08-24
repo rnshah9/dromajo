@@ -34,6 +34,12 @@
 //#define MIP_HEIP (1 << 10)  Removed in Priv 1.11 (draft)
 #define MIP_MEIP (1 << 11)
 
+#define ROM_SIZE       0x00001000
+#define ROM_BASE_ADDR  0x00001000
+#define BOOT_BASE_ADDR 0x00001040
+
+#define RAM_BASE_ADDR  0x80000000
+
 typedef struct RISCVCPUState RISCVCPUState;
 
 int riscv_cpu_get_max_xlen(void);
@@ -68,3 +74,5 @@ int riscv_get_most_recently_written_reg(RISCVCPUState *s,
                                         uint64_t *instret_ts);
 int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
                                            uint64_t *instret_ts);
+void riscv_cpu_serialize(RISCVCPUState *s, const char *dump_name);
+void riscv_cpu_deserialize(RISCVCPUState *s, const char *dump_name);

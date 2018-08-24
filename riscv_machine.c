@@ -62,8 +62,6 @@ typedef struct RISCVMachine {
     int virtio_count;
 } RISCVMachine;
 
-#define LOW_RAM_SIZE   0x00010000 /* 64KB */
-#define RAM_BASE_ADDR  0x80000000
 #define CLINT_BASE_ADDR 0x02000000
 #define CLINT_SIZE      0x000c0000
 #define HTIF_BASE_ADDR 0x40008000
@@ -748,21 +746,21 @@ static void copy_kernel(RISCVMachine *s, const uint8_t *buf, int buf_len,
     ram_ptr = get_ram_ptr(s, RAM_BASE_ADDR);
     memcpy(ram_ptr, buf, buf_len);
 
-    ram_ptr = get_ram_ptr(s, 0);
+    ram_ptr = get_ram_ptr(s, ROM_BASE_ADDR);
 
-    fdt_addr = 0x1000 + 8 * 4;
+    fdt_addr = (BOOT_BASE_ADDR-ROM_BASE_ADDR) + 8 * 4;
     riscv_build_fdt(s, ram_ptr + fdt_addr, cmd_line);
 
     /* jump_addr = 0x80000000 */
 
-    q = (uint32_t *)(ram_ptr + 0x1000);
+    q = (uint32_t *)(ram_ptr + (BOOT_BASE_ADDR-ROM_BASE_ADDR));
     q[0] = 0x00000297; // auipc   t0, 0x0
     q[1] = 0x02028593; // addi    a1, t0, 32
     q[2] = 0xf1402573; // csrr    a0, mhartid
     q[3] = 0x0182b283; // ld      t0, 24(t0)
     q[4] = 0x00028067; // jr      t0
     q[5] = 0;
-    q[6] = 0x80000000; // the target address
+    q[6] = RAM_BASE_ADDR; // the target address
 }
 
 static void riscv_flush_tlb_write_range(void *opaque, uint8_t *ram_addr,
@@ -796,7 +794,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
 
     /* RAM */
     cpu_register_ram(s->mem_map, RAM_BASE_ADDR, p->ram_size, 0);
-    cpu_register_ram(s->mem_map, 0x00000000, LOW_RAM_SIZE, 0);
+    cpu_register_ram(s->mem_map, ROM_BASE_ADDR, ROM_SIZE, 0);
     
     s->rtc_real_time = p->rtc_real_time;
     if (p->rtc_real_time) {
@@ -906,7 +904,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     }
     copy_kernel(s, p->files[VM_FILE_BIOS].buf, p->files[VM_FILE_BIOS].len,
                 p->cmdline);
-    
+
     return (VirtMachine *)s;
 }
 
@@ -919,29 +917,46 @@ void virt_machine_end(VirtMachine *s1)
     free(s);
 }
 
-/* in ms */
-int virt_machine_get_sleep_duration(VirtMachine *s1, int delay)
+void virt_machine_serialize(VirtMachine *s1, const char *dump_name)
 {
     RISCVMachine *m = (RISCVMachine *)s1;
     RISCVCPUState *s = m->cpu_state;
-    int64_t delay1;
+
+    riscv_cpu_serialize(s, dump_name);
+}
+
+void virt_machine_deserialize(VirtMachine *s1, const char *dump_name)
+{
+    RISCVMachine *m = (RISCVMachine *)s1;
+    RISCVCPUState *s = m->cpu_state;
+
+    riscv_cpu_deserialize(s, dump_name);
+}
+
+int virt_machine_get_sleep_duration(VirtMachine *s1, int ms_delay)
+{
+    RISCVMachine *m = (RISCVMachine *)s1;
+    RISCVCPUState *s = m->cpu_state;
+    int64_t ms_delay1;
 
     /* wait for an event: the only asynchronous event is the RTC timer */
     if (!(riscv_cpu_get_mip(s) & MIP_MTIP)) {
-        delay1 = m->timecmp - rtc_get_time(m);
-        if (delay1 <= 0) {
+        ms_delay1 = m->timecmp - rtc_get_time(m);
+        if (ms_delay1 <= 0) {
             riscv_cpu_set_mip(s, MIP_MTIP);
-            delay = 0;
+            ms_delay = 0;
         } else {
             /* convert delay to ms */
-            delay1 = delay1 / (RTC_FREQ / 1000);
-            if (delay1 < delay)
-                delay = delay1;
+            ms_delay1 = ms_delay1 / (RTC_FREQ / 1000);
+            if (ms_delay1 < ms_delay)
+                ms_delay = ms_delay1;
         }
     }
+
     if (!riscv_cpu_get_power_down(s))
-        delay = 0;
-    return delay;
+        ms_delay = 0;
+
+    return ms_delay;
 }
 
 void virt_machine_interp(VirtMachine *s1, int max_exec_cycle)
@@ -1021,11 +1036,11 @@ void virt_machine_repair_csr(VirtMachine *m, uint32_t reg_num, uint64_t csr_num,
     RISCVMachine *s = (RISCVMachine *)m;
     riscv_repair_csr(s->cpu_state,reg_num,csr_num,csr_val);
 }
-int virt_machine_repair_load(VirtMachine *m,uint32_t reg_num,uint64_t reg_val){
 
+int virt_machine_repair_load(VirtMachine *m,uint32_t reg_num,uint64_t reg_val)
+{
     RISCVMachine *s = (RISCVMachine *)m;
     return riscv_repair_load(s->cpu_state,reg_num,reg_val,s->htif_tohost_addr,&s->htif_tohost,&s->htif_fromhost);
-
 }
 
 int virt_machine_repair_store(VirtMachine *m, uint32_t reg_num, uint32_t funct3)

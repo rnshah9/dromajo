@@ -2,6 +2,7 @@
  * RISCV CPU emulator
  *
  * Copyright (c) 2016-2017 Fabrice Bellard
+ * Copyright (c) 2018 Esperanto Technologies
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +29,8 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <err.h>
 
 #include "cutils.h"
 #include "iomem.h"
@@ -252,6 +255,8 @@ struct RISCVCPUState {
     uint8_t mxl; /* MXL field in MISA register */
 
     uint64_t insn_counter;
+    BOOL     stop_the_counter; // Set in debug mode only (cleared after ending Debug)
+
     BOOL power_down_flag;
     int pending_exception; /* used during MMU exception handling */
     target_ulong pending_tval;
@@ -286,6 +291,9 @@ struct RISCVCPUState {
     uint64_t satp; /* currently 64 bit physical addresses max */
 #endif
     uint32_t scounteren;
+
+    target_ulong dcsr; // Debug CSR 0x7b0 (debug spec only)
+    target_ulong dpc;  // Debug DPC 0x7b1 (debug spec only)
 
     target_ulong load_res; /* for atomic LR/SC */
     uint32_t  store_repair_val32; /* saving previous value of memory so it can be repaired */
@@ -381,7 +389,7 @@ static void dump_regs(RISCVCPUState *s)
     printf("pc =");
     print_target_ulong(s->pc);
     printf(" ");
-    for(i = 1; i < 32; i++) {
+    for (i = 1; i < 32; i++) {
         printf("%-3s=", reg_name[i]);
         print_target_ulong(s->reg[i]);
         if ((i & (cols - 1)) == (cols - 1))
@@ -957,7 +965,7 @@ static void tlb_init(RISCVCPUState *s)
 {
     int i;
 
-    for(i = 0; i < TLB_SIZE; i++) {
+    for (i = 0; i < TLB_SIZE; i++) {
         s->tlb_read[i].vaddr = -1;
         s->tlb_write[i].vaddr = -1;
         s->tlb_code[i].vaddr = -1;
@@ -982,7 +990,7 @@ void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
     int i;
 
     ram_end = ram_ptr + ram_size;
-    for(i = 0; i < TLB_SIZE; i++) {
+    for (i = 0; i < TLB_SIZE; i++) {
         if (s->tlb_write[i].vaddr != -1) {
             ptr = (uint8_t *)(s->tlb_write[i].mem_addend +
                               (uintptr_t)s->tlb_write[i].vaddr);
@@ -1214,6 +1222,12 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0x7a0:
         val = s->tselect;
         break;
+    case 0x7b0:
+        val = s->dcsr;
+        break;
+    case 0x7b1:
+        val = s->dpc;
+        break;
     default:
     invalid_csr:
 #ifdef DUMP_INVALID_CSR
@@ -1383,6 +1397,13 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
     case 0x7a0:
         s->tselect = val;
+        break;
+    case 0x7b0:
+        s->dcsr = val; // Some values are read only
+        s->stop_the_counter = val & 0x600 ? TRUE : FALSE;
+        break;
+    case 0x7b1:
+        s->dpc = val;
         break;
     case 0x344:
         mask = MIP_SSIP | MIP_STIP;
@@ -1560,6 +1581,13 @@ static void handle_mret(RISCVCPUState *s)
     s->pc = s->mepc;
 }
 
+static void handle_dret(RISCVCPUState *s)
+{
+    s->stop_the_counter = FALSE; // Enable counters again
+    set_priv(s, s->dcsr & 3);
+    s->pc = s->dpc;
+}
+
 static inline uint32_t get_pending_irq_mask(RISCVCPUState *s)
 {
     uint32_t pending_ints, enabled_ints;
@@ -1711,7 +1739,7 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map)
     s = mallocz(sizeof(*s));
 #endif
     s->mem_map = mem_map;
-    s->pc = 0x1000;
+    s->pc = BOOT_BASE_ADDR;
     s->priv = PRV_M;
     s->cur_xlen = MAX_XLEN;
     s->mxl = get_base_from_xlen(MAX_XLEN);
@@ -1786,7 +1814,7 @@ int riscv_repair_load(RISCVCPUState *s, uint32_t reg_num, uint64_t reg_val,
     } else if (s->last_addr == htif_tohost_addr + 64) {
         *htif_fromhost = reg_val;
         repair_load = 1;
-    } else if ((s->last_addr >= *htif_tohost + 0 ) && (s->last_addr <  *htif_tohost + 32)) {
+    } else if ((s->last_addr >= *htif_tohost + 0) && (s->last_addr <  *htif_tohost + 32)) {
         target_write_slow(s, s->last_addr, reg_val, 3);
         repair_load = 1;
     }
@@ -1894,4 +1922,263 @@ int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
         *instret_ts = s->fp_reg_ts[regno];
 
     return regno;
+}
+
+static void serialize_memory(const void *base, size_t size, const char *file)
+{
+    int f_fd = open(file, O_CREAT | O_WRONLY | O_TRUNC, 0777);
+
+    if (f_fd < 0)
+        err(-3, "trying to write %s", file);
+
+    while (size) {
+        ssize_t written = write(f_fd, base, size);
+        if (written <= 0)
+            err(-3, "while writing %s", file);
+        size -= written;
+    }
+
+    close(f_fd);
+}
+
+static void deserialize_memory(void *base, size_t size, const char *file)
+{
+    int f_fd = open(file, O_RDONLY);
+
+    if (f_fd < 0)
+        err(-3, "trying to read %s", file);
+
+    ssize_t sz = read(f_fd, base, size);
+
+    if (sz != size)
+        err(-3, "%s %zd size does not match memory size %zd", file, sz, size);
+
+    close(f_fd);
+}
+
+static uint32_t create_csrrw(int rs, uint32_t csrn)
+{
+    return 0x2073 | ((csrn & 0xFFF) << 20) | ((rs & 0x1F) << 15);
+}
+
+static uint32_t create_auipc(int rd, uint32_t addr)
+{
+    if (addr & 0x800)
+        addr += 0x800;
+
+    return 0x17 | ((rd & 0x1F) << 7) | ((addr >> 12) << 12);
+}
+
+static uint32_t create_addi(int rd, uint32_t addr)
+{
+    uint32_t pos = addr & 0xFFF;
+
+    return 0x13 | ((rd & 0x1F)<<7) | ((rd & 0x1F)<<15) | ((pos & 0xFFF)<<20);
+}
+
+static uint32_t create_seti(int rd, uint32_t data)
+{
+    return 0x13 | ((rd & 0x1F)<<7) | ((data & 0xFFF)<<20);
+}
+
+static uint32_t create_ld(int rd, int rs1)
+{
+    return 0x3 | ((rd & 0x1F)<<7) | (0x3<<12) | ((rs1 & 0x1F)<<15);
+}
+
+static void create_boot_rom(RISCVCPUState *s, const char *file)
+{
+    uint32_t rom[ROM_SIZE/4];
+    memset(rom, 0, ROM_SIZE);
+
+    // ROM organization
+    // 0..40 wasted
+    // 40..0x800 boot code
+    // 0x800..0x1000 boot data
+
+    uint32_t code_pos = (BOOT_BASE_ADDR - ROM_BASE_ADDR) / sizeof(uint32_t);
+    uint32_t data_pos = (sizeof(uint32_t) * code_pos + ROM_SIZE / 2) / sizeof(uint32_t);
+
+    // Write to DPC (CSR, 0x7b1)
+    uint32_t data_off = sizeof(uint32_t) * (data_pos - code_pos);
+
+    rom[code_pos++] = create_auipc(1, data_off);
+    rom[code_pos++] = create_addi(1, data_off);
+    rom[code_pos++] = create_ld(1, 1);
+    rom[code_pos++] = create_csrrw(1, 0x7b1);
+
+    rom[data_pos++] = s->pc;
+    rom[data_pos++] = (uint64_t)s->pc >> 32;
+
+    // Write current priviliege level to prv in dcsr (0 user, 1 supervisor, 2 user)
+    // dcsr is at 0x7b0 prv is bits 0 & 1
+    // dcsr.stopcount = 1
+    // dcsr.stoptime  = 1
+    // dcsr = 0x600 | (PrivLevel & 0x3)
+    int prv;
+    if (s->priv == PRV_U)
+        prv = 0;
+    else if (s->priv == PRV_S)
+        prv = 1;
+    else if (s->priv == PRV_M)
+        prv = 3;
+    else {
+        fprintf(stderr, "UNSUPORTED Priv mode (no hyper)\n");
+        exit(-4);
+    }
+
+    rom[code_pos++] = create_seti(1,  0x600 | (prv & 3));
+    rom[code_pos++] = create_csrrw(1,  0x7b0);
+
+    // Last, do the registers
+    for (int i = 1; i < 32; i++) {
+        data_off = sizeof(uint32_t) * (data_pos - code_pos);
+        rom[code_pos++] = create_auipc(i, data_off);
+        rom[code_pos++] = create_addi(i, data_off);
+        rom[code_pos++] = create_ld(i, i);
+
+        rom[data_pos++] = s->reg[i];
+        rom[data_pos++] = (uint64_t)s->reg[i] >> 32;
+    }
+
+    // dret 0x7b200073
+    rom[code_pos++] = 0x7b200073;
+
+    if (code_pos >= ROM_SIZE / 2 / sizeof(uint32_t)) {
+        fprintf(stderr, "ERROR: rom is too small. ROM_SIZE should increase to at least %d\n",
+                code_pos * 3);
+        exit(-6);
+    }
+
+    serialize_memory(rom, ROM_SIZE, file);
+}
+
+void riscv_cpu_serialize(RISCVCPUState *s, const char *dump_name)
+{
+    FILE *conf_fd = 0;
+    size_t n = strlen(dump_name) + 64;
+    char *conf_name = alloca(n);
+    snprintf(conf_name, n, "%s.re_regs", dump_name);
+
+    conf_fd = fopen(conf_name, "w");
+    if (conf_fd == 0)
+        err(-3, "opening %s for serialization", conf_name);
+
+    fprintf(conf_fd, "# RISCVEMU serialization file\n");
+
+    fprintf(conf_fd, "pc:0x%llx\n", (long long)s->pc);
+
+    for (int i = 1; i < 32; i++) {
+        fprintf(conf_fd, "reg_r%d:%llx\n", i, (long long)s->reg[i]);
+    }
+
+#if LEN > 0
+    for (int i = 0; i < 32; i++) {
+        fprintf(conf_fd, "reg_f%d:%llx\n", i, (long long)s->fp_reg[i]);
+    }
+    fprintf(conf_fd, "fflags:%c\n", s->fflags);
+    fprintf(conf_fd, "frm:%c\n", s->frm);
+#endif
+
+    const char priv_str[4] = "USHM";
+    fprintf(conf_fd, "priv:%c\n", priv_str[s->priv]);
+    fprintf(conf_fd, "insn_counter:%"PRIu64"\n", s->insn_counter);
+
+    fprintf(conf_fd, "pending_exception:%d\n", s->pending_exception);
+
+    fprintf(conf_fd, "mstatus:%"PRIu64"\n", (uint64_t)s->mstatus);
+    fprintf(conf_fd, "mtvec:%"PRIu64"\n", (uint64_t)s->mtvec);
+    fprintf(conf_fd, "mscratch:%"PRIu64"\n", (uint64_t)s->mscratch);
+    fprintf(conf_fd, "mepc:%"PRIu64"\n", (uint64_t)s->mepc);
+    fprintf(conf_fd, "mcause:%"PRIu64"\n", (uint64_t)s->mcause);
+    fprintf(conf_fd, "mtval:%"PRIu64"\n", (uint64_t)s->mtval);
+
+    fprintf(conf_fd, "misa:%" PRIu32 "\n", s->misa);
+    fprintf(conf_fd, "mie:%" PRIu32 "\n", s->mie);
+    fprintf(conf_fd, "mip:%" PRIu32 "\n", s->mip);
+    fprintf(conf_fd, "medeleg:%" PRIu32 "\n", s->medeleg);
+    fprintf(conf_fd, "mideleg:%" PRIu32 "\n", s->mideleg);
+    fprintf(conf_fd, "mcounteren:%" PRIu32 "\n", s->mcounteren);
+    fprintf(conf_fd, "tselect:%" PRIu32 "\n", s->tselect);
+
+    fprintf(conf_fd, "stvec:%"PRIu64"\n", (uint64_t)s->stvec);
+    fprintf(conf_fd, "sscratch:%"PRIu64"\n", (uint64_t)s->sscratch);
+    fprintf(conf_fd, "sepc:%"PRIu64"\n", (uint64_t)s->sepc);
+    fprintf(conf_fd, "scause:%"PRIu64"\n", (uint64_t)s->scause);
+    fprintf(conf_fd, "stval:%"PRIu64"\n", (uint64_t)s->stval);
+    fprintf(conf_fd, "satp:%"PRIu64"\n", (uint64_t)s->satp);
+    fprintf(conf_fd, "scounteren:%"PRIu64"\n", (uint64_t)s->scounteren);
+
+    PhysMemoryRange *boot_ram = 0;
+    int main_ram_found = 0;
+
+    for (int i = s->mem_map->n_phys_mem_range-1; i >= 0; --i) {
+        PhysMemoryRange *pr = &s->mem_map->phys_mem_range[i];
+        fprintf(conf_fd, "mrange%d:0x%llx 0x%llx %s\n", i,
+                (long long)pr->addr, (long long)pr->size,
+                pr->is_ram ? "ram" : "io");
+
+        if (pr->is_ram && pr->addr == ROM_BASE_ADDR) {
+
+            assert(!boot_ram);
+            boot_ram = pr;
+
+        } else if (pr->is_ram && pr->addr == RAM_BASE_ADDR) {
+
+            assert(!main_ram_found);
+            main_ram_found = 1;
+
+            char *f_name = alloca(strlen(dump_name)+64);
+            sprintf(f_name, "%s.mainram", dump_name);
+
+            serialize_memory(pr->phys_mem, pr->size, f_name);
+        }
+    }
+
+    if (!boot_ram || !main_ram_found) {
+        fprintf(stderr, "ERROR: could not find boot and main ram???\n");
+        exit(-3);
+    }
+
+    n = strlen(dump_name) + 64;
+    char *f_name = alloca(n);
+    snprintf(f_name, n, "%s.bootram", dump_name);
+
+    if (ROM_BASE_ADDR + ROM_SIZE < s->pc) {
+        fprintf(stderr, "NOTE: creating a new boot rom\n");
+        create_boot_rom(s, f_name);
+    } else if (BOOT_BASE_ADDR < s->pc) {
+        fprintf(stderr, "ERROR: could not checkpoint when running inside the ROM\n");
+        exit(-4);
+    } else if (s->pc == BOOT_BASE_ADDR && boot_ram) {
+        fprintf(stderr, "NOTE: using the default riscvemu room\n");
+        serialize_memory(boot_ram->phys_mem, boot_ram->size, f_name);
+    } else {
+        fprintf(stderr, "ERROR: unexpected PC address 0x%llx\n", (long long)s->pc);
+        exit(-4);
+    }
+}
+
+void riscv_cpu_deserialize(RISCVCPUState *s, const char *dump_name)
+{
+    for (int i = s->mem_map->n_phys_mem_range - 1; i >= 0; --i) {
+        PhysMemoryRange *pr = &s->mem_map->phys_mem_range[i];
+
+        if (pr->is_ram && pr->addr == ROM_BASE_ADDR) {
+
+            size_t n = strlen(dump_name) + 64;
+            char *boot_name = alloca(n);
+            snprintf(boot_name, n, "%s.bootram", dump_name);
+
+            deserialize_memory(pr->phys_mem, pr->size, boot_name);
+
+        } else if (pr->is_ram && pr->addr == RAM_BASE_ADDR) {
+
+            size_t n = strlen(dump_name) + 64;
+            char *main_name = alloca(n);
+            snprintf(main_name, n, "%s.mainram", dump_name);
+
+            deserialize_memory(pr->phys_mem, pr->size, main_name);
+        }
+    }
 }
