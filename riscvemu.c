@@ -705,11 +705,7 @@ static BOOL net_poll_cb(void *arg)
 
 extern int optind;
 
-#ifdef VERIFICATION
 VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc)
-#else
-int main(int argc, char **argv)
-#endif
 {
     VirtMachine *s;
     const char *path, *cmdline;
