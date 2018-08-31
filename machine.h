@@ -119,6 +119,10 @@ typedef struct VirtMachine {
     CharacterDevice *console;
     /* graphics */
     FBDevice *fb_dev;
+
+    const char *snapshot_load_name;
+    const char *snapshot_save_name;
+    uint64_t    maxinsns;
 } VirtMachine;
 
 void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...);
@@ -136,7 +140,7 @@ void virt_machine_free_config(VirtMachineParams *p);
 VirtMachine *virt_machine_init(const VirtMachineParams *p);
 void virt_machine_end(VirtMachine *s);
 int virt_machine_get_sleep_duration(VirtMachine *s, int delay);
-void virt_machine_interp(VirtMachine *s, int max_exec_cycle);
+BOOL virt_machine_interp(VirtMachine *s, int max_exec_cycle);
 BOOL vm_mouse_is_absolute(VirtMachine *s);
 void vm_send_mouse_event(VirtMachine *s1, int dx, int dy, int dz,
                          unsigned int buttons);
@@ -166,10 +170,10 @@ BlockDevice *block_device_init_http(const char *url,
                                     int max_cache_size_kb,
                                     void (*start_cb)(void *opaque),
                                     void *start_opaque);
-VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc);
+VirtMachine *virt_machine_main(int argc, char **argv);
 void         virt_machine_serialize(VirtMachine *m, const char *dump_name);
 void         virt_machine_deserialize(VirtMachine *m, const char *dump_name);
-void         virt_machine_run(VirtMachine *m);
+BOOL         virt_machine_run(VirtMachine *m);
 void         virt_machine_dump_regs(VirtMachine *m);
 int          virt_machine_read_insn(VirtMachine *m, uint32_t *insn, uint64_t addr);
 uint64_t     virt_machine_get_pc(VirtMachine *m);
@@ -179,9 +183,6 @@ uint64_t     virt_machine_get_fpreg(VirtMachine *m, int rn);
 uint64_t     virt_machine_read_htif_tohost(VirtMachine *m);
 uint64_t     virt_machine_get_instret(VirtMachine *m);
 int          virt_machine_get_priv_level(VirtMachine *m);
-int virt_machine_get_most_recently_written_reg(VirtMachine *m,
-                                               uint64_t *instret_ts);
-int virt_machine_get_most_recently_written_fp_reg(VirtMachine *m,
-                                                 uint64_t *instret_ts);
-
+int          virt_machine_get_most_recently_written_reg(VirtMachine *m, uint64_t *instret_ts);
+int          virt_machine_get_most_recently_written_fp_reg(VirtMachine *m, uint64_t *instret_ts);
 #endif

@@ -27,15 +27,12 @@
 
 int main(int argc, char **argv)
 {
-    VirtMachine *s = virt_machine_main(argc, argv, FALSE);
+    VirtMachine *s = virt_machine_main(argc, argv);
 
-    if (s->net) {
-        s->net->device_set_carrier(s->net, TRUE);
-    }
+    while (virt_machine_run(s))
+        ;
 
-    for (;;) {
-        virt_machine_run(s);
-    }
     virt_machine_end(s);
+
     return 0;
 }

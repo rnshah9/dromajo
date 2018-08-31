@@ -898,7 +898,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
             exit(1);
         }
     }
-    
+
     if (!p->files[VM_FILE_BIOS].buf) {
         vm_error("No bios found");
     }
@@ -911,6 +911,10 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
 void virt_machine_end(VirtMachine *s1)
 {
     RISCVMachine *s = (RISCVMachine *)s1;
+
+    if (s1->snapshot_save_name)
+        virt_machine_serialize(s1, s1->snapshot_save_name);
+
     /* XXX: stop all */
     riscv_cpu_end(s->cpu_state);
     phys_mem_map_end(s->mem_map);
@@ -959,10 +963,12 @@ int virt_machine_get_sleep_duration(VirtMachine *s1, int ms_delay)
     return ms_delay;
 }
 
-void virt_machine_interp(VirtMachine *s1, int max_exec_cycle)
+BOOL virt_machine_interp(VirtMachine *s1, int max_exec_cycle)
 {
     RISCVMachine *s = (RISCVMachine *)s1;
     riscv_cpu_interp(s->cpu_state, max_exec_cycle);
+
+    return s->htif_tohost == 0 && riscv_cpu_get_cycles(s->cpu_state) < s1->maxinsns;
 }
 
 void virt_machine_set_pc(VirtMachine *m, uint64_t pc)

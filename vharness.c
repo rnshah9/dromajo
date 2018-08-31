@@ -23,40 +23,19 @@
 
 int main(int argc, char **argv)
 {
-    VirtMachine *m = virt_machine_main(argc, argv, TRUE);
-
+    VirtMachine *m = virt_machine_main(argc, argv);
     uint64_t last_pc = 0;
     uint64_t instret = virt_machine_get_instret(m);
+    int keep_going;
 
-    const char *dump_name = 0;
-    uint64_t    dump_skip = 0;
-    // vharness foo.cfg foo # reads a checkpoint
-    // vharness foo.cfg foo 33 # writes a checkpoint after 33 instructions
-    if (argc > 2) {
-        dump_name = strdup(argv[2]);
-        if (argc > 3) {
-            dump_skip = atoi(argv[3]);
-            printf("Dumping state to %s with %"PRIu64" skip\n", dump_name, dump_skip);
-        } else {
-            printf("reading state from %s\n", dump_name);
-            virt_machine_deserialize(m, dump_name);
-            dump_name = 0;
-        }
-    }
-
-    while (virt_machine_read_htif_tohost(m) == 0 && virt_machine_get_pc(m) != last_pc) {
+    do {
         last_pc = virt_machine_get_pc(m);
         int priv = virt_machine_get_priv_level(m);
 
         uint32_t insn_raw = 0;
         virt_machine_read_insn(m, &insn_raw, last_pc);
 
-        if (dump_name && dump_skip <= virt_machine_get_instret(m)) {
-          virt_machine_serialize(m, dump_name);
-          exit(0);
-        }
-
-        virt_machine_run(m);
+        keep_going = virt_machine_run(m);
 
         uint64_t prev_instret = instret;
         instret = virt_machine_get_instret(m);
@@ -64,6 +43,7 @@ int main(int argc, char **argv)
         if (prev_instret == instret)
             continue;
 
+        //printf("%6ld ", instret);
         if ((insn_raw & 3) == 3)
             printf("%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, insn_raw);
         else
@@ -81,7 +61,7 @@ int main(int argc, char **argv)
                    virt_machine_get_fpreg(m, regno));
 
         putchar('\n');
-    }
+    } while (keep_going);
 
     printf("\nPower off.\n");
 

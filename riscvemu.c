@@ -545,7 +545,7 @@ static EthernetDevice *slirp_open(void)
 
 #endif /* CONFIG_SLIRP */
 
-void virt_machine_run(VirtMachine *m)
+BOOL virt_machine_run(VirtMachine *m)
 {
     fd_set rfds, wfds, efds;
     int fd_max, ret, delay;
@@ -607,31 +607,8 @@ void virt_machine_run(VirtMachine *m)
     sdl_refresh(m);
 #endif
 
-    virt_machine_interp(m, MAX_EXEC_CYCLE);
+    return virt_machine_interp(m, MAX_EXEC_CYCLE);
 }
-
-/*******************************************************/
-
-//static struct option options[] = {
-//    { "help", no_argument, NULL, 'h' },
-//    { "ctrlc", no_argument },
-//    { "rw", no_argument },
-//    { "ro", no_argument },
-//    { "append", required_argument },
-//    { "no-accel", no_argument },
-//    { NULL },
-//};
-/*
-static struct option options[] = {
-    { "help", no_argument, NULL, 'h' },
-    { "ctrlc", no_argument, NULL, 0   },
-    { "rw", no_argument, NULL, 0   },
-    { "ro", no_argument, NULL, 0   },
-    { "append", required_argument, NULL, 0   },
-    { "no-accel", no_argument, NULL, 0   },
-    { NULL },
-};
-*/
 
 void help(void)
 {
@@ -703,27 +680,81 @@ static BOOL net_poll_cb(void *arg)
 
 #endif
 
-extern int optind;
+// extern int optind;  XXX Do I need to declare this?
 
-VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc)
+static void usage(const char *prog, const char *msg)
 {
+    fprintf(stderr,
+            "error: %s\n"
+            "usage: %s [--load snapshot_name] [--save snapshot_name] [--maxinsns N] config\n"
+            "       --load resumes a previously saved snapshot\n"
+            "       --save saves a snapshot upon exit\n"
+            "       --maxinsns terminates execution after a number of instructions\n",
+            msg, prog);
+
+    exit(EXIT_FAILURE);
+}
+
+VirtMachine *virt_machine_main(int argc, char **argv)
+{
+    const char *prog               = argv[0];
+    const char *snapshot_load_name = 0;
+    const char *snapshot_save_name = 0;
+    const char *path               = NULL;
+    const char *cmdline            = NULL;
+    uint64_t    maxinsns           = 0;
+
+    for (;;) {
+        int option_index = 0;
+        static struct option long_options[] = {
+            {"load",    required_argument, 0,  'l' },
+            {"save",    required_argument, 0,  's' },
+            {"maxinsns",required_argument, 0,  'm' },
+            {0,         0,                 0,  0 }
+        };
+
+        int c = getopt_long(argc, argv, "", long_options, &option_index);
+        if (c == -1)
+            break;
+
+        switch (c) {
+        case 'l':
+            if (snapshot_load_name)
+                usage(prog, "already had a snapshot to load");
+            snapshot_load_name = strdup(optarg);
+            break;
+
+        case 's':
+            if (snapshot_save_name)
+                usage(prog, "already had a snapshot to save");
+            snapshot_save_name = strdup(optarg);
+            break;
+
+        case 'm':
+            if (maxinsns)
+                usage(prog, "already had a max instructions");
+            maxinsns = atoi(optarg);
+            break;
+
+        default:
+            usage(prog, "I'm not having this argument");
+        }
+    }
+
+    if (optind >= argc)
+        usage(prog, "missing config file");
+    else
+        path = argv[optind++];
+
+    if (optind < argc)
+        usage(prog, "too many arguments");
+
+    assert(path);
+
     VirtMachine *s;
-    const char *path, *cmdline;
-    int i, ram_size, accel_enable;
-    BlockDeviceModeEnum drive_mode;
+    int ram_size = -1, accel_enable = -1;
+    BlockDeviceModeEnum drive_mode = BF_MODE_SNAPSHOT;
     VirtMachineParams p_s, *p = &p_s;
-
-    ram_size = -1;
-    allow_ctrlc = FALSE;
-    (void)allow_ctrlc;
-    drive_mode = BF_MODE_SNAPSHOT;
-    accel_enable = -1;
-    cmdline = NULL;
-
-    if (argc < 2)
-        errx(1, "Missing config file");
-
-    path = argv[1];
 
     virt_machine_set_defaults(p);
 #ifdef CONFIG_FS_NET
@@ -747,7 +778,7 @@ VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc)
     }
 
     /* open the files & devices */
-    for(i = 0; i < p->drive_count; i++) {
+    for (int i = 0; i < p->drive_count; i++) {
         BlockDevice *drive;
         char *fname;
         fname = get_file_path(p->cfg_filename, p->tab_drive[i].filename);
@@ -767,7 +798,7 @@ VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc)
         p->tab_drive[i].block_dev = drive;
     }
 
-    for(i = 0; i < p->fs_count; i++) {
+    for (int i = 0; i < p->fs_count; i++) {
         FSDevice *fs;
         const char *path;
         path = p->tab_fs[i].filename;
@@ -797,7 +828,7 @@ VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc)
         p->tab_fs[i].fs_dev = fs;
     }
 
-    for(i = 0; i < p->eth_count; i++) {
+    for (int i = 0; i < p->eth_count; i++) {
 #ifdef CONFIG_SLIRP
         if (!strcmp(p->tab_eth[i].driver, "user")) {
             p->tab_eth[i].net = slirp_open();
@@ -829,14 +860,27 @@ VirtMachine *virt_machine_main(int argc, char **argv, BOOL allow_ctrlc)
         fprintf(stderr, "Console not supported yet\n");
         exit(1);
 #else
-        p->console = console_init(allow_ctrlc);
+        p->console = console_init(FALSE);
 #endif
     }
+
     p->rtc_real_time = TRUE;
 
     s = virt_machine_init(p);
 
+    s->snapshot_load_name = snapshot_load_name;
+    s->snapshot_save_name = snapshot_save_name;
+    s->maxinsns           = maxinsns;
+    if (!s->maxinsns)
+        s->maxinsns = ~0ULL;
+
     virt_machine_free_config(p);
+
+    if (s->net)
+        s->net->device_set_carrier(s->net, TRUE);
+
+    if (s->snapshot_load_name)
+        virt_machine_deserialize(s, s->snapshot_load_name);
 
     return s;
 }

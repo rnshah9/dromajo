@@ -30,8 +30,6 @@
 # if set, compile the 128 bit emulator. Note: the 128 bit target does
 # not compile if gcc does not support the int128 type (32 bit hosts).
 CONFIG_INT128=y
-# build x86emu
-CONFIG_X86EMU=y
 CONFIG_VERIFICATION=y
 
 # win32 build (not usable yet)
@@ -61,9 +59,6 @@ INSTALL=install
 PROGS+= riscvemu32$(EXE) riscvemu64$(EXE)
 ifdef CONFIG_INT128
 PROGS+=riscvemu128$(EXE)
-endif
-ifdef CONFIG_X86EMU
-PROGS+=x86emu$(EXE)
 endif
 ifndef CONFIG_WIN32
 PROGS+=riscvemu
@@ -113,9 +108,6 @@ endif
 RISCVEMU_OBJS:=$(EMU_OBJS) riscvemu.o riscv_machine.o softfp.o \
 	riscvemu_main.o
 
-X86EMU_OBJS:=$(EMU_OBJS) x86emu.o x86_cpu.o x86_machine.o riscvemu_main.o \
-	ide.o ps2.o vmmouse.o pckbd.o vga.o
-
 ifdef CONFIG_VERIFICATION
 vharness: vharness.o riscv_cpu64.o riscvemu.o \
 	  riscv_machine.o softfp.o $(EMU_OBJS)
@@ -152,12 +144,6 @@ riscv_cpu128.o: riscv_cpu.c
 
 riscvemu:
 	ln -sf riscvemu64 riscvemu
-
-x86emu$(EXE): $(X86EMU_OBJS)
-	$(CC) $(LDFLAGS) -o $@ $^ $(EMU_LIBS)
-
-x86emu.o: riscvemu.c
-	$(CC) $(CFLAGS) -DCONFIG_CPU_X86 -c -o $@ $<
 
 build_filelist: build_filelist.o fs_utils.o cutils.o
 	$(CC) $(LDFLAGS) -o $@ $^ -lm
