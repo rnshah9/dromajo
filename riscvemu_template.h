@@ -246,17 +246,31 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
     /* we use a single execution loop to keep a simple control flow
        for emscripten */
     for(;;) {
-        if (unlikely(!--n_cycles)) {
-            s->pc = GET_PC();
+        s->pc = GET_PC();
+        if (unlikely(!--n_cycles))
             goto the_end;
-        }
+
+        /* Handled any breakpoint triggers in order (note, we
+         * precompute the mask and pattern to lower some of the
+         * cost). */
+        target_ulong t_mctl  = MCONTROL_EXECUTE | (MCONTROL_U << s->priv);
+        target_ulong t_mask  = ((target_ulong)0xF << (s->cur_xlen - 4)) | t_mctl;
+        target_ulong t_match = ((target_ulong)0x2 << (s->cur_xlen - 4)) | t_mctl;
+
+        for (int i = 0; i < MAX_TRIGGERS; ++i)
+            if ((s->tdata1[i] & t_mask) != t_match && s->tdata2[i] == s->pc) {
+                --insn_counter_addend;
+                s->pending_exception = CAUSE_BREAKPOINT;
+                s->pending_tval = 0;
+                raise_exception2(s, s->pending_exception, s->pending_tval);
+                goto done_interp;
+            }
+
         if (unlikely(code_ptr >= code_end)) {
             uint32_t tlb_idx;
             uint16_t insn_high;
             uintptr_t mem_addend;
             target_ulong addr;
-
-            s->pc = GET_PC();
 
             /* check pending interrupts */
             if (unlikely((s->mip & s->mie) != 0)) {

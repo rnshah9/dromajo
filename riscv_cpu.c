@@ -222,6 +222,14 @@ typedef uint128_t mem_uint_t;
 #define SATP_MASK ((15ULL << 60) | (((1ULL << ASID_BITS) - 1) << 44) | ((1ULL << 44) - 1))
 #endif
 
+// A few of Debug Trigger Match Control bits (there are many more)
+#define MCONTROL_M         (1 << 6)
+#define MCONTROL_S         (1 << 4)
+#define MCONTROL_U         (1 << 3)
+#define MCONTROL_EXECUTE   (1 << 2)
+#define MCONTROL_STORE     (1 << 1)
+#define MCONTROL_LOAD      (1 << 0)
+
 typedef struct {
     target_ulong vaddr;
     uintptr_t mem_addend;
@@ -279,6 +287,10 @@ struct RISCVCPUState {
     uint32_t mideleg;
     uint32_t mcounteren;
     uint32_t tselect;
+#define MAX_TRIGGERS 4 // As of right now, Maxion implements four trigger registers
+    target_ulong tdata1[MAX_TRIGGERS];
+    target_ulong tdata2[MAX_TRIGGERS];
+    target_ulong tdata3[MAX_TRIGGERS];
 
     target_ulong stvec;
     target_ulong sscratch;
@@ -649,7 +661,7 @@ static int get_phys_addr(RISCVCPUState *s,
             }
 
             vaddr_mask = ((target_ulong)1 << vaddr_shift) - 1;
-            *ppaddr = (vaddr & vaddr_mask) | (paddr  & ~vaddr_mask);
+            *ppaddr = paddr & ~vaddr_mask | vaddr & vaddr_mask;
             return 0;
         } else {
             pte_addr = paddr;
@@ -1070,7 +1082,7 @@ static void set_mstatus(RISCVCPUState *s, target_ulong val)
             mask |= MSTATUS_SXL_MASK;
     }
 #endif
-    s->mstatus = (s->mstatus & ~mask) | (val & mask);
+    s->mstatus = s->mstatus & ~mask | val & mask;
 }
 
 static BOOL counter_access_ok(RISCVCPUState *s, uint32_t csr)
@@ -1199,6 +1211,24 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0x344:
         val = s->mip;
         break;
+    case 0x7a0: // tselect
+        val = s->tselect;
+        break;
+    case 0x7a1: // tdata1
+        val = s->tdata1[s->tselect];
+        break;
+    case 0x7a2: // tdata2
+        val = s->tdata2[s->tselect];
+        break;
+    case 0x7a3: // tdata3
+        val = s->tdata3[s->tselect];
+        break;
+    case 0x7b0:
+        val = s->dcsr;
+        break;
+    case 0x7b1:
+        val = s->dpc;
+        break;
     case 0xb00: /* mcycle */
     case 0xb02: /* minstret */
         val = (int64_t)s->insn_counter;
@@ -1214,19 +1244,12 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         break;
     case 0xf13:
         val = s->mimpid;
+        break;
     case 0xf12:
         val = s->marchid;
+        break;
     case 0xf11:
         val = s->mvendorid;
-        break;
-    case 0x7a0:
-        val = s->tselect;
-        break;
-    case 0x7b0:
-        val = s->dcsr;
-        break;
-    case 0x7b1:
-        val = s->dpc;
         break;
     default:
     invalid_csr:
@@ -1290,11 +1313,11 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
 #endif
     case 0x100: /* sstatus */
-        set_mstatus(s, (s->mstatus & ~SSTATUS_MASK) | (val & SSTATUS_MASK));
+        set_mstatus(s, s->mstatus & ~SSTATUS_MASK | val & SSTATUS_MASK);
         break;
     case 0x104: /* sie */
         mask = s->mideleg;
-        s->mie = (s->mie & ~mask) | (val & mask);
+        s->mie = s->mie & ~mask | val & mask;
         break;
     case 0x105:
         s->stvec = val & ~2;
@@ -1306,10 +1329,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->sscratch = val;
         break;
     case 0x141:
-        if (s->misa & MCPUID_C)
-            s->sepc = val & ~1;
-        else
-            s->sepc = val & ~3;
+        s->sepc = val & (s->misa & MCPUID_C ? ~1 : ~3);
         break;
     case 0x142:
         s->scause = val & (CAUSE_MASK | (target_ulong)1 << (s->cur_xlen - 1));
@@ -1319,7 +1339,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
     case 0x144: /* sip */
         mask = s->mideleg;
-        s->mip = (s->mip & ~mask) | (val & mask);
+        s->mip = s->mip & ~mask | val & mask;
         break;
     case 0x180:
         if (s->priv == PRV_S && s->mstatus & MSTATUS_TVM)
@@ -1364,15 +1384,15 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
     case 0x302:
         mask = (1 << (CAUSE_STORE_PAGE_FAULT + 1)) - 1;
-        s->medeleg = (s->medeleg & ~mask) | (val & mask);
+        s->medeleg = s->medeleg & ~mask | val & mask;
         break;
     case 0x303:
         mask = MIP_SSIP | MIP_STIP | MIP_SEIP;
-        s->mideleg = (s->mideleg & ~mask) | (val & mask);
+        s->mideleg = s->mideleg & ~mask | val & mask;
         break;
     case 0x304:
         mask = MIP_MSIP | MIP_MTIP | MIP_SSIP | MIP_STIP | MIP_SEIP;
-        s->mie = (s->mie & ~mask) | (val & mask);
+        s->mie = s->mie & ~mask | val & mask;
         break;
     case 0x305:
         s->mtvec = val & ~2;
@@ -1384,10 +1404,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mscratch = val;
         break;
     case 0x341:
-        if (s->misa & MCPUID_C)
-            s->mepc = val & ~1;
-        else
-            s->mepc = val & ~3;
+        s->mepc = val & (s->misa & MCPUID_C ? ~1 : ~3);
         break;
     case 0x342:
         s->mcause = val & (CAUSE_MASK | (target_ulong)1 << (s->cur_xlen - 1));
@@ -1395,19 +1412,39 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case 0x343:
         s->mtval = val;
         break;
-    case 0x7a0:
-        s->tselect = val;
-        break;
-    case 0x7b0:
-        s->dcsr = val; // Some values are read only
-        s->stop_the_counter = val & 0x600 ? TRUE : FALSE;
-        break;
-    case 0x7b1:
-        s->dpc = val;
-        break;
     case 0x344:
         mask = MIP_SSIP | MIP_STIP;
-        s->mip = (s->mip & ~mask) | (val & mask);
+        s->mip = s->mip & ~mask | val & mask;
+        break;
+    case 0x7a0: // tselect
+        s->tselect = val % MAX_TRIGGERS;
+        break;
+    case 0x7a1: // tdata1
+        // Only support No Trigger and MControl
+        {
+            int type = val >> (s->cur_xlen - 4);
+            if (type != 0 && type != 2)
+                break;
+            // SW can write type and mcontrol bits M and EXECUTE
+            mask = ((target_ulong)15 << (s->cur_xlen - 4)) | MCONTROL_M | MCONTROL_EXECUTE;
+            s->tdata1[s->tselect] = s->tdata1[s->tselect] & ~mask | val & mask;
+        }
+        break;
+    case 0x7a2: // tdata2
+        s->tdata2[s->tselect] = val;
+        break;
+    case 0x7a3: // tdata3
+        s->tdata3[s->tselect] = val;
+        break;
+    case 0x7b0:
+        /* XXX We have a very incomplete implementation of debug mode, only just enough
+           to restore a snapshot and stop counters */
+        mask = 0x600; // stopcount and stoptime
+        s->dcsr = s->dcsr & ~mask | val & mask;
+        s->stop_the_counter = s->dcsr & 0x600 != 0;
+        break;
+    case 0x7b1:
+        s->dpc = val & (s->misa & MCPUID_C ? ~1 : ~3);
         break;
     case 0xc00: /* ucycle */
     case 0xc02: /* uinstret */
@@ -1761,7 +1798,12 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map)
 #ifdef CONFIG_EXT_C
     s->misa |= MCPUID_C;
 #endif
+
+    s->tselect = 0;
+    s->tdata1[0] = (target_ulong)2 << (MAX_XLEN - 4);
+
     tlb_init(s);
+
     return s;
 }
 
@@ -1772,9 +1814,9 @@ void riscv_cpu_end(RISCVCPUState *s)
 #endif
 }
 
-void riscv_set_pc(RISCVCPUState *s, uint64_t pc)
+void riscv_set_pc(RISCVCPUState *s, uint64_t val)
 {
-    s->pc = pc;
+    s->pc = val & (s->misa & MCPUID_C ? ~1 : ~3);
 }
 
 uint64_t riscv_get_pc(RISCVCPUState *s)
@@ -1800,12 +1842,15 @@ void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint
         break;
 
     default:
-        printf("riscv_repair_csr: This CSR is unsupported for repairing: %lx\n",csr_num);
+        printf("riscv_repair_csr: This CSR is unsupported for repairing: %lx\n", csr_num);
+        break;
     }
 }
 
 int riscv_repair_load(RISCVCPUState *s, uint32_t reg_num, uint64_t reg_val,
-                              uint64_t htif_tohost_addr, uint64_t *htif_tohost, uint64_t *htif_fromhost)
+                      uint64_t htif_tohost_addr,
+                      uint64_t *htif_tohost,
+                      uint64_t *htif_fromhost)
 {
     BOOL repair_load = 0;
     if (s->last_addr == htif_tohost_addr) {
@@ -2027,8 +2072,8 @@ static void create_boot_rom(RISCVCPUState *s, const char *file)
         exit(-4);
     }
 
-    rom[code_pos++] = create_seti(1,  0x600 | (prv & 3));
-    rom[code_pos++] = create_csrrw(1,  0x7b0);
+    rom[code_pos++] = create_seti(1, 0x600 | prv & 3);
+    rom[code_pos++] = create_csrrw(1, 0x7b0);
 
     // Last, do the registers
     for (int i = 1; i < 32; i++) {
