@@ -219,9 +219,9 @@ static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
     }
     return val;
 }
- 
+
 static void clint_write(void *opaque, uint32_t offset, uint32_t val,
-                      int size_log2)
+                        int size_log2)
 {
     RISCVMachine *m = opaque;
 

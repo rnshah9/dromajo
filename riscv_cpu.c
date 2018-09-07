@@ -1391,7 +1391,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mideleg = s->mideleg & ~mask | val & mask;
         break;
     case 0x304:
-        mask = MIP_MSIP | MIP_MTIP | MIP_SSIP | MIP_STIP | MIP_SEIP;
+        mask = MIE_MEIE | MIE_SEIE /*| MIE_UEIE*/ | MIE_MTIE | MIE_STIE | MIE_UTIE | MIE_MSIE | MIE_SSIE | MIE_USIE;
         s->mie = s->mie & ~mask | val & mask;
         break;
     case 0x305:
@@ -1413,7 +1413,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mtval = val;
         break;
     case 0x344:
-        mask = MIP_SSIP | MIP_STIP;
+        mask = /* MEIP | */ MIP_SEIP | /*MIP_UEIP | MTIP | */ MIP_STIP | /*MIP_UTIP | MSIP | */ MIP_SSIP /*| MIP_USIP*/;
         s->mip = s->mip & ~mask | val & mask;
         break;
     case 0x7a0: // tselect

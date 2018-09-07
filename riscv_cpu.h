@@ -34,6 +34,16 @@
 //#define MIP_HEIP (1 << 10)  Removed in Priv 1.11 (draft)
 #define MIP_MEIP (1 << 11)
 
+#define MIE_USIE MIP_USIP
+#define MIE_SSIE MIP_SSIP
+#define MIE_MSIE MIP_MSIP
+#define MIE_UTIE MIP_UTIP
+#define MIE_STIE MIP_STIP
+#define MIE_MTIE MIP_MTIP
+#define MIE_UEIE MIP_UEIP
+#define MIE_SEIE MIP_SEIP
+#define MIE_MEIE MIP_MEIP
+
 #define ROM_SIZE       0x00001000
 #define ROM_BASE_ADDR  0x00001000
 #define BOOT_BASE_ADDR 0x00001040
