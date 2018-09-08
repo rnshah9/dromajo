@@ -222,6 +222,10 @@ typedef uint128_t mem_uint_t;
 #define SATP_MASK ((15ULL << 60) | (((1ULL << ASID_BITS) - 1) << 44) | ((1ULL << 44) - 1))
 #endif
 
+#ifndef MAX_TRIGGERS
+#define MAX_TRIGGERS 1 // As of right now, Maxion implements one trigger register
+#endif
+
 // A few of Debug Trigger Match Control bits (there are many more)
 #define MCONTROL_M         (1 << 6)
 #define MCONTROL_S         (1 << 4)
@@ -287,7 +291,6 @@ struct RISCVCPUState {
     uint32_t mideleg;
     uint32_t mcounteren;
     uint32_t tselect;
-#define MAX_TRIGGERS 4 // As of right now, Maxion implements four trigger registers
     target_ulong tdata1[MAX_TRIGGERS];
     target_ulong tdata2[MAX_TRIGGERS];
     target_ulong tdata3[MAX_TRIGGERS];
