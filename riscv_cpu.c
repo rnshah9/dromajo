@@ -1394,7 +1394,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mideleg = s->mideleg & ~mask | val & mask;
         break;
     case 0x304:
-        mask = MIE_MEIE | MIE_SEIE /*| MIE_UEIE*/ | MIE_MTIE | MIE_STIE | MIE_UTIE | MIE_MSIE | MIE_SSIE | MIE_USIE;
+        mask = MIE_MEIE | MIE_SEIE /*| MIE_UEIE*/ | MIE_MTIE | MIE_STIE | /*MIE_UTIE | */ MIE_MSIE | MIE_SSIE /*| MIE_USIE */;
         s->mie = s->mie & ~mask | val & mask;
         break;
     case 0x305:
