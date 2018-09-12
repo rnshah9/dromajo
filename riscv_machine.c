@@ -968,7 +968,7 @@ BOOL virt_machine_interp(VirtMachine *s1, int max_exec_cycle)
     RISCVMachine *s = (RISCVMachine *)s1;
     riscv_cpu_interp(s->cpu_state, max_exec_cycle);
 
-    return s->htif_tohost == 0 && riscv_cpu_get_cycles(s->cpu_state) < s1->maxinsns;
+    return s->htif_tohost == 0;
 }
 
 void virt_machine_set_pc(VirtMachine *m, uint64_t pc)

@@ -1280,6 +1280,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                     goto illegal_insn;
                 if (rd != 0)
                     write_reg(rd, val2);
+                insn_counter_addend = s->insn_counter + n_cycles;
                 if (err > 0) {
                     s->pc = GET_PC() + 4;
                     if (err == 2)

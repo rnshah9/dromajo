@@ -1132,19 +1132,6 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         val = s->fflags | (s->frm << 5);
         break;
 #endif
-    case 0xc00: /* ucycle */
-    case 0xc02: /* uinstret */
-        if (!counter_access_ok(s, csr))
-            goto invalid_csr;
-        val = (int64_t)s->insn_counter;
-        break;
-    case 0xc80: /* mcycleh */
-    case 0xc82: /* minstreth */
-        if (s->cur_xlen != 32 || !counter_access_ok(s, csr))
-            goto invalid_csr;
-        val = s->insn_counter >> 32;
-        break;
-
     case 0x100:
         val = get_mstatus(s, SSTATUS_MASK);
         break;
@@ -1232,16 +1219,25 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0x7b1:
         val = s->dpc;
         break;
+
     case 0xb00: /* mcycle */
     case 0xb02: /* minstret */
+    case 0xc00: /* ucycle */
+    case 0xc02: /* uinstret */
+        if (!counter_access_ok(s, csr))
+            goto invalid_csr;
         val = (int64_t)s->insn_counter;
         break;
+
     case 0xb80: /* mcycleh */
     case 0xb82: /* minstreth */
-        if (s->cur_xlen != 32)
+    case 0xc80: /* ucycleh */
+    case 0xc82: /* uinstreth */
+        if (s->cur_xlen != 32 || !counter_access_ok(s, csr))
             goto invalid_csr;
         val = s->insn_counter >> 32;
         break;
+
     case 0xf14:
         val = s->mhartid;
         break;
@@ -1446,19 +1442,19 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->dcsr = s->dcsr & ~mask | val & mask;
         s->stop_the_counter = s->dcsr & 0x600 != 0;
         break;
+
     case 0x7b1:
         s->dpc = val & (s->misa & MCPUID_C ? ~1 : ~3);
         break;
-    case 0xc00: /* ucycle */
-    case 0xc02: /* uinstret */
-        if (!counter_access_ok(s, csr))
-            goto invalid_csr;
-        s->insn_counter = val; // XXX not exactly clear what happens in RV32
+
+    case 0xb00: /* mcycle */
+    case 0xb02: /* minstret */
+        s->insn_counter = val;
         break;
 
-    case 0xc80: /* mcycleh */
-    case 0xc82: /* minstreth */
-        if (s->cur_xlen != 32 || !counter_access_ok(s, csr))
+    case 0xb80: /* mcycleh */
+    case 0xb82: /* minstreth */
+        if (s->cur_xlen != 32)
             goto invalid_csr;
         s->insn_counter = (uint32_t) s->insn_counter | ((uint64_t)val << 32);
         break;
