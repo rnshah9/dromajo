@@ -434,9 +434,9 @@ static __attribute__((unused)) void cpu_abort(RISCVCPUState *s)
     abort();
 }
 #ifdef VERIFICATION
-uint64_t checker_last_addr=0;
-uint64_t checker_last_data=0;
-int      checker_last_size=0;
+uint64_t checker_last_addr = 0;
+uint64_t checker_last_data = 0;
+int      checker_last_size = 0;
 #define TRACK_MEM(addr,size,val)  do { checker_last_addr = addr; checker_last_size = size; checker_last_data = val; } while(0)
 #else
 #define TRACK_MEM(addr,size,val)
@@ -1798,6 +1798,7 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map)
     s->misa |= MCPUID_C;
 #endif
 
+    s->store_repair_addr = ~0;
     s->tselect = 0;
     s->tdata1[0] = (target_ulong)2 << (MAX_XLEN - 4);
 
