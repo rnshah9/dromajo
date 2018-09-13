@@ -336,6 +336,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                     get_field1(insn, 5, 6, 7);
                 rs1 = ((insn >> 7) & 7) | 8;
                 addr = (intx_t)(read_reg(rs1) + imm);
+                s->last_addr = addr;
                 if (target_read_u128(s, &val, addr))
                     goto mmu_exception;
                 write_reg(rd, val);
@@ -350,6 +351,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         get_field1(insn, 5, 6, 7);
                     rs1 = ((insn >> 7) & 7) | 8;
                     addr = (intx_t)(read_reg(rs1) + imm);
+                    s->last_addr = addr;
                     if (target_read_u64(s, &rval, addr))
                         goto mmu_exception;
                     write_fp_reg(rd, rval | F64_HIGH);
@@ -365,6 +367,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         get_field1(insn, 5, 6, 6);
                     rs1 = ((insn >> 7) & 7) | 8;
                     addr = (intx_t)(read_reg(rs1) + imm);
+                    s->last_addr = addr;
                     if (target_read_u32(s, &rval, addr))
                         goto mmu_exception;
                     write_reg(rd, (int32_t)rval);
@@ -378,6 +381,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         get_field1(insn, 5, 6, 7);
                     rs1 = ((insn >> 7) & 7) | 8;
                     addr = (intx_t)(read_reg(rs1) + imm);
+                    s->last_addr = addr;
                     if (target_read_u64(s, &rval, addr))
                         goto mmu_exception;
                     write_reg(rd, (int64_t)rval);
@@ -394,6 +398,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         get_field1(insn, 5, 6, 6);
                     rs1 = ((insn >> 7) & 7) | 8;
                     addr = (intx_t)(read_reg(rs1) + imm);
+                    s->last_addr = addr;
                     if (target_read_u32(s, &rval, addr))
                         goto mmu_exception;
                     write_fp_reg(rd, rval | F32_HIGH);
@@ -637,6 +642,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                     (rs2 & (1 << 4)) |
                     get_field1(insn, 2, 6, 9);
                 addr = (intx_t)(read_reg(2) + imm);
+                s->last_addr = addr;
                 if (target_read_u128(s, &val, addr))
                     goto mmu_exception;
                 if (rd != 0)
@@ -652,6 +658,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         (rs2 & (3 << 3)) |
                         get_field1(insn, 2, 6, 8);
                     addr = (intx_t)(read_reg(2) + imm);
+                    s->last_addr = addr;
                     if (target_read_u64(s, &rval, addr))
                         goto mmu_exception;
                     write_fp_reg(rd, rval | F64_HIGH);
@@ -666,6 +673,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         (rs2 & (7 << 2)) |
                         get_field1(insn, 2, 6, 7);
                     addr = (intx_t)(read_reg(2) + imm);
+                    s->last_addr = addr;
                     if (target_read_u32(s, &rval, addr))
                         goto mmu_exception;
                     if (rd != 0)
@@ -680,6 +688,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         (rs2 & (3 << 3)) |
                         get_field1(insn, 2, 6, 8);
                     addr = (intx_t)(read_reg(2) + imm);
+                    s->last_addr = addr;
                     if (target_read_u64(s, &rval, addr))
                         goto mmu_exception;
                     if (rd != 0)
@@ -696,6 +705,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                         (rs2 & (7 << 2)) |
                         get_field1(insn, 2, 6, 7);
                     addr = (intx_t)(read_reg(2) + imm);
+                    s->last_addr = addr;
                     if (target_read_u32(s, &rval, addr))
                         goto mmu_exception;
                     write_fp_reg(rd, rval | F32_HIGH);
@@ -868,7 +878,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
             imm = (int32_t)insn >> 20;
             addr = read_reg(rs1) + imm;
             s->last_addr = addr;
-            switch(funct3) {
+            switch (funct3) {
             case 0: /* lb */
                 {
                     uint8_t rval;
@@ -1428,6 +1438,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
             case 2: /* lq */
                 imm = (int32_t)insn >> 20;
                 addr = read_reg(rs1) + imm;
+                s->last_addr = addr;
                 if (target_read_u128(s, &val, addr))
                     goto mmu_exception;
                 if (rd != 0)
@@ -1445,8 +1456,9 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 uint ## size ##_t rval;                                 \
                                                                         \
                 addr = read_reg(rs1);                                   \
+                s->last_addr = addr;                                    \
                 funct3 = insn >> 27;                                    \
-                switch(funct3) {                                        \
+                switch (funct3) {                                       \
                 case 2: /* lr.w */                                      \
                     if (rs2 != 0)                                       \
                         goto illegal_insn;                              \
@@ -1484,6 +1496,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 case 0x14: /* amomax.w */                               \
                 case 0x18: /* amominu.w */                              \
                 case 0x1c: /* amomaxu.w */                              \
+                    s->last_addr = addr;                                \
                     if (target_read_u ## size(s, &rval, addr)) {        \
                         s->pending_exception += 2; /* LD -> ST */       \
                         goto mmu_exception;                             \
@@ -1560,6 +1573,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
             funct3 = (insn >> 12) & 7;
             imm = (int32_t)insn >> 20;
             addr = read_reg(rs1) + imm;
+            s->last_addr = addr;
             switch(funct3) {
             case 2: /* flw */
                 {

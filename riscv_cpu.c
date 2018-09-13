@@ -437,7 +437,7 @@ static __attribute__((unused)) void cpu_abort(RISCVCPUState *s)
 uint64_t checker_last_addr=0;
 uint64_t checker_last_data=0;
 int      checker_last_size=0;
-#define TRACK_MEM(addr,size,val)  do{ checker_last_addr = addr; checker_last_size = size; checker_last_data = val; }while(0)
+#define TRACK_MEM(addr,size,val)  do { checker_last_addr = addr; checker_last_size = size; checker_last_data = val; } while(0)
 #else
 #define TRACK_MEM(addr,size,val)
 #endif
@@ -1858,13 +1858,13 @@ int riscv_repair_load(RISCVCPUState *s, uint32_t reg_num, uint64_t reg_val,
     } else if (s->last_addr == htif_tohost_addr + 64) {
         *htif_fromhost = reg_val;
         repair_load = 1;
-    } else if ((s->last_addr >= *htif_tohost + 0) && (s->last_addr <  *htif_tohost + 32)) {
+    } else if (*htif_tohost <= s->last_addr && s->last_addr < *htif_tohost + 32) {
         target_write_slow(s, s->last_addr, reg_val, 3);
         repair_load = 1;
     }
 
     if (repair_load) {
-        s->reg[reg_num]=reg_val;
+        s->reg[reg_num] = reg_val;
         return 1;
     } else
         return 0;
