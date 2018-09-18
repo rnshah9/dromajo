@@ -55,8 +55,8 @@
 #ifdef VERIFICATION
 #define DUMP_INVALID_MEM_ACCESS
 #define DUMP_MMU_EXCEPTIONS
-#define DUMP_INTERRUPTS
-//#define DUMP_INVALID_CSR
+//#define DUMP_INTERRUPTS
+#define DUMP_INVALID_CSR
 #define DUMP_ILLEGAL_INSTRUCTION
 //#define DUMP_EXCEPTIONS
 //#define DUMP_CSR
@@ -64,10 +64,10 @@
 #define CONFIG_SW_MANAGED_A_AND_D 1
 #define CONFIG_ALLOW_MISALIGNED_ACCESS 0
 #else
-//#define DUMP_INVALID_MEM_ACCESS
-//#define DUMP_MMU_EXCEPTIONS
-//#define DUMP_INTERRUPTS
-//#define DUMP_INVALID_CSR
+#define DUMP_INVALID_MEM_ACCESS
+#define DUMP_MMU_EXCEPTIONS
+#define DUMP_INTERRUPTS
+#define DUMP_INVALID_CSR
 //#define DUMP_EXCEPTIONS
 //#define DUMP_CSR
 //#define CONFIG_LOGFILE
@@ -266,7 +266,9 @@ struct RISCVCPUState {
     uint8_t fs; /* MSTATUS_FS value */
     uint8_t mxl; /* MXL field in MISA register */
 
-    uint64_t insn_counter;
+    uint64_t insn_counter; // Simulator internal
+    uint64_t minstret; // RISCV CSR (updated when insn_counter increases)
+    uint64_t mcycle;   // RISCV CSR (updated when insn_counter increases)
     BOOL     stop_the_counter; // Set in debug mode only (cleared after ending Debug)
 
     BOOL power_down_flag;
@@ -295,6 +297,8 @@ struct RISCVCPUState {
     target_ulong tdata2[MAX_TRIGGERS];
     target_ulong tdata3[MAX_TRIGGERS];
 
+    target_ulong mhpmevent[32];
+
     target_ulong stvec;
     target_ulong sscratch;
     target_ulong sepc;
@@ -309,6 +313,7 @@ struct RISCVCPUState {
 
     target_ulong dcsr; // Debug CSR 0x7b0 (debug spec only)
     target_ulong dpc;  // Debug DPC 0x7b1 (debug spec only)
+    target_ulong dscratch;  // Debug dscratch 0x7b2 (debug spec only)
 
     target_ulong load_res; /* for atomic LR/SC */
     uint32_t  store_repair_val32; /* saving previous value of memory so it can be repaired */
@@ -324,13 +329,14 @@ struct RISCVCPUState {
     TLBEntry tlb_code[TLB_SIZE];
 };
 
+// NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
 #define write_reg(x, val) ({s->most_recently_written_reg = (x); \
                            s->reg_ts[x] = GET_INSN_COUNTER();   \
                            s->reg[x] = (val);})
 #define read_reg(x)       (s->reg[x])
 
 #define write_fp_reg(x, val) ({s->most_recently_written_fp_reg = (x); \
-                               s->fp_reg_ts[x] = GET_INSN_COUNTER();  \
+                               s->fp_reg_ts[x] = GET_INSN_COUNTER(); \
                                s->fp_reg[x] = (val);})
 #define read_fp_reg(x)       (s->fp_reg[x])
 
@@ -386,7 +392,7 @@ static void fprint_target_ulong(FILE *f, target_ulong a)
 
 static void print_target_ulong(target_ulong a)
 {
-    fprint_target_ulong(stdout, a);
+    fprint_target_ulong(stderr, a);
 }
 
 static char *reg_name[32] = {
@@ -396,35 +402,38 @@ static char *reg_name[32] = {
 "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"
 };
 
+static target_ulong get_mstatus(RISCVCPUState *s, target_ulong mask);
 static void dump_regs(RISCVCPUState *s)
 {
     int i, cols;
     const char priv_str[4] = "USHM";
     cols = 256 / MAX_XLEN;
-    printf("pc =");
+    fprintf(stderr, "pc =");
     print_target_ulong(s->pc);
-    printf(" ");
+    fprintf(stderr, " ");
     for (i = 1; i < 32; i++) {
-        printf("%-3s=", reg_name[i]);
+        fprintf(stderr, "%-3s=", reg_name[i]);
         print_target_ulong(s->reg[i]);
         if ((i & (cols - 1)) == (cols - 1))
-            printf("\n");
+            fprintf(stderr, "\n");
         else
-            printf(" ");
+            fprintf(stderr, " ");
     }
-    printf("priv=%c", priv_str[s->priv]);
-    printf(" mstatus=");
-    print_target_ulong(s->mstatus);
-    printf(" cycles=%" PRId64, s->insn_counter);
-    printf("\n");
+    fprintf(stderr, "priv=%c", priv_str[s->priv]);
+    fprintf(stderr, " mstatus=");
+    print_target_ulong(get_mstatus(s, (target_ulong)-1));
+    fprintf(stderr, " insn_counter=%" PRId64, s->insn_counter);
+    fprintf(stderr, " minstret=%" PRId64, s->minstret);
+    fprintf(stderr, " mcycle=%" PRId64, s->mcycle);
+    fprintf(stderr, "\n");
 #if 1
-    printf(" mideleg=");
+    fprintf(stderr, " mideleg=");
     print_target_ulong(s->mideleg);
-    printf(" mie=");
+    fprintf(stderr, " mie=");
     print_target_ulong(s->mie);
-    printf(" mip=");
+    fprintf(stderr, " mip=");
     print_target_ulong(s->mip);
-    printf("\n");
+    fprintf(stderr, "\n");
 #endif
 }
 
@@ -607,7 +616,6 @@ static int get_phys_addr(RISCVCPUState *s,
             pte = phys_read_u32(s, pte_addr);
         else
             pte = phys_read_u64(s, pte_addr);
-        //printf("pte=0x%08" PRIx64 "\n", pte);
         if (!(pte & PTE_V_MASK))
             return -1; /* invalid PTE */
         paddr = (pte >> 10) << PG_SHIFT;
@@ -761,9 +769,9 @@ static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
         pr = get_phys_mem_range(s->mem_map, paddr);
         if (!pr) {
 #ifdef DUMP_INVALID_MEM_ACCESS
-            printf("target_read_slow: invalid physical address 0x");
+            fprintf(stderr, "target_read_slow: invalid physical address 0x");
             print_target_ulong(paddr);
-            printf("\n");
+            fprintf(stderr, "\n");
 #endif
             return 0;
         } else if (pr->is_ram) {
@@ -808,9 +816,9 @@ static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
 #endif
             else {
 #ifdef DUMP_INVALID_MEM_ACCESS
-                printf("unsupported device read access: addr=0x");
+                fprintf(stderr, "unsupported device read access: addr=0x");
                 print_target_ulong(paddr);
-                printf(" width=%d bits\n", 1 << (3 + size_log2));
+                fprintf(stderr, " width=%d bits\n", 1 << (3 + size_log2));
 #endif
                 ret = 0;
             }
@@ -853,9 +861,9 @@ static no_inline int target_write_slow(RISCVCPUState *s, target_ulong addr,
         pr = get_phys_mem_range(s->mem_map, paddr);
         if (!pr) {
 #ifdef DUMP_INVALID_MEM_ACCESS
-            printf("target_write_slow: invalid physical address 0x");
+            fprintf(stderr, "target_write_slow: invalid physical address 0x");
             print_target_ulong(paddr);
-            printf("\n");
+            fprintf(stderr, "\n");
 #endif
         } else if (pr->is_ram) {
             phys_mem_set_dirty_bit(pr, paddr - pr->addr);
@@ -902,9 +910,9 @@ static no_inline int target_write_slow(RISCVCPUState *s, target_ulong addr,
 #endif
             else {
 #ifdef DUMP_INVALID_MEM_ACCESS
-                printf("unsupported device write access: addr=0x");
+                fprintf(stderr, "unsupported device write access: addr=0x");
                 print_target_ulong(paddr);
-                printf(" width=%d bits\n", 1 << (3 + size_log2));
+                fprintf(stderr, " width=%d bits\n", 1 << (3 + size_log2));
 #endif
             }
         }
@@ -1219,23 +1227,66 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0x7b1:
         val = s->dpc;
         break;
+    case 0x7b2:
+        val = s->dscratch;
+        break;
 
     case 0xb00: /* mcycle */
-    case 0xb02: /* minstret */
     case 0xc00: /* ucycle */
+        if (!counter_access_ok(s, csr))
+            goto invalid_csr;
+        val = (int64_t)s->mcycle;
+        break;
+
+    case 0xb02: /* minstret */
     case 0xc02: /* uinstret */
         if (!counter_access_ok(s, csr))
             goto invalid_csr;
-        val = (int64_t)s->insn_counter;
+        val = (int64_t)s->minstret;
+        break;
+    case 0xb03:
+    case 0xb04:
+    case 0xb05:
+    case 0xb06:
+    case 0xb07:
+    case 0xb08:
+    case 0xb09:
+    case 0xb0a:
+    case 0xb0b:
+    case 0xb0c:
+    case 0xb0d:
+    case 0xb0e:
+    case 0xb0f:
+    case 0xb10:
+    case 0xb11:
+    case 0xb12:
+    case 0xb13:
+    case 0xb14:
+    case 0xb15:
+    case 0xb16:
+    case 0xb17:
+    case 0xb18:
+    case 0xb19:
+    case 0xb1a:
+    case 0xb1b:
+    case 0xb1c:
+    case 0xb1d:
+    case 0xb1e:
+    case 0xb1f:
+        val = 0; // mhpmcounter3..31
+        break;
+    case 0xb80: /* mcycleh */
+    case 0xc80: /* ucycleh */
+        if (s->cur_xlen != 32 || !counter_access_ok(s, csr))
+            goto invalid_csr;
+        val = s->mcycle >> 32;
         break;
 
-    case 0xb80: /* mcycleh */
     case 0xb82: /* minstreth */
-    case 0xc80: /* ucycleh */
     case 0xc82: /* uinstreth */
         if (s->cur_xlen != 32 || !counter_access_ok(s, csr))
             goto invalid_csr;
-        val = s->insn_counter >> 32;
+        val = s->minstret >> 32;
         break;
 
     case 0xf14:
@@ -1250,12 +1301,47 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0xf11:
         val = s->mvendorid;
         break;
+    case 0x323:
+    case 0x324:
+    case 0x325:
+    case 0x326:
+    case 0x327:
+    case 0x328:
+    case 0x329:
+    case 0x32a:
+    case 0x32b:
+    case 0x32c:
+    case 0x32d:
+    case 0x32e:
+    case 0x32f:
+    case 0x330:
+    case 0x331:
+    case 0x332:
+    case 0x333:
+    case 0x334:
+    case 0x335:
+    case 0x336:
+    case 0x337:
+    case 0x338:
+    case 0x339:
+    case 0x33a:
+    case 0x33b:
+    case 0x33c:
+    case 0x33d:
+    case 0x33e:
+    case 0x33f:
+        val = s->mhpmevent[csr & 0x1F];
+        break;
+    case 0x8D0:
+    case 0x8D1:
+        val = 0;
+        break;
     default:
     invalid_csr:
 #ifdef DUMP_INVALID_CSR
         /* the 'time' counter is usually emulated */
         if (csr != 0xc01 && csr != 0xc81) {
-            printf("csr_read: invalid CSR=0x%x\n", csr);
+            fprintf(stderr, "csr_read: invalid CSR=0x%x\n", csr);
         }
 #endif
         *pval = 0;
@@ -1291,9 +1377,9 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     target_ulong mask;
 
 #if defined(DUMP_CSR)
-    printf("csr_write: csr=0x%03x val=0x", csr);
+    fprintf(stderr, "csr_write: csr=0x%03x val=0x", csr);
     print_target_ulong(val);
-    printf("\n");
+    fprintf(stderr, "\n");
 #endif
     switch(csr) {
 #if FLEN > 0
@@ -1434,11 +1520,41 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
     case 0x7a3: // tdata3
         s->tdata3[s->tselect] = val;
+    case 0x323:
+    case 0x324:
+    case 0x325:
+    case 0x326:
+    case 0x327:
+    case 0x328:
+    case 0x329:
+    case 0x32a:
+    case 0x32b:
+    case 0x32c:
+    case 0x32d:
+    case 0x32e:
+    case 0x32f:
+    case 0x330:
+    case 0x331:
+    case 0x332:
+    case 0x333:
+    case 0x334:
+    case 0x335:
+    case 0x336:
+    case 0x337:
+    case 0x338:
+    case 0x339:
+    case 0x33a:
+    case 0x33b:
+    case 0x33c:
+    case 0x33d:
+    case 0x33e:
+    case 0x33f:
+        s->mhpmevent[csr & 0x1F] = val;
         break;
     case 0x7b0:
         /* XXX We have a very incomplete implementation of debug mode, only just enough
            to restore a snapshot and stop counters */
-        mask = 0x600; // stopcount and stoptime
+        mask = 0x603; // stopcount and stoptime && also the priv level to return
         s->dcsr = s->dcsr & ~mask | val & mask;
         s->stop_the_counter = s->dcsr & 0x600 != 0;
         break;
@@ -1447,22 +1563,93 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->dpc = val & (s->misa & MCPUID_C ? ~1 : ~3);
         break;
 
+    case 0x7b2:
+        s->dscratch = val;
+        break;
+    case 0x8D0: // Esperanto validation0 register
+        if ((val >> 12) == 0xdead0) // Begin
+          fprintf(stderr, "ET validation begin code=%llx\n", (long long)(val&0xFFF));
+        else if ((val >> 12) == 0x1FEED) {
+          fprintf(stderr, "ET validation PASS code=%llx\n", (long long)(val&0xFFF));
+          s->power_down_flag = TRUE;
+          exit(0);
+        }else if ((val >> 12) == 0x50BAD) {
+          fprintf(stderr, "ET validation FAIL code=%llx\n", (long long)(val&0xFFF));
+          s->power_down_flag = TRUE;
+          exit(0);
+        }else
+          fprintf(stderr, "ET UNKNOWN command=%llx code=%llx\n", (long long)val >> 12,
+                  (long long)(val&0xFFF));
+        break;
+    case 0x8D1: // Esperanto validation1 register
+        if ((val >> 8) == 0x0) // upper bits zero is the expected
+          fprintf(stderr, "%c",(char)(val&0xFF));
+        else
+          fprintf(stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)(val >> 8));
+        break;
     case 0xb00: /* mcycle */
+        s->mcycle = val;
+        break;
     case 0xb02: /* minstret */
-        s->insn_counter = val;
+        s->minstret = val;
+        break;
+    case 0xb03:
+    case 0xb04:
+    case 0xb05:
+    case 0xb06:
+    case 0xb07:
+    case 0xb08:
+    case 0xb09:
+    case 0xb0a:
+    case 0xb0b:
+    case 0xb0c:
+    case 0xb0d:
+    case 0xb0e:
+    case 0xb0f:
+    case 0xb10:
+    case 0xb11:
+    case 0xb12:
+    case 0xb13:
+    case 0xb14:
+    case 0xb15:
+    case 0xb16:
+    case 0xb17:
+    case 0xb18:
+    case 0xb19:
+    case 0xb1a:
+    case 0xb1b:
+    case 0xb1c:
+    case 0xb1d:
+    case 0xb1e:
+    case 0xb1f:
+        // Ignore, but allow to write to performance counters mhpmcounter
+        break;
+    case 0xc00: /* ucycle */
+        if (!counter_access_ok(s, csr))
+            goto invalid_csr;
+        s->mcycle = val; // XXX not exactly clear what happens in RV32
+        break;
+    case 0xc02: /* uinstret */
+        if (!counter_access_ok(s, csr))
+            goto invalid_csr;
+        s->minstret = val; // XXX not exactly clear what happens in RV32
         break;
 
     case 0xb80: /* mcycleh */
+        if (s->cur_xlen != 32)
+            goto invalid_csr;
+        s->mcycle = (uint32_t) s->mcycle | ((uint64_t)val << 32);
+        break;
     case 0xb82: /* minstreth */
         if (s->cur_xlen != 32)
             goto invalid_csr;
-        s->insn_counter = (uint32_t) s->insn_counter | ((uint64_t)val << 32);
+        s->minstret = (uint32_t) s->minstret | ((uint64_t)val << 32);
         break;
 
     default:
     invalid_csr:
 #ifdef DUMP_INVALID_CSR
-        printf("csr_write: invalid CSR=0x%x\n", csr);
+        fprintf(stderr, "csr_write: invalid CSR=0x%x\n", csr);
 #endif
         return -1;
     }
@@ -1517,16 +1704,16 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
     };
 
     if (cause & CAUSE_INTERRUPT)
-        printf("core   0: exception interrupt #%d, epc 0x%016jx\n",
+        fprintf(stderr, "core   0: exception interrupt #%d, epc 0x%016jx\n",
                (cause & (MAX_XLEN - 1)), (uintmax_t)s->pc);
     else if (cause <= CAUSE_STORE_PAGE_FAULT) {
-        printf("core   0: exception %s, epc 0x%016jx\n",
+        fprintf(stderr, "core   0: exception %s, epc 0x%016jx\n",
                cause_s[cause], (uintmax_t)s->pc);
-        printf("core   0:           tval 0x%016jx\n", (uintmax_t)tval);
+        fprintf(stderr, "core   0:           tval 0x%016jx\n", (uintmax_t)tval);
     } else {
-        printf("core   0: exception %d, epc 0x%016jx\n",
+        fprintf(stderr, "core   0: exception %d, epc 0x%016jx\n",
                cause, (uintmax_t)s->pc);
-        printf("core   0:           tval 0x%016jx\n", (uintmax_t)tval);
+        fprintf(stderr, "core   0:           tval 0x%016jx\n", (uintmax_t)tval);
     }
 #endif
 
@@ -1660,6 +1847,10 @@ static __exception int raise_interrupt(RISCVCPUState *s)
     if (mask == 0)
         return 0;
     irq_num = ctz32(mask);
+#ifdef DUMP_INTERRUPTS
+    fprintf(stderr, "raise_interrupt: irq=%d priv=%d pc=%llx\n", irq_num,s->priv,(unsigned long long)s->pc);
+#endif
+
     raise_exception(s, irq_num | CAUSE_INTERRUPT);
     return -1;
 }
@@ -1734,7 +1925,7 @@ void riscv_cpu_interp(RISCVCPUState *s, int n_cycles)
 /* Note: the value is not accurate when called in riscv_cpu_interp() */
 uint64_t riscv_cpu_get_cycles(RISCVCPUState *s)
 {
-    return s->insn_counter;
+    return s->mcycle;
 }
 
 void riscv_cpu_set_mip(RISCVCPUState *s, uint32_t mask)
@@ -1834,15 +2025,18 @@ void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint
 {
     switch (csr_num & 0xFFF) {
     case 0xb00:
+    case 0xc00: // mcycle
+        s->mcycle       = csr_val;
+        s->reg[reg_num] = csr_val;
+        break;
     case 0xb02:
-    case 0xc00:
-    case 0xc02:
-        s->insn_counter = csr_val;
+    case 0xc02: // minstret
+        s->minstret     = csr_val;
         s->reg[reg_num] = csr_val;
         break;
 
     default:
-        printf("riscv_repair_csr: This CSR is unsupported for repairing: %lx\n", csr_num);
+        fprintf(stderr, "riscv_repair_csr: This CSR is unsupported for repairing: %lx\n", csr_num);
         break;
     }
 }
@@ -1889,7 +2083,7 @@ int riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3)
         break;
 
     default:
-        printf("riscv_repair_store: Store repairing not successful.");
+        fprintf(stderr, "riscv_repair_store: Store repairing not successful.");
         return 2;
     }
 
@@ -1929,10 +2123,10 @@ int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr)
 int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr)
 {
     *data = phys_read_u64(s, addr);
-    printf("data:0x%" PRIx64 " addr:0x%08" PRIx64 "\n", *data, addr);
+    fprintf(stderr, "data:0x%" PRIx64 " addr:0x%08" PRIx64 "\n", *data, addr);
     int i = 0;
     if (i) {
-        printf("Illegal read addr:%"  PRIx64 "\n", addr);
+        fprintf(stderr, "Illegal read addr:%"  PRIx64 "\n", addr);
         return i;
     }
 
@@ -2003,7 +2197,12 @@ static void deserialize_memory(void *base, size_t size, const char *file)
 
 static uint32_t create_csrrw(int rs, uint32_t csrn)
 {
-    return 0x2073 | ((csrn & 0xFFF) << 20) | ((rs & 0x1F) << 15);
+    return 0x1073 | ((csrn & 0xFFF) << 20) | ((rs & 0x1F) << 15);
+}
+
+static uint32_t create_csrrs(int rd, uint32_t csrn)
+{
+    return 0x2073 | ((csrn & 0xFFF) << 20) | ((rd & 0x1F) << 7);
 }
 
 static uint32_t create_auipc(int rd, uint32_t addr)
@@ -2031,7 +2230,70 @@ static uint32_t create_ld(int rd, int rs1)
     return 0x3 | ((rd & 0x1F)<<7) | (0x3<<12) | ((rs1 & 0x1F)<<15);
 }
 
-static void create_boot_rom(RISCVCPUState *s, const char *file)
+static uint32_t create_sd(int rs1, int rs2)
+{
+    return 0x23 | ((rs2 & 0x1F)<<20) | (0x3<<12) | ((rs1 & 0x1F)<<15);
+}
+
+static uint32_t create_fld(int rd, int rs1)
+{
+    return 0x7 | ((rd & 0x1F)<<7) | (0x3<<12) | ((rs1 & 0x1F)<<15);
+}
+
+static void create_csr12_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t csrn, uint16_t val)
+{
+  rom[(*code_pos)++] = create_seti(1,  val & 0xFFF);
+  rom[(*code_pos)++] = create_csrrw(1,  csrn);
+}
+
+static void create_csr64_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t *data_pos, uint32_t csrn, uint64_t val)
+{
+    uint32_t data_off = sizeof(uint32_t) * (*data_pos - *code_pos);
+
+    rom[(*code_pos)++] = create_auipc(1, data_off);
+    rom[(*code_pos)++] = create_addi(1, data_off);
+    rom[(*code_pos)++] = create_ld(1, 1);
+    rom[(*code_pos)++] = create_csrrw(1, csrn);
+
+    rom[(*data_pos)++] = val & 0xFFFFFFFF;
+    rom[(*data_pos)++] = val >> 32;
+}
+
+static void create_reg_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t *data_pos, int rn, uint64_t val)
+{
+    uint32_t data_off = sizeof(uint32_t) * (*data_pos - *code_pos);
+
+    rom[(*code_pos)++] = create_auipc(rn, data_off);
+    rom[(*code_pos)++] = create_addi(rn, data_off);
+    rom[(*code_pos)++] = create_ld(rn, rn);
+
+    rom[(*data_pos)++] = val & 0xFFFFFFFF;
+    rom[(*data_pos)++] = val >> 32;
+}
+
+static void create_io64_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t *data_pos, uint64_t addr, uint64_t val)
+{
+    uint32_t data_off = sizeof(uint32_t) * (*data_pos - *code_pos);
+
+    rom[(*code_pos)++] = create_auipc(1, data_off);
+    rom[(*code_pos)++] = create_addi(1, data_off);
+    rom[(*code_pos)++] = create_ld(1, 1);
+
+    rom[(*data_pos)++] = addr & 0xFFFFFFFF;
+    rom[(*data_pos)++] = addr >> 32;
+
+    uint32_t data_off2 = sizeof(uint32_t) * (*data_pos - *code_pos);
+    rom[(*code_pos)++] = create_auipc(2, data_off2);
+    rom[(*code_pos)++] = create_addi(2, data_off2);
+    rom[(*code_pos)++] = create_ld(2, 2);
+
+    rom[(*code_pos)++] = create_sd(1, 2);
+
+    rom[(*data_pos)++] = val & 0xFFFFFFFF;
+    rom[(*data_pos)++] = val >> 32;
+}
+
+static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
 {
     uint32_t rom[ROM_SIZE/4];
     memset(rom, 0, ROM_SIZE);
@@ -2042,25 +2304,17 @@ static void create_boot_rom(RISCVCPUState *s, const char *file)
     // 0x800..0x1000 boot data
 
     uint32_t code_pos = (BOOT_BASE_ADDR - ROM_BASE_ADDR) / sizeof(uint32_t);
-    uint32_t data_pos = (sizeof(uint32_t) * code_pos + ROM_SIZE / 2) / sizeof(uint32_t);
+    uint32_t data_pos = ROM_SIZE / 2 / sizeof(uint32_t);
+    uint32_t data_pos_start = data_pos;
 
-    // Write to DPC (CSR, 0x7b1)
-    uint32_t data_off = sizeof(uint32_t) * (data_pos - code_pos);
-
-    rom[code_pos++] = create_auipc(1, data_off);
-    rom[code_pos++] = create_addi(1, data_off);
-    rom[code_pos++] = create_ld(1, 1);
-    rom[code_pos++] = create_csrrw(1, 0x7b1);
-
-    rom[data_pos++] = s->pc;
-    rom[data_pos++] = (uint64_t)s->pc >> 32;
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x7b1, s->pc); // Write to DPC (CSR, 0x7b1)
 
     // Write current priviliege level to prv in dcsr (0 user, 1 supervisor, 2 user)
     // dcsr is at 0x7b0 prv is bits 0 & 1
     // dcsr.stopcount = 1
     // dcsr.stoptime  = 1
     // dcsr = 0x600 | (PrivLevel & 0x3)
-    int prv;
+    int prv = 0;
     if (s->priv == PRV_U)
         prv = 0;
     else if (s->priv == PRV_S)
@@ -2072,33 +2326,108 @@ static void create_boot_rom(RISCVCPUState *s, const char *file)
         exit(-4);
     }
 
-    rom[code_pos++] = create_seti(1, 0x600 | prv & 3);
-    rom[code_pos++] = create_csrrw(1, 0x7b0);
+    create_csr12_recovery(rom, &code_pos, 0x7b0, 0x600|prv);
 
-    // Last, do the registers
-    for (int i = 1; i < 32; i++) {
-        data_off = sizeof(uint32_t) * (data_pos - code_pos);
-        rom[code_pos++] = create_auipc(i, data_off);
-        rom[code_pos++] = create_addi(i, data_off);
-        rom[code_pos++] = create_ld(i, i);
+    // NOTE: mstatus & misa should be one of the first because risvemu breaks down this
+    // register for performance reasons. E.g: restoring the fflags also changes
+    // parts of the mstats
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x300, get_mstatus(s, (target_ulong)-1)); // mstatus
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x301, s->misa | ((target_ulong)s->mxl << (s->cur_xlen - 2))); // misa
 
-        rom[data_pos++] = s->reg[i];
+    // All the remaining CSRs
+    if (s->fs) { // If the FPU is down, you can not recover flags
+      create_csr12_recovery(rom, &code_pos, 0x001, s->fflags);
+      // Only if fflags, otherwise it would raise an illegal instruction
+      create_csr12_recovery(rom, &code_pos, 0x002, s->frm);
+      create_csr12_recovery(rom, &code_pos, 0x003, s->fflags | (s->frm<<5));
+
+      // do the FP registers, iff fs is set
+      for (int i = 0; i < 32; i++) {
+        uint32_t data_off = sizeof(uint32_t) * (data_pos - code_pos);
+        rom[code_pos++] = create_auipc(1, data_off);
+        rom[code_pos++] = create_addi(1, data_off);
+        rom[code_pos++] = create_fld(i, 1);
+
+        rom[data_pos++] = (uint32_t)s->fp_reg[i];
         rom[data_pos++] = (uint64_t)s->reg[i] >> 32;
+      }
     }
+
+
+  // Recover CPU CSRs
+
+    // Cycle and instruction are alias across modes. Just write to m-mode counter
+    // Already done before CLINT. create_csr64_recovery(rom, &code_pos, &data_pos, 0xb00, s->insn_counter); // mcycle
+    //create_csr64_recovery(rom, &code_pos, &data_pos, 0xb02, s->insn_counter); // instret
+
+    for(int i = 3; i < 32 ; i++ ) {
+      create_csr12_recovery(rom, &code_pos, 0xb00 + i, 0); // reset mhpmcounter3..31
+      create_csr64_recovery(rom, &code_pos, &data_pos, 0x320 + i, s->mhpmevent[i]); // mhpmevent3..31
+    }
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x7a0, s->tselect); // tselect
+    //FIXME: create_csr64_recovery(rom, &code_pos, &data_pos, 0x7a1, s->tdata1); // tdata1
+    //FIXME: create_csr64_recovery(rom, &code_pos, &data_pos, 0x7a2, s->tdata2); // tdata2
+    //FIXME: create_csr64_recovery(rom, &code_pos, &data_pos, 0x7a3, s->tdata3); // tdata3
+
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x302, s->medeleg);
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x303, s->mideleg);
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x304, s->mie);  // mie & sie
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x305, s->mtvec);
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x105, s->stvec);
+    create_csr12_recovery(rom, &code_pos, 0x306, s->mcounteren);
+    create_csr12_recovery(rom, &code_pos, 0x106, s->scounteren);
+
+    // NOTE: no pmp (pmpcfg0). Not implemented in RTL
+
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x340, s->mscratch);
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x341, s->mepc);
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x342, s->mcause);
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x343, s->mtval);
+
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x140, s->sscratch);
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x141, s->sepc);
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x142, s->scause);
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x143, s->stval);
+
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x344, s->mip); // mip & sip
+
+    for (int i = 3; i < 32; i++) { // Not 1 and 2 which are used by create_...
+      create_reg_recovery(rom, &code_pos, &data_pos, i, s->reg[i]);
+    }
+
+    // Recover CLINT (Close to the end of the recovery to avoid extra cycles)
+    // TODO: One per hart (multicore/SMP)
+
+    fprintf(stderr, "clint hart0 timecmp=%lld cycles (%lld)\n", (long long)m->timecmp, (long long)riscv_cpu_get_cycles(s)/RTC_FREQ_DIV);
+    create_io64_recovery(rom, &code_pos, &data_pos, CLINT_BASE_ADDR + 0x4000, m->timecmp); // Assuming 16 ratio between CPU and CLINT and that CPU is reset to zero
+
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0xb02, s->minstret);
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0xb00, s->mcycle);
+
+    create_io64_recovery(rom, &code_pos, &data_pos, CLINT_BASE_ADDR + 0xbff8, s->mcycle/RTC_FREQ_DIV);
+
+    for (int i = 1; i < 3; i++) { // recover 1 and 2 now
+      create_reg_recovery(rom, &code_pos, &data_pos, i, s->reg[i]);
+    }
+
+    rom[code_pos++] = create_csrrw(1, 0x7b2);
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x180, s->satp);
+    // last Thing because it changes addresses. Use dscratch register to remember reg 1
+    rom[code_pos++] = create_csrrs(1, 0x7b2);
 
     // dret 0x7b200073
     rom[code_pos++] = 0x7b200073;
 
-    if (code_pos >= ROM_SIZE / 2 / sizeof(uint32_t)) {
-        fprintf(stderr, "ERROR: rom is too small. ROM_SIZE should increase to at least %d\n",
-                code_pos * 3);
+    if (data_pos >= (ROM_SIZE / sizeof(uint32_t)) || code_pos >= data_pos_start) {
+        fprintf(stderr, "ERROR: rom is too small. ROM_SIZE should increase. Current code_pos=%d data_pos=%d\n",
+                code_pos,data_pos);
         exit(-6);
     }
 
     serialize_memory(rom, ROM_SIZE, file);
 }
 
-void riscv_cpu_serialize(RISCVCPUState *s, const char *dump_name)
+void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_name)
 {
     FILE *conf_fd = 0;
     size_t n = strlen(dump_name) + 64;
@@ -2114,7 +2443,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, const char *dump_name)
     fprintf(conf_fd, "pc:0x%llx\n", (long long)s->pc);
 
     for (int i = 1; i < 32; i++) {
-        fprintf(conf_fd, "reg_r%d:%llx\n", i, (long long)s->reg[i]);
+        fprintf(conf_fd, "reg_x%d:%llx\n", i, (long long)s->reg[i]);
     }
 
 #if LEN > 0
@@ -2131,12 +2460,12 @@ void riscv_cpu_serialize(RISCVCPUState *s, const char *dump_name)
 
     fprintf(conf_fd, "pending_exception:%d\n", s->pending_exception);
 
-    fprintf(conf_fd, "mstatus:%"PRIu64"\n", (uint64_t)s->mstatus);
-    fprintf(conf_fd, "mtvec:%"PRIu64"\n", (uint64_t)s->mtvec);
-    fprintf(conf_fd, "mscratch:%"PRIu64"\n", (uint64_t)s->mscratch);
-    fprintf(conf_fd, "mepc:%"PRIu64"\n", (uint64_t)s->mepc);
-    fprintf(conf_fd, "mcause:%"PRIu64"\n", (uint64_t)s->mcause);
-    fprintf(conf_fd, "mtval:%"PRIu64"\n", (uint64_t)s->mtval);
+    fprintf(conf_fd, "mstatus:%llx\n", (unsigned long long)s->mstatus);
+    fprintf(conf_fd, "mtvec:%llx\n", (unsigned long long)s->mtvec);
+    fprintf(conf_fd, "mscratch:%llx\n", (unsigned long long)s->mscratch);
+    fprintf(conf_fd, "mepc:%llx\n", (unsigned long long)s->mepc);
+    fprintf(conf_fd, "mcause:%llx\n", (unsigned long long)s->mcause);
+    fprintf(conf_fd, "mtval:%llx\n", (unsigned long long)s->mtval);
 
     fprintf(conf_fd, "misa:%" PRIu32 "\n", s->misa);
     fprintf(conf_fd, "mie:%" PRIu32 "\n", s->mie);
@@ -2146,13 +2475,13 @@ void riscv_cpu_serialize(RISCVCPUState *s, const char *dump_name)
     fprintf(conf_fd, "mcounteren:%" PRIu32 "\n", s->mcounteren);
     fprintf(conf_fd, "tselect:%" PRIu32 "\n", s->tselect);
 
-    fprintf(conf_fd, "stvec:%"PRIu64"\n", (uint64_t)s->stvec);
-    fprintf(conf_fd, "sscratch:%"PRIu64"\n", (uint64_t)s->sscratch);
-    fprintf(conf_fd, "sepc:%"PRIu64"\n", (uint64_t)s->sepc);
-    fprintf(conf_fd, "scause:%"PRIu64"\n", (uint64_t)s->scause);
-    fprintf(conf_fd, "stval:%"PRIu64"\n", (uint64_t)s->stval);
-    fprintf(conf_fd, "satp:%"PRIu64"\n", (uint64_t)s->satp);
-    fprintf(conf_fd, "scounteren:%"PRIu64"\n", (uint64_t)s->scounteren);
+    fprintf(conf_fd, "stvec:%llx\n", (unsigned long long)s->stvec);
+    fprintf(conf_fd, "sscratch:%llx\n", (unsigned long long)s->sscratch);
+    fprintf(conf_fd, "sepc:%llx\n", (unsigned long long)s->sepc);
+    fprintf(conf_fd, "scause:%llx\n", (unsigned long long)s->scause);
+    fprintf(conf_fd, "stval:%llx\n", (unsigned long long)s->stval);
+    fprintf(conf_fd, "satp:%llx\n", (unsigned long long)s->satp);
+    fprintf(conf_fd, "scounteren:%llx\n", (unsigned long long)s->scounteren);
 
     PhysMemoryRange *boot_ram = 0;
     int main_ram_found = 0;
@@ -2191,7 +2520,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, const char *dump_name)
 
     if (ROM_BASE_ADDR + ROM_SIZE < s->pc) {
         fprintf(stderr, "NOTE: creating a new boot rom\n");
-        create_boot_rom(s, f_name);
+        create_boot_rom(s, m, f_name);
     } else if (BOOT_BASE_ADDR < s->pc) {
         fprintf(stderr, "ERROR: could not checkpoint when running inside the ROM\n");
         exit(-4);

@@ -47,7 +47,7 @@
 #include "cutils.h"
 #include "iomem.h"
 #include "virtio.h"
-#include "machine.h"
+//#include "machine.h"
 #ifdef CONFIG_FS_NET
 #include "fs_utils.h"
 #include "fs_wget.h"
@@ -132,10 +132,10 @@ static int console_read(void *opaque, uint8_t *buf, int len)
             s->console_esc_state = 0;
             switch(ch) {
             case 'x':
-                printf("Terminated\n");
+                fprintf(stderr,"Terminated\n");
                 exit(0);
             case 'h':
-                printf("\n"
+                fprintf(stderr,"\n"
                        "C-a h   print this help\n"
                        "C-a x   exit emulator\n"
                        "C-a C-a send C-a\n");
@@ -239,7 +239,7 @@ static int bf_read_async(BlockDevice *bs,
                          BlockDeviceCompletionFunc *cb, void *opaque)
 {
     BlockDeviceFile *bf = bs->opaque;
-    //    printf("bf_read_async: sector_num=%" PRId64 " n=%d\n", sector_num, n);
+    //    fprintf(stderr,"bf_read_async: sector_num=%" PRId64 " n=%d\n", sector_num, n);
 #ifdef DUMP_BLOCK_READ
     {
         static FILE *f;
@@ -612,7 +612,7 @@ BOOL virt_machine_run(VirtMachine *m)
 
 void help(void)
 {
-    printf("riscvemu version " CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard\n"
+    fprintf(stderr,"riscvemu version " CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard\n"
            "                             Copyright (c) 2018 Esperanto Technologies\n"
            "usage: riscvemu [options] config_file\n"
            "options are:\n"
@@ -689,7 +689,8 @@ static void usage(const char *prog, const char *msg)
             "usage: %s [--load snapshot_name] [--save snapshot_name] [--maxinsns N] config\n"
             "       --load resumes a previously saved snapshot\n"
             "       --save saves a snapshot upon exit\n"
-            "       --maxinsns terminates execution after a number of instructions\n",
+            "       --maxinsns terminates execution after a number of instructions\n"
+            "       --trace start trace dump after a number of instructions\n",
             msg, prog);
 
     exit(EXIT_FAILURE);
@@ -703,6 +704,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     const char *path               = NULL;
     const char *cmdline            = NULL;
     uint64_t    maxinsns           = 0;
+    uint64_t    trace              = 0;
 
     for (;;) {
         int option_index = 0;
@@ -710,6 +712,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             {"load",    required_argument, 0,  'l' },
             {"save",    required_argument, 0,  's' },
             {"maxinsns",required_argument, 0,  'm' },
+            {"trace   ",required_argument, 0,  't' },
             {0,         0,                 0,  0 }
         };
 
@@ -734,6 +737,12 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             if (maxinsns)
                 usage(prog, "already had a max instructions");
             maxinsns = atoi(optarg);
+            break;
+
+        case 't':
+            if (trace)
+                usage(prog, "already had a trace set");
+            trace = atoi(optarg);
             break;
 
         default:
@@ -864,13 +873,18 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 #endif
     }
 
+#ifdef VERIFICATION
+    p->rtc_real_time = FALSE; // Maybe false all the time???
+#else
     p->rtc_real_time = TRUE;
+#endif
 
     s = virt_machine_init(p);
 
     s->snapshot_load_name = snapshot_load_name;
     s->snapshot_save_name = snapshot_save_name;
     s->maxinsns           = maxinsns;
+    s->trace              = trace;
     if (!s->maxinsns)
         s->maxinsns = ~0ULL;
 

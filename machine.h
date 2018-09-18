@@ -123,6 +123,7 @@ typedef struct VirtMachine {
     const char *snapshot_load_name;
     const char *snapshot_save_name;
     uint64_t    maxinsns;
+    uint64_t    trace;
 } VirtMachine;
 
 void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...);

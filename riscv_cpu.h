@@ -1,3 +1,6 @@
+#ifndef RISCV_CPU_H
+#define RISCV_CPU_H
+
 /*
  * RISCV CPU emulator
  *
@@ -84,5 +87,10 @@ int riscv_get_most_recently_written_reg(RISCVCPUState *s,
                                         uint64_t *instret_ts);
 int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
                                            uint64_t *instret_ts);
-void riscv_cpu_serialize(RISCVCPUState *s, const char *dump_name);
+
+
+#include "riscv_machine.h"
+void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_name);
 void riscv_cpu_deserialize(RISCVCPUState *s, const char *dump_name);
+
+#endif

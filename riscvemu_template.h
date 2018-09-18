@@ -219,6 +219,7 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
     target_ulong code_to_pc_addend;
 #endif
     uint64_t insn_counter_addend;
+    uint64_t insn_counter_start = s->insn_counter;
 #if FLEN > 0
     uint32_t rs3;
     int32_t rm;
@@ -1280,8 +1281,13 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
             funct3 &= 3;
             switch(funct3) {
             case 1: /* csrrw */
-                if (!s->stop_the_counter)
-                    s->insn_counter = GET_INSN_COUNTER();
+                s->insn_counter = GET_INSN_COUNTER();
+                if (!s->stop_the_counter) {
+                  int delta = s->insn_counter - insn_counter_start;
+                  assert(delta >= 0);
+                  s->mcycle += delta;
+                  s->minstret += delta;
+                }
                 if (csr_read(s, &val2, imm, TRUE))
                     goto illegal_insn;
                 val2 = (intx_t)val2;
@@ -1301,8 +1307,13 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
                 break;
             case 2: /* csrrs */
             case 3: /* csrrc */
-                if (!s->stop_the_counter)
-                    s->insn_counter = GET_INSN_COUNTER();
+                s->insn_counter = GET_INSN_COUNTER();
+                if (!s->stop_the_counter) {
+                  int delta = s->insn_counter - insn_counter_start;
+                  assert(delta >= 0);
+                  s->mcycle += delta;
+                  s->minstret += delta;
+                }
                 if (csr_read(s, &val2, imm, (rs1 != 0)))
                     goto illegal_insn;
                 val2 = (intx_t)val2;
@@ -1831,8 +1842,13 @@ done_interp:
     n_cycles--;
 
 the_end:
-    if (!s->stop_the_counter)
-        s->insn_counter = GET_INSN_COUNTER();
+    s->insn_counter = GET_INSN_COUNTER();
+    if (!s->stop_the_counter) {
+      int delta = s->insn_counter - insn_counter_start;
+      assert(delta >= 0);
+      s->mcycle += delta;
+      s->minstret += delta;
+    }
 }
 
 #undef uintx_t
