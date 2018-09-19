@@ -32,7 +32,7 @@
 #include "list.h"
 #include "virtio.h"
 
-//#define DEBUG_VIRTIO
+#define DEBUG_VIRTIO
 
 /* MMIO addresses - from the Linux kernel */
 #define VIRTIO_MMIO_MAGIC_VALUE		0x000

@@ -39,9 +39,37 @@
 
 /* RISCV machine */
 
+#define DUMP_UART
 //#define DUMP_CLINT
 //#define DUMP_HTIF
 //#define DUMP_PLIC
+
+#define UART0_BASE_ADDR 0x54000000
+// sifive,uart
+#define UART0_IRQ 3 // Same as qemu UART0 (qemu has 2 sifive uarts)
+enum {
+    SIFIVE_UART_TXFIFO        = 0,
+    SIFIVE_UART_RXFIFO        = 4,
+    SIFIVE_UART_TXCTRL        = 8,
+    SIFIVE_UART_TXMARK        = 10,
+    SIFIVE_UART_RXCTRL        = 12,
+    SIFIVE_UART_RXMARK        = 14,
+    SIFIVE_UART_IE            = 16,
+    SIFIVE_UART_IP            = 20,
+    SIFIVE_UART_DIV           = 24,
+    SIFIVE_UART_MAX           = 32
+};
+
+enum {
+    SIFIVE_UART_IE_TXWM       = 1, /* Transmit watermark interrupt enable */
+    SIFIVE_UART_IE_RXWM       = 2  /* Receive watermark interrupt enable */
+};
+
+enum {
+    SIFIVE_UART_IP_TXWM       = 1, /* Transmit watermark interrupt pending */
+    SIFIVE_UART_IP_RXWM       = 2  /* Receive watermark interrupt pending */
+};
+#define UART0_SIZE      32
 
 #define HTIF_BASE_ADDR 0x40008000
 #define IDE_BASE_ADDR  0x40009000
@@ -180,6 +208,101 @@ static void htif_poll(RISCVMachine *s)
     }
 }
 #endif
+
+typedef struct SiFiveUARTState {
+  CharacterDevice *cs; // Console
+
+    uint32_t irq;
+    uint8_t rx_fifo[8];
+    unsigned int rx_fifo_len;
+    uint32_t ie;
+    uint32_t ip;
+    uint32_t txctrl;
+    uint32_t rxctrl;
+    uint32_t div;
+} SiFiveUARTState;
+
+static void uart_update_irq(SiFiveUARTState *s)
+{
+    int cond = 0;
+    if ((s->ie & SIFIVE_UART_IE_RXWM) && s->rx_fifo_len) {
+        cond = 1;
+    }
+    if (cond) {
+      fprintf(stderr,"uart_update_irq: FIXME we should raise IRQ saying that there is new data\n");
+    }
+}
+
+static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
+{
+    SiFiveUARTState *s = opaque;
+
+#ifdef DUMP_UART
+    fprintf(stderr, "uart_read: offset=%x size_log2=%d\n", offset, size_log2);
+#endif
+    switch (offset) {
+    case SIFIVE_UART_RXFIFO:
+        {
+            CharacterDevice *cs = s->cs;
+            unsigned char r;
+            int ret = cs->read_data(cs->opaque, &r, 1);
+            if (ret) {
+#ifdef DUMP_UART
+                fprintf(stderr, "uart_read: val=%x\n", r);
+#endif
+                return r;
+            }
+            return 0x80000000;
+        }
+    case SIFIVE_UART_TXFIFO:
+        return 0; /* Should check tx fifo */
+    case SIFIVE_UART_IE:
+        return s->ie;
+    case SIFIVE_UART_IP:
+        return s->rx_fifo_len ? SIFIVE_UART_IP_RXWM : 0;
+    case SIFIVE_UART_TXCTRL:
+        return s->txctrl;
+    case SIFIVE_UART_RXCTRL:
+        return s->rxctrl;
+    case SIFIVE_UART_DIV:
+        return s->div;
+    }
+
+    fprintf(stderr, "%s: bad read: offset=0x%x\n", __func__, (int)offset);
+    return 0;
+}
+
+static void uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log2)
+{
+    SiFiveUARTState *s = opaque;
+    CharacterDevice *cs = s->cs;
+    unsigned char ch = val;
+
+#ifdef DUMP_UART
+    fprintf(stderr, "uart_write: offset=%x val=%x size_log2=%d\n", offset, val, size_log2);
+#endif
+
+    switch (offset) {
+    case SIFIVE_UART_TXFIFO:
+        cs->write_data(cs->opaque, &ch, 1);
+        return;
+    case SIFIVE_UART_IE:
+        s->ie = val;
+        uart_update_irq(s);
+        return;
+    case SIFIVE_UART_TXCTRL:
+        s->txctrl = val;
+        return;
+    case SIFIVE_UART_RXCTRL:
+        s->rxctrl = val;
+        return;
+    case SIFIVE_UART_DIV:
+        s->div = val;
+        return;
+    }
+
+    fprintf(stderr, "%s: bad write: addr=0x%x v=0x%x\n", __func__, (int)offset, (int)val);
+}
 
 static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
 {
@@ -721,6 +844,12 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
         fdt_end_node(s); /* virtio */
     }
 
+    // UART
+    fdt_begin_node_num(s, "uart", UART0_BASE_ADDR);
+    fdt_prop_str(s, "compatible", "sifive,uart0");
+    fdt_prop_tab_u64_2(s, "reg", UART0_BASE_ADDR, UART0_SIZE);
+    fdt_end_node(s); /* uart */
+
     fb_dev = m->common.fb_dev;
     if (fb_dev) {
         fdt_begin_node_num(s, "framebuffer", FRAMEBUFFER_BASE_ADDR);
@@ -824,6 +953,13 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     if (p->rtc_real_time) {
         s->rtc_start_time = rtc_get_real_time(s);
     }
+
+    SiFiveUARTState *uart = (SiFiveUARTState *)calloc(sizeof *uart, 1);
+    uart->irq = UART0_IRQ;
+    uart->cs = p->console;
+
+    cpu_register_device(s->mem_map, UART0_BASE_ADDR, UART0_SIZE, uart,
+                        uart_read, uart_write, DEVIO_SIZE32);
 
     cpu_register_device(s->mem_map, CLINT_BASE_ADDR, CLINT_SIZE, s,
                         clint_read, clint_write, DEVIO_SIZE32);

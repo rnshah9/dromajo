@@ -122,7 +122,8 @@ static int console_read(void *opaque, uint8_t *buf, int len)
         return 0;
     if (ret == 0) {
         /* EOF */
-        exit(1);
+        //exit(1);
+        return 0;
     }
 
     j = 0;
@@ -136,9 +137,9 @@ static int console_read(void *opaque, uint8_t *buf, int len)
                 exit(0);
             case 'h':
                 fprintf(stderr,"\n"
-                       "C-a h   print this help\n"
-                       "C-a x   exit emulator\n"
-                       "C-a C-a send C-a\n");
+                       "C-b h   print this help\n"
+                       "C-b x   exit emulator\n"
+                       "C-b C-b send C-b\n");
                 break;
             case 1:
                 goto output_char;
@@ -146,7 +147,7 @@ static int console_read(void *opaque, uint8_t *buf, int len)
                 break;
             }
         } else {
-            if (ch == 1) {
+            if (ch == 2) { // Change to work with tmux
                 s->console_esc_state = 1;
             } else {
             output_char:
@@ -629,7 +630,7 @@ void help(void)
 #endif
            "\n"
            "Console keys:\n"
-           "Press C-a x to exit the emulator, C-a h to get some help.\n");
+           "Press C-b x to exit the emulator, C-b h to get some help.\n");
     exit(1);
 }
 

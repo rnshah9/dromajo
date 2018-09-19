@@ -1583,7 +1583,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
     case 0x8D1: // Esperanto validation1 register
         if ((val >> 8) == 0x0) // upper bits zero is the expected
-          fprintf(stderr, "%c",(char)(val&0xFF));
+          printf("%c",(char)(val&0xFF)); // Console to stdout
         else
           fprintf(stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)(val >> 8));
         break;
