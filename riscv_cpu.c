@@ -1567,25 +1567,25 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->dscratch = val;
         break;
     case 0x8D0: // Esperanto validation0 register
-        if ((val >> 12) == 0xdead0) // Begin
-          fprintf(stderr, "ET validation begin code=%llx\n", (long long)(val&0xFFF));
+        if ((val >> 12) == 0xDEAD0) // Begin
+            fprintf(stderr, "ET validation begin code=%llx\n", (long long)val & 0xFFF);
         else if ((val >> 12) == 0x1FEED) {
-          fprintf(stderr, "ET validation PASS code=%llx\n", (long long)(val&0xFFF));
-          s->power_down_flag = TRUE;
-          exit(0);
-        }else if ((val >> 12) == 0x50BAD) {
-          fprintf(stderr, "ET validation FAIL code=%llx\n", (long long)(val&0xFFF));
-          s->power_down_flag = TRUE;
-          exit(0);
-        }else
-          fprintf(stderr, "ET UNKNOWN command=%llx code=%llx\n", (long long)val >> 12,
-                  (long long)(val&0xFFF));
+            fprintf(stderr, "ET validation PASS code=%llx\n", (long long)val & 0xFFF);
+            s->power_down_flag = TRUE;
+            exit(0);
+        } else if ((val >> 12) == 0x50BAD) {
+            fprintf(stderr, "ET validation FAIL code=%llx\n", (long long)val & 0xFFF);
+            s->power_down_flag = TRUE;
+            exit(0);
+        } else
+            fprintf(stderr, "ET UNKNOWN command=%llx code=%llx\n", (long long)val >> 12,
+                    (long long)(val & 0xFFF));
         break;
     case 0x8D1: // Esperanto validation1 register
-        if ((val >> 8) == 0x0) // upper bits zero is the expected
-          printf("%c",(char)(val&0xFF)); // Console to stdout
+        if (val < 256) // upper bits zero is the expected
+            putchar((char)val); // Console to stdout
         else
-          fprintf(stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)(val >> 8));
+            fprintf(stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)val);
         break;
     case 0xb00: /* mcycle */
         s->mcycle = val;

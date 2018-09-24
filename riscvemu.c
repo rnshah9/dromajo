@@ -111,35 +111,28 @@ static void console_write(void *opaque, const uint8_t *buf, int len)
 static int console_read(void *opaque, uint8_t *buf, int len)
 {
     STDIODevice *s = opaque;
-    int ret, i, j;
-    uint8_t ch;
 
     if (len <= 0)
         return 0;
 
-    ret = read(s->stdin_fd, buf, len);
-    if (ret < 0)
+    int ret = read(s->stdin_fd, buf, len);
+    if (ret <= 0)
         return 0;
-    if (ret == 0) {
-        /* EOF */
-        //exit(1);
-        return 0;
-    }
 
-    j = 0;
-    for(i = 0; i < ret; i++) {
-        ch = buf[i];
+    int j = 0;
+    for (int i = 0; i < ret; i++) {
+        uint8_t ch = buf[i];
         if (s->console_esc_state) {
             s->console_esc_state = 0;
-            switch(ch) {
+            switch (ch) {
             case 'x':
-                fprintf(stderr,"Terminated\n");
+                fprintf(stderr, "Terminated\n");
                 exit(0);
             case 'h':
-                fprintf(stderr,"\n"
-                       "C-b h   print this help\n"
-                       "C-b x   exit emulator\n"
-                       "C-b C-b send C-b\n");
+                fprintf(stderr, "\n"
+                        "C-b h   print this help\n"
+                        "C-b x   exit emulator\n"
+                        "C-b C-b send C-b\n");
                 break;
             case 1:
                 goto output_char;
@@ -155,6 +148,7 @@ static int console_read(void *opaque, uint8_t *buf, int len)
             }
         }
     }
+
     return j;
 }
 
