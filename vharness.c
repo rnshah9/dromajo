@@ -44,7 +44,7 @@ int iterate_core(VirtMachine *m)
     if ((insn_raw & 3) == 3)
         fprintf(stderr,"%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, insn_raw);
     else
-        fprintf(stderr,"%d 0x%016"PRIx64" (0x%04x)", priv, last_pc, (uint16_t) insn_raw);
+        fprintf(stderr,"%d 0x%016"PRIx64" (0x%04x)    ", priv, last_pc, (uint16_t) insn_raw);
 
     uint64_t regno_ts;
     int regno = virt_machine_get_most_recently_written_reg(m, &regno_ts);
