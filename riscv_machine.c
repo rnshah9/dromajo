@@ -39,7 +39,7 @@
 
 /* RISCV machine */
 
-#define DUMP_UART
+//#define DUMP_UART
 //#define DUMP_CLINT
 //#define DUMP_HTIF
 //#define DUMP_PLIC
