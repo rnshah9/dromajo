@@ -23,20 +23,27 @@
 
 int iterate_core(VirtMachine *m)
 {
-    uint64_t last_pc = virt_machine_get_pc(m);
-    int priv = virt_machine_get_priv_level(m);
-
-    uint32_t insn_raw = 0;
-    virt_machine_read_insn(m, &insn_raw, last_pc);
-
-    uint64_t prev_instret = virt_machine_get_instret(m);
-
-    int keep_going = virt_machine_run(m);
-
     uint64_t instret = virt_machine_get_instret(m);
+    int keep_going, priv;
+    uint64_t last_pc, prev_instret;
+    uint32_t insn_raw = 0;
 
-    if (prev_instret == instret && last_pc == virt_machine_get_pc(m))
-        return 1;
+    /* Loop until an instruction retires.  This is important because
+     * exceptions, such as illegal instruction must not be included in
+     * the trace of retired instructions.  Breaking this caused
+     * ARCHSIM-74.
+     */
+    do { prev_instret = instret; last_pc = virt_machine_get_pc(m);
+	priv = virt_machine_get_priv_level(m);
+	virt_machine_read_insn(m, &insn_raw, last_pc);
+
+	keep_going = virt_machine_run(m);
+
+	instret = virt_machine_get_instret(m);
+    } while (keep_going && prev_instret == instret);
+
+    if (last_pc == virt_machine_get_pc(m))
+        return 0;
 
     if (instret < m->trace && instret < m->maxinsns)
         return keep_going;
@@ -55,7 +62,7 @@ int iterate_core(VirtMachine *m)
     if (regno >= 0 && prev_instret == regno_ts)
         fprintf(stderr," f%2d 0x%016"PRIx64, regno, virt_machine_get_fpreg(m, regno));
 
-    putc('\n',stderr);
+    putc('\n', stderr);
 
     return keep_going;
 }
