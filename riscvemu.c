@@ -864,7 +864,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         fprintf(stderr, "Console not supported yet\n");
         exit(1);
 #else
-        p->console = console_init(FALSE);
+        p->console = console_init(TRUE);
 #endif
     }
 
