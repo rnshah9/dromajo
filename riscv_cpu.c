@@ -1991,7 +1991,10 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map)
 
     s->store_repair_addr = ~0;
     s->tselect = 0;
-    s->tdata1[0] = (target_ulong)2 << (MAX_XLEN - 4);
+    for (int i = 0; i < MAX_TRIGGERS; ++i) {
+      s->tdata1[i] = ~(target_ulong)0;
+      s->tdata2[i] = ~(target_ulong)0;
+    }
 
     tlb_init(s);
 
