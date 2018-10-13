@@ -1245,34 +1245,63 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         val = (int64_t)s->minstret;
         break;
     case 0xb03:
+    case 0xc03:
     case 0xb04:
+    case 0xc04:
     case 0xb05:
+    case 0xc05:
     case 0xb06:
+    case 0xc06:
     case 0xb07:
+    case 0xc07:
     case 0xb08:
+    case 0xc08:
     case 0xb09:
+    case 0xc09:
     case 0xb0a:
+    case 0xc0a:
     case 0xb0b:
+    case 0xc0b:
     case 0xb0c:
+    case 0xc0c:
     case 0xb0d:
+    case 0xc0d:
     case 0xb0e:
+    case 0xc0e:
     case 0xb0f:
+    case 0xc0f:
     case 0xb10:
+    case 0xc10:
     case 0xb11:
+    case 0xc11:
     case 0xb12:
+    case 0xc12:
     case 0xb13:
+    case 0xc13:
     case 0xb14:
+    case 0xc14:
     case 0xb15:
+    case 0xc15:
     case 0xb16:
+    case 0xc16:
     case 0xb17:
+    case 0xc17:
     case 0xb18:
+    case 0xc18:
     case 0xb19:
+    case 0xc19:
     case 0xb1a:
+    case 0xc1a:
     case 0xb1b:
+    case 0xc1b:
     case 0xb1c:
+    case 0xc1c:
     case 0xb1d:
+    case 0xc1d:
     case 0xb1e:
+    case 0xc1e:
     case 0xb1f:
+    case 0xc1f:
         val = 0; // mhpmcounter3..31
         break;
     case 0xb80: /* mcycleh */
@@ -1332,10 +1361,12 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0x33f:
         val = s->mhpmevent[csr & 0x1F];
         break;
+
     case 0x8D0:
     case 0x8D1:
         val = 0;
         break;
+
     default:
     invalid_csr:
 #ifdef DUMP_INVALID_CSR
@@ -1594,34 +1625,63 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->minstret = val;
         break;
     case 0xb03:
+    case 0xc03:
     case 0xb04:
+    case 0xc04:
     case 0xb05:
+    case 0xc05:
     case 0xb06:
+    case 0xc06:
     case 0xb07:
+    case 0xc07:
     case 0xb08:
+    case 0xc08:
     case 0xb09:
+    case 0xc09:
     case 0xb0a:
+    case 0xc0a:
     case 0xb0b:
+    case 0xc0b:
     case 0xb0c:
+    case 0xc0c:
     case 0xb0d:
+    case 0xc0d:
     case 0xb0e:
+    case 0xc0e:
     case 0xb0f:
+    case 0xc0f:
     case 0xb10:
+    case 0xc10:
     case 0xb11:
+    case 0xc11:
     case 0xb12:
+    case 0xc12:
     case 0xb13:
+    case 0xc13:
     case 0xb14:
+    case 0xc14:
     case 0xb15:
+    case 0xc15:
     case 0xb16:
+    case 0xc16:
     case 0xb17:
+    case 0xc17:
     case 0xb18:
+    case 0xc18:
     case 0xb19:
+    case 0xc19:
     case 0xb1a:
+    case 0xc1a:
     case 0xb1b:
+    case 0xc1b:
     case 0xb1c:
+    case 0xc1c:
     case 0xb1d:
+    case 0xc1d:
     case 0xb1e:
+    case 0xc1e:
     case 0xb1f:
+    case 0xc1f:
         // Ignore, but allow to write to performance counters mhpmcounter
         break;
     case 0xc00: /* ucycle */
