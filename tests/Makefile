@@ -10,7 +10,7 @@ CONFIGS_BASENAME = $(addprefix $(OUTPUT_DIR)/, $(TEST_NAMES))
 RISCVEMU_DIR=$(dir $(realpath $(firstword) $(MAKEFILE_LIST)))/..
 VHARNESS=$(RISCVEMU_DIR)/vharness
 
-all: configs report
+all: configs riscv-tests-report checkpoint-tests
 
 # FIXME: Add support for test-error reporting
 # we should generate output that junit can consume and we can report in
@@ -54,6 +54,19 @@ $(OUTPUT_DIR)/%.cfg: $(OUTPUT_DIR)/%.bin $(RISCVTESTS_DIR)/%
 
 configs: $(patsubst %,%.riscvemu,$(CONFIGS_BASENAME)) $(patsubst %,%.spike,$(CONFIGS_BASENAME))
 
-report: $(patsubst %,%.riscvemu,$(CONFIGS_BASENAME))
-	./test_report.py --output-dir=$(OUTPUT_DIR) \
+$(OUTPUT_DIR)/riscvemu-test-report.xml: $(patsubst %,%.riscvemu,$(CONFIGS_BASENAME))
+	./riscv_test_report.py --output-dir=$(OUTPUT_DIR) \
 	  --output-xml=$(OUTPUT_DIR)/riscvemu-test-report.xml riscvemu
+
+.PHONY: report
+riscv-tests-report: $(OUTPUT_DIR)/riscvemu-test-report.xml
+
+$(OUTPUT_DIR)/chpt-test-report.xml: $(OUTPUT_DIR)/rv64ui-p-simple.cfg  $(OUTPUT_DIR)/rv64ui-p-simple.bin
+	pytest -s -v chpt_test_riscv_tests.py --output-dir $(OUTPUT_DIR)/ --vharness $(VHARNESS) \
+	  --junit-xml=$@
+
+.PHONY: checkpoint-test-riscv-test
+checkpoint-test-riscv-test: $(OUTPUT_DIR)/chpt-test-report.xml
+
+.PHONY: checkpoint-tests
+checkpoint-tests: checkpoint-test-riscv-test
