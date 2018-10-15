@@ -139,7 +139,6 @@ void vm_add_cmdline(VirtMachineParams *p, const char *cmdline);
 char *get_file_path(const char *base_filename, const char *filename);
 void virt_machine_free_config(VirtMachineParams *p);
 VirtMachine *virt_machine_init(const VirtMachineParams *p);
-void virt_machine_end(VirtMachine *s);
 int virt_machine_get_sleep_duration(VirtMachine *s, int delay);
 BOOL virt_machine_interp(VirtMachine *s, int max_exec_cycle);
 BOOL vm_mouse_is_absolute(VirtMachine *s);
@@ -171,6 +170,10 @@ BlockDevice *block_device_init_http(const char *url,
                                     int max_cache_size_kb,
                                     void (*start_cb)(void *opaque),
                                     void *start_opaque);
+#ifdef __cplusplus
+extern "C" {
+#endif
+void virt_machine_end(VirtMachine *s);
 VirtMachine *virt_machine_main(int argc, char **argv);
 void         virt_machine_serialize(VirtMachine *m, const char *dump_name);
 void         virt_machine_deserialize(VirtMachine *m, const char *dump_name);
@@ -186,4 +189,8 @@ uint64_t     virt_machine_get_instret(VirtMachine *m);
 int          virt_machine_get_priv_level(VirtMachine *m);
 int          virt_machine_get_most_recently_written_reg(VirtMachine *m, uint64_t *instret_ts);
 int          virt_machine_get_most_recently_written_fp_reg(VirtMachine *m, uint64_t *instret_ts);
+#ifdef __cplusplus
+} // extern C
+#endif
+
 #endif
