@@ -9,8 +9,9 @@ CONFIGS_BASENAME = $(addprefix $(OUTPUT_DIR)/, $(TEST_NAMES))
 
 RISCVEMU_DIR=$(dir $(realpath $(firstword) $(MAKEFILE_LIST)))/..
 VHARNESS=$(RISCVEMU_DIR)/vharness
+RISCVEMU=$(RISCVEMU_DIR)/riscvemu
 
-all: configs riscv-tests-report checkpoint-tests
+all: configs riscv-tests-report checkpoint-tests linux_boot_tests
 
 # FIXME: Add support for test-error reporting
 # we should generate output that junit can consume and we can report in
@@ -70,3 +71,20 @@ checkpoint-test-riscv-test: $(OUTPUT_DIR)/chpt-test-report.xml
 
 .PHONY: checkpoint-tests
 checkpoint-tests: checkpoint-test-riscv-test
+
+##### Linux boot relate tests
+
+$(OUTPUT_DIR)/bbl-vmlinux0.bin:
+	aws --region us-west-1 s3 cp s3://et-maxion-buildroot/buildroot-reference/bbl-vmlinux0.bin.xz $@.xz
+	xz -d $@.xz
+
+$(OUTPUT_DIR)/bbl-vmlinux0.cfg:
+	aws --region us-west-1 s3 cp s3://et-maxion-buildroot/buildroot-reference/bbl-vmlinux0.cfg.xz $@.xz
+	xz -d $@.xz
+
+$(OUTPUT_DIR)/linux-boot-test-report.xml: $(OUTPUT_DIR)/bbl-vmlinux0.bin $(OUTPUT_DIR)/bbl-vmlinux0.cfg
+	pytest -s -v linux_bool_tests.py --output-dir $(OUTPUT_DIR)/ --vharness $(RISCVEMU) \
+	  --junit-xml=$@
+
+.PHONY: linux_boot_tests
+linux_boot_tests: $(OUTPUT_DIR)/linux-boot-test-report.xml
