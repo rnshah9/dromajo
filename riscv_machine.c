@@ -901,7 +901,7 @@ static void copy_kernel(RISCVMachine *s, const uint8_t *buf, int buf_len,
 
     ram_ptr = get_ram_ptr(s, ROM_BASE_ADDR);
 
-    fdt_addr = (BOOT_BASE_ADDR-ROM_BASE_ADDR) + 8 * 4;
+    fdt_addr = (BOOT_BASE_ADDR-ROM_BASE_ADDR) + 10 * 4;
     riscv_build_fdt(s, ram_ptr + fdt_addr, cmd_line);
 
     /* jump_addr = 0x80000000 */
@@ -910,8 +910,8 @@ static void copy_kernel(RISCVMachine *s, const uint8_t *buf, int buf_len,
     q[0] = 0x0010041b; // addiw   s0, zero, 1
     q[1] = 0x01f41413; // slli    s0, s0, 31
     q[2] = 0xf1402573; // csrr    a0, mhartid
-    q[3] = 0x00000597; // auipc   a1, 0x0
-    q[4] = 0x01c58593; // addi    a1, a1, 28
+    q[3] = 0x00000597; // auipc   a1, 0x0      = BOOT_BASE_ADDR + 3*4
+    q[4] = 0x01c58593; // addi    a1, a1, 28   = BOOT_BASE_ADDR + 10*4
     q[5] = 0x00040067; // jr      s0
 }
 
