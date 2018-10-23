@@ -109,6 +109,9 @@ typedef struct {
 
     /* kernel, bios and other auxiliary files */
     VMFileEntry files[VM_FILE_COUNT];
+
+    /* validation terminate event */
+    const char* validation_terminate_event;
 } VirtMachineParams;
 
 typedef struct VirtMachine {
@@ -122,6 +125,7 @@ typedef struct VirtMachine {
 
     const char *snapshot_load_name;
     const char *snapshot_save_name;
+    const char *terminate_event;
     uint64_t    maxinsns;
     uint64_t    trace;
 } VirtMachine;

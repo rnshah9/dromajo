@@ -35,6 +35,7 @@
 #include "cutils.h"
 #include "iomem.h"
 #include "riscv_cpu.h"
+#include "validation_events.h"
 
 #ifndef MAX_XLEN
 //#define MAX_XLEN 32
@@ -327,6 +328,9 @@ struct RISCVCPUState {
     TLBEntry tlb_read[TLB_SIZE];
     TLBEntry tlb_write[TLB_SIZE];
     TLBEntry tlb_code[TLB_SIZE];
+
+    // User specified, command line argument terminating event
+    const char *terminating_event;
 };
 
 // NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
@@ -1401,6 +1405,44 @@ static int get_insn_rm(RISCVCPUState *s, unsigned int rm)
 }
 #endif
 
+static int handle_write_validation1(RISCVCPUState *s, target_ulong val)
+{
+    if (val < 256) {// upper bits zero is the expected
+        putchar((char)val); // Console to stdout
+        return 0;
+    }
+#if MAX_XLEN == 64
+    target_ulong cmd_payload = val & PAYLOAD_MASK;
+    switch (val >> CMD_OFFSET) {
+    // Valid only for riscvemu64
+    case VALIDATION_CMD_LINUX:
+        if (cmd_payload == LINUX_CMD_VALUE_INVALID
+            || cmd_payload >= LINUX_CMD_VALUE_NUM) {
+            fprintf(stderr, "ET UNKNOWN linux command=%" PR_target_ulong "\n",
+                    cmd_payload);
+        }
+        break;
+    default:
+        fprintf(stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)val);
+    }
+#else
+    fprintf(stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)val);
+#endif
+    for (int i = 0; i < countof(validation_events); ++i) {
+        if (validation_events[i].terminate
+            && strcmp(validation_events[i].name, s->terminating_event) == 0) {
+            s->power_down_flag = TRUE;
+            fprintf(stderr, "ET terminating validation event: %s encountered.",
+                    s->terminating_event);
+            fprintf(stderr, " Instructions committed: %lli \n",
+                    (long long)s->minstret);
+            exit(0);
+        }
+    }
+
+    return 0;
+}
+
 /* return -1 if invalid CSR, 0 if OK, 1 if the interpreter loop must be
    exited (e.g. XLEN was modified), 2 if TLBs have been flushed. */
 static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
@@ -1613,10 +1655,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
                     (long long)(val & 0xFFF));
         break;
     case 0x8D1: // Esperanto validation1 register
-        if (val < 256) // upper bits zero is the expected
-            putchar((char)val); // Console to stdout
-        else
-            fprintf(stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)val);
+        handle_write_validation1(s, val);
         break;
     case 0xb00: /* mcycle */
         s->mcycle = val;
@@ -2016,7 +2055,8 @@ int riscv_cpu_get_max_xlen(void)
     return MAX_XLEN;
 }
 
-RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map)
+RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
+                              const char *validation_terminate_event)
 {
     RISCVCPUState *s;
 
@@ -2057,6 +2097,9 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map)
     }
 
     tlb_init(s);
+
+    // Initialize valiation event info
+    s->terminating_event = validation_terminate_event;
 
     return s;
 }

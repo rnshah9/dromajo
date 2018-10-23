@@ -942,7 +942,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     s->mem_map->opaque = s;
     s->mem_map->flush_tlb_write_range = riscv_flush_tlb_write_range;
 
-    s->cpu_state = riscv_cpu_init(s->mem_map);
+    s->cpu_state = riscv_cpu_init(s->mem_map, p->validation_terminate_event);
 
     /* RAM */
     cpu_register_ram(s->mem_map, RAM_BASE_ADDR, p->ram_size, 0);

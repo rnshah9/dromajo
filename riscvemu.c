@@ -54,6 +54,7 @@
 #endif
 #ifdef CONFIG_CPU_RISCV
 #include "riscv_cpu.h"
+#include "validation_events.h"
 #endif
 #ifdef CONFIG_SLIRP
 #include "slirp/libslirp.h"
@@ -685,6 +686,7 @@ static void usage(const char *prog, const char *msg)
             "       --load resumes a previously saved snapshot\n"
             "       --save saves a snapshot upon exit\n"
             "       --maxinsns terminates execution after a number of instructions\n"
+            "       --terminate-event name of the validate event to terminate execution\n"
             "       --trace start trace dump after a number of instructions\n",
             msg, prog);
 
@@ -698,6 +700,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     const char *snapshot_save_name = 0;
     const char *path               = NULL;
     const char *cmdline            = NULL;
+    const char *terminate_event    = NULL;
     uint64_t    maxinsns           = 0;
     uint64_t    trace              = 0;
 
@@ -709,6 +712,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             {"load",    required_argument, 0,  'l' },
             {"save",    required_argument, 0,  's' },
             {"maxinsns",required_argument, 0,  'm' },
+            {"terminate-event", required_argument, 0, 'e'},
             {"trace   ",required_argument, 0,  't' },
             {0,         0,                 0,  0 }
         };
@@ -736,6 +740,28 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             maxinsns = atoi(optarg);
             break;
 
+        case 'e':
+            if (terminate_event) {
+                usage(prog, "already had a terminate event");
+            }
+            for (int i = 0; i < countof(validation_events); ++i) {
+                if (validation_events[i].terminate
+                    && strcmp(validation_events[i].name, optarg) != 0)
+                {
+                    fprintf(stderr, "Unknown terminate event\n");
+                    fprintf(stderr, "Valid termination events: \n");
+                    for (int j = 0; j < countof(validation_events); ++j) {
+                        if (validation_events[j].terminate) {
+                            fprintf(stderr, "\t%s\n",
+                                    validation_events[j].name);
+                        }
+                    }
+                    usage(prog, "unknown terminate event");
+                }
+            }
+            terminate_event = strdup(optarg);
+            break;
+
         case 't':
             if (trace)
                 usage(prog, "already had a trace set");
@@ -756,7 +782,6 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         usage(prog, "too many arguments");
 
     assert(path);
-
     VirtMachine *s;
     int ram_size = -1, accel_enable = -1;
     BlockDeviceModeEnum drive_mode = BF_MODE_SNAPSHOT;
@@ -875,6 +900,8 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 #else
     p->rtc_real_time = TRUE;
 #endif
+
+    p->validation_terminate_event = terminate_event;
 
     s = virt_machine_init(p);
 
