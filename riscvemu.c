@@ -701,6 +701,8 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     uint64_t    maxinsns           = 0;
     uint64_t    trace              = 0;
 
+    optind = 0;
+
     for (;;) {
         int option_index = 0;
         static struct option long_options[] = {
