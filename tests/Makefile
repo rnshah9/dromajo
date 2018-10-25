@@ -1,6 +1,6 @@
 SPIKE=spike
 
-OUTPUT_DIR:=
+OUTPUT_DIR ?= $(abspath .)
 RISCVTESTS_DIR:=
 
 TESTS_PATH = $(wildcard $(RISCVTESTS_DIR)/rv64*)
@@ -72,18 +72,21 @@ checkpoint-test-riscv-test: $(OUTPUT_DIR)/chpt-test-report.xml
 .PHONY: checkpoint-tests
 checkpoint-tests: checkpoint-test-riscv-test
 
-##### Linux boot relate tests
+##### Linux boot related tests
 
-$(OUTPUT_DIR)/bbl-vmlinux0.bin:
-	aws --region us-west-1 s3 cp s3://et-maxion-buildroot/buildroot-reference/bbl-vmlinux0.bin.xz $@.xz
-	xz -d $@.xz
+# Download the reference image
 
-$(OUTPUT_DIR)/bbl-vmlinux0.cfg:
-	aws --region us-west-1 s3 cp s3://et-maxion-buildroot/buildroot-reference/bbl-vmlinux0.cfg.xz $@.xz
-	xz -d $@.xz
+KERNEL_VERSION=3facd4e6a0611bdab349ce28782a7c032c346855
+KERNEL_S3_PATH=et-maxion-ci-inputs/bbl-vmlinux/$(KERNEL_VERSION)
 
-$(OUTPUT_DIR)/linux-boot-test-report.xml: $(OUTPUT_DIR)/bbl-vmlinux0.bin $(OUTPUT_DIR)/bbl-vmlinux0.cfg
-	pytest -s -v linux_bool_tests.py --output-dir $(OUTPUT_DIR)/ --vharness $(RISCVEMU) \
+$(OUTPUT_DIR)/firesim-golden-download.done:
+	artifacts.py --pull $(KERNEL_S3_PATH)/bbl-vmlinux0.bin.xz $(OUTPUT_DIR)/bbl-vmlinux0.bin.xz
+	artifacts.py --pull $(KERNEL_S3_PATH)/bbl-vmlinux0.cfg.xz $(OUTPUT_DIR)/bbl-vmlinux0.cfg.xz
+	xz -d $(OUTPUT_DIR)/bbl-vmlinux0.bin.xz $(OUTPUT_DIR)/bbl-vmlinux0.cfg.xz
+	date > $@
+
+$(OUTPUT_DIR)/linux-boot-test-report.xml: $(OUTPUT_DIR)/firesim-golden-download.done
+	pytest -s -v linux_boot_tests.py --output-dir $(OUTPUT_DIR)/ --vharness $(RISCVEMU) \
 	  --junit-xml=$@
 
 .PHONY: linux_boot_tests
