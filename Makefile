@@ -69,7 +69,7 @@ endif
 
 ifeq ($(CONFIG_VERIFICATION),y)
 CFLAGS+=-DVERIFICATION
-PROGS+=vharness libvharness.a
+PROGS+=vharness libvharness.a libriscvemu_cosim.a
 endif
 
 all: $(PROGS)
@@ -118,6 +118,13 @@ libvharness.a: vharness.o riscv_cpu64.o riscvemu.o \
 	ar rvs $@ $^
 
 vharness.o: vharness.c
+	$(CC) $(CFLAGS) -DMAX_XLEN=64 -c -o $@ $<
+
+libriscvemu_cosim.a: riscvemu_cosim.o riscv_cpu64.o riscvemu.o \
+	riscv_machine.o softfp.o $(EMU_OBJS)
+	ar rvs $@ $^
+
+riscvemu_cosim.o: riscvemu_cosim.c
 	$(CC) $(CFLAGS) -DMAX_XLEN=64 -c -o $@ $<
 endif
 

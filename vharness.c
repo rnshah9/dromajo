@@ -21,6 +21,13 @@
 //#include "machine.h"
 #include "riscv_cpu.h"
 
+//#define REGRESS_RISCV_COSIM 1
+#ifdef REGRESS_RISCV_COSIM
+#include "riscvemu_cosim.h"
+#endif
+
+static const int trace_enabled = 1;
+
 int iterate_core(VirtMachine *m)
 {
     uint64_t instret = virt_machine_get_instret(m);
@@ -33,13 +40,14 @@ int iterate_core(VirtMachine *m)
      * the trace of retired instructions.  Breaking this caused
      * ARCHSIM-74.
      */
-    do { prev_instret = instret; last_pc = virt_machine_get_pc(m);
-	priv = virt_machine_get_priv_level(m);
-	virt_machine_read_insn(m, &insn_raw, last_pc);
+    do {
+        prev_instret = instret; last_pc = virt_machine_get_pc(m);
+        priv = virt_machine_get_priv_level(m);
+        virt_machine_read_insn(m, &insn_raw, last_pc);
 
-	keep_going = virt_machine_run(m);
+        keep_going = virt_machine_run(m);
 
-	instret = virt_machine_get_instret(m);
+        instret = virt_machine_get_instret(m);
     } while (keep_going && prev_instret == instret);
 
     if (last_pc == virt_machine_get_pc(m))
@@ -48,29 +56,35 @@ int iterate_core(VirtMachine *m)
     if (instret < m->trace && instret < m->maxinsns)
         return keep_going;
 
-    if ((insn_raw & 3) == 3)
-        fprintf(stderr,"%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, insn_raw);
-    else
-        fprintf(stderr,"%d 0x%016"PRIx64" (0x%04x)    ", priv, last_pc, (uint16_t) insn_raw);
+    if (trace_enabled) {
+        if ((insn_raw & 3) == 3)
+            fprintf(stderr,"%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, insn_raw);
+        else
+            fprintf(stderr,"%d 0x%016"PRIx64" (0x%04x)    ", priv, last_pc, (uint16_t) insn_raw);
 
-    uint64_t regno_ts;
-    int regno = virt_machine_get_most_recently_written_reg(m, &regno_ts);
-    if (regno > 0 && prev_instret == regno_ts)
-        fprintf(stderr," x%2d 0x%016lx", regno, (unsigned long)virt_machine_get_reg(m, regno));
+        uint64_t dummy1, dummy2;
+        int iregno = virt_machine_get_most_recently_written_reg(m, &dummy1);
+        int fregno = virt_machine_get_most_recently_written_fp_reg(m, &dummy2);
 
-    regno = virt_machine_get_most_recently_written_fp_reg(m, &regno_ts);
-    if (regno >= 0 && prev_instret == regno_ts)
-        fprintf(stderr," f%2d 0x%016"PRIx64, regno, virt_machine_get_fpreg(m, regno));
+        if (iregno > 0)
+            fprintf(stderr," x%2d 0x%016"PRIx64, iregno, virt_machine_get_reg(m, iregno));
+        else if (fregno >= 0)
+            fprintf(stderr," f%2d 0x%016"PRIx64, fregno, virt_machine_get_fpreg(m, fregno));
 
-    putc('\n', stderr);
+        putc('\n', stderr);
+    }
 
     return keep_going;
 }
 
 int main(int argc, char **argv)
 {
+#ifdef REGRESS_RISCV_COSIM
+    riscvemu_cosim_state_t *costate = 0;
+    costate = riscvemu_cosim_init(argc, argv);
+    do ; while (!riscvemu_cosim_step(costate, 0, 0, 0, 0, false));
+#else
     VirtMachine *m = virt_machine_main(argc, argv);
-
     int keep_going;
     do {
         keep_going = iterate_core(m);
@@ -86,6 +100,7 @@ int main(int argc, char **argv)
     fprintf(stderr,"\nPower off.\n");
 
     virt_machine_end(m);
+#endif
 
     return 0;
 }

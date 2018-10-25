@@ -1986,8 +1986,10 @@ static inline uint32_t get_field1(uint32_t val, int src_pos,
 #include "riscvemu_template.h"
 #endif
 
-void riscv_cpu_interp(RISCVCPUState *s, int n_cycles)
+int riscv_cpu_interp(RISCVCPUState *s, int n_cycles)
 {
+    int executed = 0;
+
 #ifdef USE_GLOBAL_STATE
     s = &riscv_cpu_global_state;
 #endif
@@ -2001,24 +2003,26 @@ void riscv_cpu_interp(RISCVCPUState *s, int n_cycles)
            (int)(timeout - s->insn_counter) > 0) {
 #endif
         n_cycles = timeout - s->insn_counter;
-        switch(s->cur_xlen) {
+        switch (s->cur_xlen) {
         case 32:
-            riscv_cpu_interp32(s, n_cycles);
+            executed += riscv_cpu_interp32(s, n_cycles);
             break;
 #if MAX_XLEN >= 64
         case 64:
-            riscv_cpu_interp64(s, n_cycles);
+            executed += riscv_cpu_interp64(s, n_cycles);
             break;
 #endif
 #if MAX_XLEN >= 128
         case 128:
-            riscv_cpu_interp128(s, n_cycles);
+            executed += riscv_cpu_interp128(s, n_cycles);
             break;
 #endif
         default:
             abort();
         }
     }
+
+    return executed;
 }
 
 /* Note: the value is not accurate when called in riscv_cpu_interp() */

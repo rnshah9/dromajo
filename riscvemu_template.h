@@ -208,8 +208,9 @@ static uint32_t chkfp32(target_ulong a)
     return (uint32_t) a;
 }
 
-static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
-                                                   int n_cycles)
+int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles);
+
+int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
 {
     uint32_t opcode, insn, rd, rs1, rs2, funct3;
     int32_t imm, cond, err;
@@ -224,9 +225,12 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
     uint32_t rs3;
     int32_t rm;
 #endif
+    int insn_executed = 0;
+    s->most_recently_written_reg = -1;
+    s->most_recently_written_fp_reg = -1;
 
     if (n_cycles == 0)
-        return;
+        return 0;
     insn_counter_addend = s->insn_counter + n_cycles;
 
     /* check pending interrupts */
@@ -246,10 +250,12 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
 
     /* we use a single execution loop to keep a simple control flow
        for emscripten */
-    for(;;) {
+    for (;;) {
         s->pc = GET_PC();
         if (unlikely(!--n_cycles))
             goto the_end;
+
+        ++insn_executed;
 
         /* Handled any breakpoint triggers in order (note, we
          * precompute the mask and pattern to lower some of the
@@ -1818,7 +1824,8 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
             goto illegal_insn;
         }
         /* update PC for next instruction */
-    jump_insn: ;
+    jump_insn:
+        ;
     } /* end of main loop */
  illegal_insn:
     s->pending_exception = CAUSE_ILLEGAL_INSTRUCTION;
@@ -1829,10 +1836,12 @@ static void no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s,
     if (s->pending_exception >= 0) {
         if ((s->pending_exception < CAUSE_USER_ECALL ||
              s->pending_exception > CAUSE_USER_ECALL + 3) &&
-            s->pending_exception != CAUSE_BREAKPOINT)
+            s->pending_exception != CAUSE_BREAKPOINT) {
             /* All other causes cancelled the instruction and shouldn't be
              * counted in minstret */
             --insn_counter_addend;
+            --insn_executed;
+        }
 
         raise_exception2(s, s->pending_exception, s->pending_tval);
     }
@@ -1849,6 +1858,8 @@ the_end:
       s->mcycle += delta;
       s->minstret += delta;
     }
+
+    return insn_executed;
 }
 
 #undef uintx_t
