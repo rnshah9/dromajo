@@ -23,6 +23,36 @@ riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[])
 }
 
 /*
+ * handle_dut_overrides --
+ *
+ * Certain sequences cannot be simulated faithfully so this function
+ * is responsible for detecting them and overriding the simulation
+ * with the DUT result.  Cases include interrupts, loads from MMIO
+ * space, and certain CRSs like cycle and time.
+ *
+ * Right now we handle just mcycle.
+ */
+static void handle_dut_overrides(RISCVCPUState *s,
+                                 uint64_t pc, uint32_t insn,
+                                 uint64_t dut_wdata,
+                                 int dut_intr_pending)
+{
+    int opcode = insn & 0x7f;
+    int csrno  = insn >> 20;
+    int rd     = (insn >> 7) & 0x1f;
+
+    /* Catch reads from CSR mcycle or ucycle */
+    if (opcode == 0x73 && (csrno == 0xb00 || csrno == 0xC00)) {
+        if (0)
+        fprintf(stderr,
+                "%016"PRIx64":%08x mcycle/ucycle access, "
+                "overwriting x%d with %016"PRIx64"\n",
+                pc, insn, rd, dut_wdata);
+        riscv_set_reg(s, rd, dut_wdata);
+    }
+}
+
+/*
  * riscvemu_cosim_step --
  *
  * executes exactly one instruction in the golden model and returns
@@ -58,25 +88,29 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
      * have to iterate until one does.
      */
     for (;;) {
-        emu_priv = virt_machine_get_priv_level(m);
+        emu_priv = riscv_get_priv_level(s);
         emu_pc   = riscv_get_pc(s);
-        virt_machine_read_insn(m, &emu_insn, emu_pc);
+        riscv_read_insn(s, &emu_insn, emu_pc);
         if (riscv_cpu_interp64(s, 1) != 0)
             break;
     };
 
+    if (check)
+        handle_dut_overrides(s, emu_pc, emu_insn, dut_wdata,
+                             dut_intr_pending);
+
     fprintf(stderr,"%d %016"PRIx64" ", emu_priv, emu_pc);
 
     uint64_t dummy1, dummy2;
-    int iregno = virt_machine_get_most_recently_written_reg(m, &dummy1);
-    int fregno = virt_machine_get_most_recently_written_fp_reg(m, &dummy2);
+    int iregno = riscv_get_most_recently_written_reg(s, &dummy1);
+    int fregno = riscv_get_most_recently_written_reg(s, &dummy2);
 
     if (iregno > 0) {
-        emu_wdata = virt_machine_get_reg(m, iregno);
+        emu_wdata = riscv_get_reg(s, iregno);
         emu_wrote_data = 1;
         fprintf(stderr, "x%-2d %016"PRIx64, iregno, emu_wdata);
     } else if (fregno >= 0) {
-        emu_wdata = virt_machine_get_fpreg(m, fregno);
+        emu_wdata = riscv_get_fpreg(s, fregno);
         emu_wrote_data = 1;
         fprintf(stderr, "f%-2d %016"PRIx64, fregno, emu_wdata);
     } else
