@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <string.h>
 #include <inttypes.h>
 #include <assert.h>
@@ -31,6 +32,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <time.h>
+#include <elf.h>
 
 #include "cutils.h"
 #include "iomem.h"
@@ -884,20 +886,46 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
     return size;
 }
 
-static void copy_kernel(RISCVMachine *s, const uint8_t *buf, int buf_len,
-                        const char *cmd_line)
+static void load_elf_image(RISCVMachine *s, const void *image, size_t image_len,
+                           uint64_t *entry_point)
+{
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)image;
+    const Elf64_Phdr *ph = image + ehdr->e_phoff;
+
+    *entry_point = ehdr->e_entry;
+
+    for (int i = 0; i < ehdr->e_phnum; ++i, ++ph)
+        if (ph->p_type == PT_LOAD) {
+            size_t rounded_size = ph->p_memsz;
+            rounded_size = (rounded_size + DEVRAM_PAGE_SIZE - 1) & ~(DEVRAM_PAGE_SIZE - 1);
+            cpu_register_ram(s->mem_map, ph->p_vaddr, rounded_size, 0);
+            memcpy(get_ram_ptr(s, ph->p_vaddr), image + ph->p_offset, ph->p_filesz);
+        }
+}
+
+static void copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
+                        const char *cmd_line, bool is_elf)
 {
     uint32_t fdt_addr;
     uint8_t *ram_ptr;
     uint32_t *q;
+    uint64_t entry_point;
 
     if (buf_len > s->ram_size) {
         vm_error("Kernel too big\n");
         exit(1);
     }
 
-    ram_ptr = get_ram_ptr(s, RAM_BASE_ADDR);
-    memcpy(ram_ptr, buf, buf_len);
+    if (is_elf) {
+        load_elf_image(s, buf, buf_len, &entry_point);
+        if (entry_point != 0x80000000) {
+            fprintf(stderr, "RISCVEMU current requires a 0x80000000 starting "
+                    "address, image assumes 0x%0lx\n", entry_point);
+            exit(1);
+        }
+    }
+    else
+        memcpy(get_ram_ptr(s, RAM_BASE_ADDR), buf, buf_len);
 
     ram_ptr = get_ram_ptr(s, ROM_BASE_ADDR);
 
@@ -924,7 +952,7 @@ static void riscv_flush_tlb_write_range(void *opaque, uint8_t *ram_addr,
 
 void virt_machine_set_defaults(VirtMachineParams *p)
 {
-    memset(p, 0, sizeof(*p));
+    memset(p, 0, sizeof *p);
 }
 
 VirtMachine *virt_machine_init(const VirtMachineParams *p)
@@ -1058,11 +1086,13 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
         }
     }
 
-    if (!p->files[VM_FILE_BIOS].buf) {
+    if (p->elf_image)
+        copy_kernel(s, p->elf_image, p->elf_image_size, p->cmdline, true);
+    else if (!p->files[VM_FILE_BIOS].buf)
         vm_error("No bios found");
-    }
-    copy_kernel(s, p->files[VM_FILE_BIOS].buf, p->files[VM_FILE_BIOS].len,
-                p->cmdline);
+    else
+        copy_kernel(s, p->files[VM_FILE_BIOS].buf, p->files[VM_FILE_BIOS].len,
+                    p->cmdline, false);
 
     return (VirtMachine *)s;
 }

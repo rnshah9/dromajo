@@ -85,6 +85,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     bool     emu_wrote_data = false;
     int      mismatch = 0;
     int      riscv_cpu_interp64(RISCVCPUState *s, int n_cycles);
+    bool     verbose = true;
 
     /*
      * Execute one instruction in the simulator.  Because exceptions
@@ -103,7 +104,8 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
         handle_dut_overrides(s, emu_pc, emu_insn, dut_wdata,
                              dut_intr_pending);
 
-    fprintf(stderr,"%d 0x%016"PRIx64" ", emu_priv, emu_pc);
+    if (verbose)
+        fprintf(stderr,"%d 0x%016"PRIx64" ", emu_priv, emu_pc);
 
     uint64_t dummy1, dummy2;
     int iregno = riscv_get_most_recently_written_reg(s, &dummy1);
@@ -117,18 +119,21 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     if (iregno > 0) {
         emu_wdata = riscv_get_reg(s, iregno);
         emu_wrote_data = 1;
-        fprintf(stderr, "x%-2d %016"PRIx64, iregno, emu_wdata);
+        if (verbose)
+            fprintf(stderr, "x%-2d %016"PRIx64, iregno, emu_wdata);
     } else if (fregno >= 0) {
         emu_wdata = riscv_get_fpreg(s, fregno);
         emu_wrote_data = 1;
-        fprintf(stderr, "f%-2d %016"PRIx64, fregno, emu_wdata);
+        if (verbose)
+            fprintf(stderr, "f%-2d %016"PRIx64, fregno, emu_wdata);
     } else
         fprintf(stderr, "                    ");
 
-    if ((emu_insn & 3) == 3)
-        fprintf(stderr, " DASM(0x%08x)\n", emu_insn);
-    else
-        fprintf(stderr, " DASM(0x%04x)\n", (uint16_t)emu_insn);
+    if (verbose)
+        if ((emu_insn & 3) == 3)
+            fprintf(stderr, " DASM(0x%08x)\n", emu_insn);
+        else
+            fprintf(stderr, " DASM(0x%04x)\n", (uint16_t)emu_insn);
 
     if (check) {
         if (dut_pc != emu_pc) {

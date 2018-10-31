@@ -106,11 +106,11 @@ endif
 endif
 
 RISCVEMU_OBJS:=$(EMU_OBJS) riscvemu.o riscv_machine.o softfp.o \
-	riscvemu_main.o
+	riscvemu_main.o elf64.o
 
 ifdef CONFIG_VERIFICATION
 vharness: vharness.o riscv_cpu64.o riscvemu.o \
-	  riscv_machine.o softfp.o $(EMU_OBJS)
+	  riscv_machine.o softfp.o elf64.o $(EMU_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
 
 libvharness.a: vharness.o riscv_cpu64.o riscvemu.o \

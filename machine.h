@@ -112,6 +112,9 @@ typedef struct {
 
     /* validation terminate event */
     const char* validation_terminate_event;
+
+    void  *elf_image;
+    size_t elf_image_size;
 } VirtMachineParams;
 
 typedef struct VirtMachine {

@@ -682,12 +682,14 @@ static void usage(const char *prog, const char *msg)
 {
     fprintf(stderr,
             "error: %s\n"
-            "usage: %s [--load snapshot_name] [--save snapshot_name] [--maxinsns N] config\n"
+            "usage: %s [--load snapshot_name] [--save snapshot_name] [--maxinsns N] "
+            "[--memory_size MB] config\n"
             "       --load resumes a previously saved snapshot\n"
             "       --save saves a snapshot upon exit\n"
             "       --maxinsns terminates execution after a number of instructions\n"
             "       --terminate-event name of the validate event to terminate execution\n"
-            "       --trace start trace dump after a number of instructions\n",
+            "       --trace start trace dump after a number of instructions\n"
+            "       --memory_size sets the memory size in MiB (default 256 MiB)\n",
             msg, prog);
 
     exit(EXIT_FAILURE);
@@ -703,6 +705,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     const char *terminate_event    = NULL;
     uint64_t    maxinsns           = 0;
     uint64_t    trace              = 0;
+    long        memory_size_override   = 0;
 
     optind = 0;
 
@@ -714,6 +717,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             {"maxinsns",required_argument, 0,  'm' },
             {"terminate-event", required_argument, 0, 'e'},
             {"trace   ",required_argument, 0,  't' },
+            {"memory_size", required_argument, 0,  'M' },
             {0,         0,                 0,  0 }
         };
 
@@ -768,6 +772,10 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             trace = atoi(optarg);
             break;
 
+        case 'M':
+            memory_size_override = atoi(optarg);
+            break;
+
         default:
             usage(prog, "I'm not having this argument");
         }
@@ -792,6 +800,9 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     fs_wget_init();
 #endif
     virt_machine_load_config_file(p, path, NULL, NULL);
+    if (memory_size_override)
+        p->ram_size = memory_size_override << 20;
+
 #ifdef CONFIG_FS_NET
     fs_net_event_loop(NULL, NULL);
 #endif
