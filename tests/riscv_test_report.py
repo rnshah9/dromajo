@@ -31,6 +31,8 @@ def report(args):
                     break
         test_case = TestCase(test_key[1], status=status, category=test_key[0],
                              file=filename)
+        if not status:
+            test_case.add_error_info(output="Error see log: {}".format(filename))
         if suite == test_key[0]:
             test_cases.append(test_case)
         else:
