@@ -99,11 +99,16 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
         handle_dut_overrides(s, emu_pc, emu_insn, dut_wdata,
                              dut_intr_pending);
 
-    fprintf(stderr,"%d %016"PRIx64" ", emu_priv, emu_pc);
+    fprintf(stderr,"%d 0x%016"PRIx64" ", emu_priv, emu_pc);
 
     uint64_t dummy1, dummy2;
     int iregno = riscv_get_most_recently_written_reg(s, &dummy1);
     int fregno = riscv_get_most_recently_written_reg(s, &dummy2);
+
+    if ((emu_insn & 3) == 3)
+        fprintf(stderr, "(0x%08x) ", emu_insn);
+    else
+        fprintf(stderr, "(0x%08x) ", (uint16_t)emu_insn);
 
     if (iregno > 0) {
         emu_wdata = riscv_get_reg(s, iregno);
