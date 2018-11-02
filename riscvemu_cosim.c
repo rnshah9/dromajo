@@ -41,8 +41,12 @@ static void handle_dut_overrides(RISCVCPUState *s,
     int csrno  = insn >> 20;
     int rd     = (insn >> 7) & 0x1f;
 
-    /* Catch reads from CSR mcycle or ucycle */
-    if (opcode == 0x73 && (csrno == 0xb00 || csrno == 0xC00)) {
+    /* Catch reads from CSR mcycle, ucycle, instret, hpmcounters */
+    if (opcode == 0x73 &&
+        (0xB00 <= csrno && csrno < 0xB20) ||
+        (0xC00 <= csrno && csrno < 0xC20)
+       ) {
+
         if (0)
         fprintf(stderr,
                 "%016"PRIx64":%08x mcycle/ucycle access, "
