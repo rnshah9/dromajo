@@ -166,6 +166,7 @@ static int virt_machine_parse_config(VirtMachineParams *p,
     const char *tag_name, *machine_name, *str;
     char buf1[256];
     JSONValue cfg, obj, el;
+    p->maxinsns_cosim = ~0ULL;
 
     cfg = json_parse_value_len(config_file_str, len);
     if (json_is_error(cfg)) {
@@ -226,7 +227,13 @@ static int virt_machine_parse_config(VirtMachineParams *p,
       vm_get_int(cfg, tag_name, &val);
     p->htif_base_addr = (uint32_t)val; // Avoid sign-extension
 
-    for(;;) {
+    tag_name = "maxinsns_cosim";
+    if (!json_is_undefined(json_object_get(cfg, tag_name))) {
+        vm_get_int(cfg, tag_name, &val);
+        p->maxinsns_cosim = val;
+    }
+
+    for (;;) {
         snprintf(buf1, sizeof(buf1), "drive%d", p->drive_count);
         obj = json_object_get(cfg, buf1);
         if (json_is_undefined(obj))

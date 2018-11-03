@@ -35,6 +35,10 @@ int iterate_core(VirtMachine *m)
     uint64_t last_pc, prev_instret;
     uint32_t insn_raw = 0;
 
+    if (((RISCVMachine *)m)->maxinsns_cosim-- <= 0)
+        /* Succeed after N instructions without failure. */
+        return 0;
+
     /* Loop until an instruction retires.  This is important because
      * exceptions, such as illegal instruction must not be included in
      * the trace of retired instructions.  Breaking this caused

@@ -969,6 +969,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     /* needed to handle the RAM dirty bits */
     s->mem_map->opaque = s;
     s->mem_map->flush_tlb_write_range = riscv_flush_tlb_write_range;
+    s->maxinsns_cosim = p->maxinsns_cosim;
 
     s->cpu_state = riscv_cpu_init(s->mem_map, p->validation_terminate_event);
 
