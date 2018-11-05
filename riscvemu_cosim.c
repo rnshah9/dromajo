@@ -44,11 +44,9 @@ static void handle_dut_overrides(RISCVCPUState *s,
 
     /* Catch reads from CSR mcycle, ucycle, instret, hpmcounters */
     if (opcode == 0x73 &&
-        (0xB00 <= csrno && csrno < 0xB20) ||
-        (0xC00 <= csrno && csrno < 0xC20)
-       ) {
+        (0xB00 <= csrno && csrno < 0xB20 ||
+         0xC00 <= csrno && csrno < 0xC20))
         riscv_set_reg(s, rd, dut_wdata);
-    }
 }
 
 /*
