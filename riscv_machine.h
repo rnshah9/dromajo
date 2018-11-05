@@ -24,7 +24,6 @@ typedef struct RISCVMachine {
     VIRTIODevice *mouse_dev;
 
     int virtio_count;
-    uint64_t maxinsns_cosim;
 } RISCVMachine;
 
 #define CLINT_BASE_ADDR 0x02000000

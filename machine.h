@@ -115,7 +115,6 @@ typedef struct {
 
     void  *elf_image;
     size_t elf_image_size;
-    uint64_t maxinsns_cosim;  // After this many instructions it's a pass
 } VirtMachineParams;
 
 typedef struct VirtMachine {

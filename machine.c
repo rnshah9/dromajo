@@ -166,7 +166,6 @@ static int virt_machine_parse_config(VirtMachineParams *p,
     const char *tag_name, *machine_name, *str;
     char buf1[256];
     JSONValue cfg, obj, el;
-    p->maxinsns_cosim = ~0ULL;
 
     cfg = json_parse_value_len(config_file_str, len);
     if (json_is_error(cfg)) {
@@ -227,12 +226,6 @@ static int virt_machine_parse_config(VirtMachineParams *p,
       vm_get_int(cfg, tag_name, &val);
     p->htif_base_addr = (uint32_t)val; // Avoid sign-extension
 
-    tag_name = "maxinsns_cosim";
-    if (!json_is_undefined(json_object_get(cfg, tag_name))) {
-        vm_get_int(cfg, tag_name, &val);
-        p->maxinsns_cosim = val;
-    }
-
     for (;;) {
         snprintf(buf1, sizeof(buf1), "drive%d", p->drive_count);
         obj = json_object_get(cfg, buf1);
@@ -251,7 +244,7 @@ static int virt_machine_parse_config(VirtMachineParams *p,
         p->drive_count++;
     }
 
-    for(;;) {
+    for (;;) {
         snprintf(buf1, sizeof(buf1), "fs%d", p->fs_count);
         obj = json_object_get(cfg, buf1);
         if (json_is_undefined(obj))
@@ -276,7 +269,7 @@ static int virt_machine_parse_config(VirtMachineParams *p,
         p->fs_count++;
     }
 
-    for(;;) {
+    for (;;) {
         snprintf(buf1, sizeof(buf1), "eth%d", p->eth_count);
         obj = json_object_get(cfg, buf1);
         if (json_is_undefined(obj))
@@ -552,19 +545,19 @@ void virt_machine_free_config(VirtMachineParams *p)
     int i;
 
     free(p->cmdline);
-    for(i = 0; i < VM_FILE_COUNT; i++) {
+    for (i = 0; i < VM_FILE_COUNT; i++) {
         free(p->files[i].filename);
         free(p->files[i].buf);
     }
-    for(i = 0; i < p->drive_count; i++) {
+    for (i = 0; i < p->drive_count; i++) {
         free(p->tab_drive[i].filename);
         free(p->tab_drive[i].device);
     }
-    for(i = 0; i < p->fs_count; i++) {
+    for (i = 0; i < p->fs_count; i++) {
         free(p->tab_fs[i].filename);
         free(p->tab_fs[i].tag);
     }
-    for(i = 0; i < p->eth_count; i++) {
+    for (i = 0; i < p->eth_count; i++) {
         free(p->tab_eth[i].driver);
         free(p->tab_eth[i].ifname);
     }
