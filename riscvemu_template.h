@@ -215,10 +215,8 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
     uint32_t opcode, insn, rd, rs1, rs2, funct3;
     int32_t imm, cond, err;
     target_ulong addr, val, val2;
-#ifndef USE_GLOBAL_VARIABLES
     uint8_t *code_ptr, *code_end;
     target_ulong code_to_pc_addend;
-#endif
     uint64_t insn_counter_addend;
     uint64_t insn_counter_start = s->insn_counter;
 #if FLEN > 0
@@ -322,7 +320,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
         rs1 = (insn >> 15) & 0x1f;
         rs2 = (insn >> 20) & 0x1f;
         switch(opcode) {
-#ifdef CONFIG_EXT_C
         C_QUADRANT(0)
             funct3 = (insn >> 13) & 7;
             rd = ((insn >> 2) & 7) | 8;
@@ -803,7 +800,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 goto illegal_insn;
             }
             C_NEXT_INSN;
-#endif /* CONFIG_EXT_C */
 
         case 0x37: /* lui */
             if (rd != 0)

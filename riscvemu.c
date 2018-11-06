@@ -32,13 +32,11 @@
 #include <unistd.h>
 #include <time.h>
 #include <getopt.h>
-#ifndef _WIN32
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
 #ifndef __APPLE__
 #include <linux/if_tun.h>
-#endif
 #endif
 #include <sys/stat.h>
 #include <signal.h>
@@ -59,8 +57,6 @@
 #ifdef CONFIG_SLIRP
 #include "slirp/libslirp.h"
 #endif
-
-#ifndef _WIN32
 
 typedef struct {
     int stdin_fd;
@@ -205,8 +201,6 @@ CharacterDevice *console_init(BOOL allow_ctrlc)
     return dev;
 }
 
-#endif /* !_WIN32 */
-
 typedef enum {
     BF_MODE_RO,
     BF_MODE_RW,
@@ -349,14 +343,10 @@ static BlockDevice *block_device_init(const char *filename,
     return bs;
 }
 
-#ifdef VERIFICATION
 #define MAX_EXEC_CYCLE 1
-#else
-#define MAX_EXEC_CYCLE 500000
-#endif
 #define MAX_SLEEP_TIME 10 /* in ms */
 
-#if !defined( _WIN32) && !defined(__APPLE__)
+#if !defined(__APPLE__)
 typedef struct {
     int fd;
     BOOL select_filled;
@@ -460,7 +450,7 @@ static EthernetDevice *tun_open(const char *ifname)
     return net;
 }
 
-#endif /* !_WIN32 && !__APPLE__*/
+#endif /* !__APPLE__*/
 
 #ifdef CONFIG_SLIRP
 
@@ -546,9 +536,7 @@ BOOL virt_machine_run(VirtMachine *m)
     fd_set rfds, wfds, efds;
     int fd_max, ret, delay;
     struct timeval tv;
-#ifndef _WIN32
     int stdin_fd;
-#endif
 
     delay = virt_machine_get_sleep_duration(m, MAX_SLEEP_TIME);
 
@@ -557,7 +545,7 @@ BOOL virt_machine_run(VirtMachine *m)
     FD_ZERO(&wfds);
     FD_ZERO(&efds);
     fd_max = -1;
-#ifndef _WIN32
+
     if (m->console_dev && virtio_console_can_write_data(m->console_dev)) {
         STDIODevice *s = m->console->opaque;
         stdin_fd = s->stdin_fd;
@@ -571,7 +559,7 @@ BOOL virt_machine_run(VirtMachine *m)
             s->resize_pending = FALSE;
         }
     }
-#endif
+
     if (m->net) {
         m->net->select_fill(m->net, &fd_max, &rfds, &wfds, &efds, &delay);
     }
@@ -585,7 +573,6 @@ BOOL virt_machine_run(VirtMachine *m)
         m->net->select_poll(m->net, &rfds, &wfds, &efds, ret);
     }
     if (ret > 0) {
-#ifndef _WIN32
         if (m->console_dev && FD_ISSET(stdin_fd, &rfds)) {
             uint8_t buf[128];
             int ret, len;
@@ -596,12 +583,7 @@ BOOL virt_machine_run(VirtMachine *m)
                 virtio_console_write_data(m->console_dev, buf, ret);
             }
         }
-#endif
     }
-
-#ifdef CONFIG_SDL
-    sdl_refresh(m);
-#endif
 
     return virt_machine_interp(m, MAX_EXEC_CYCLE);
 }
@@ -612,32 +594,25 @@ void help(void)
            "                             Copyright (c) 2018 Esperanto Technologies\n"
            "usage: riscvemu [options] config_file\n"
            "options are:\n"
-#ifdef CONFIG_CPU_RISCV
-           "-b [32|64|128]    set the integer register width in bits\n"
-#endif
            "-m ram_size       set the RAM size in MB\n"
            "-rw               allow write access to the disk image (default=snapshot)\n"
            "-ctrlc            the C-c key stops the emulator instead of being sent to the\n"
            "                  emulated software\n"
            "-append cmdline   append cmdline to the kernel command line\n"
-#ifdef CONFIG_CPU_X86
-           "-no-accel         disable VM acceleration (KVM)\n"
-#endif
            "\n"
            "Console keys:\n"
            "Press C-b x to exit the emulator, C-b h to get some help.\n");
     exit(1);
 }
 
-#ifdef CONFIG_CPU_RISCV
-void launch_alternate_executable(char **argv, int xlen)
+void launch_alternate_executable(char **argv)
 {
     char filename[1024];
     char new_exename[64];
     const char *p, *exename;
     int len;
 
-    snprintf(new_exename, sizeof(new_exename), "riscvemu%d", xlen);
+    snprintf(new_exename, sizeof(new_exename), "riscvemu64");
     exename = argv[0];
     p = strrchr(exename, '/');
     if (p) {
@@ -659,7 +634,6 @@ void launch_alternate_executable(char **argv, int xlen)
         exit(1);
     }
 }
-#endif
 
 #ifdef CONFIG_FS_NET
 static BOOL net_completed;
@@ -853,7 +827,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         } else
 #endif
         {
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(__APPLE__)
             fprintf(stderr, "Filesystem access not supported yet\n");
             exit(1);
 #else
@@ -878,7 +852,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
                 exit(1);
         } else
 #endif
-#if !defined(_WIN32) && !defined(__APPLE__)
+#if !defined(__APPLE__)
         if (!strcmp(p->tab_eth[i].driver, "tap")) {
             p->tab_eth[i].net = tun_open(p->tab_eth[i].ifname);
             if (!p->tab_eth[i].net)
@@ -892,26 +866,9 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         }
     }
 
-#ifdef CONFIG_SDL
-    if (p->display_device) {
-        sdl_init(p->width, p->height);
-    } else
-#endif
-    {
-#ifdef _WIN32
-        fprintf(stderr, "Console not supported yet\n");
-        exit(1);
-#else
-        p->console = console_init(TRUE);
-#endif
-    }
+    p->console = console_init(TRUE);
 
-#ifdef VERIFICATION
-    p->rtc_real_time = FALSE; // Maybe false all the time???
-#else
-    p->rtc_real_time = TRUE;
-#endif
-
+    p->rtc_real_time = FALSE;
     p->validation_terminate_event = terminate_event;
 
     s = virt_machine_init(p);

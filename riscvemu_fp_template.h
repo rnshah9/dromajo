@@ -161,18 +161,6 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     val = (int64_t)glue(glue(cvt_sf, F_SIZE), _u64)(unbox(read_fp_reg(rs1)), rm,
                                                                     &s->fflags);
                     break;
-#endif
-#if XLEN >= 128
-                /* XXX: the index is not defined in the spec */
-                case 4: /* fcvt.t.[sdq] */
-                    val = glue(glue(cvt_sf, F_SIZE), _i128)(unbox(read_fp_reg(rs1)), rm,
-                                                            &s->fflags);
-                    break;
-                case 5: /* fcvt.tu.[sdq] */
-                    val = glue(glue(cvt_sf, F_SIZE), _u128)(unbox(read_fp_reg(rs1)), rm,
-                                                            &s->fflags);
-                    break;
-#endif
                 default:
                     goto illegal_insn;
                 }
@@ -215,7 +203,6 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     write_fp_reg(rd, glue(cvt_u32_sf, F_SIZE)(read_reg(rs1), rm,
                                                               &s->fflags) | F_HIGH);
                     break;
-#if XLEN >= 64
                 case 2: /* fcvt.[sdq].l */
                     write_fp_reg(rd, glue(cvt_i64_sf, F_SIZE)(read_reg(rs1), rm,
                                                               &s->fflags) | F_HIGH);

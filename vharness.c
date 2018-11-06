@@ -18,7 +18,6 @@
 #include "cutils.h"
 #include "iomem.h"
 #include "virtio.h"
-//#include "machine.h"
 #include "riscv_cpu.h"
 
 //#define REGRESS_RISCV_COSIM 1

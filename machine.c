@@ -49,11 +49,7 @@ void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-#ifdef EMSCRIPTEN
-    vprintf(fmt, ap);
-#else
     vfprintf(stderr, fmt, ap);
-#endif
     va_end(ap);
 }
 
@@ -357,7 +353,6 @@ static void config_additional_file_load(VMConfigLoadState *s);
 static void config_additional_file_load_cb(void *opaque,
                                            uint8_t *buf, int buf_len);
 
-/* XXX: win32, URL */
 char *get_file_path(const char *base_filename, const char *filename)
 {
     int len, len1;
@@ -383,12 +378,6 @@ char *get_file_path(const char *base_filename, const char *filename)
 }
 
 
-#ifdef EMSCRIPTEN
-static int load_file(uint8_t **pbuf, const char *filename)
-{
-    abort();
-}
-#else
 /* return -1 if error. */
 static int load_file(uint8_t **pbuf, const char *filename)
 {
@@ -413,7 +402,6 @@ static int load_file(uint8_t **pbuf, const char *filename)
     *pbuf = buf;
     return size;
 }
-#endif
 
 #ifdef CONFIG_FS_NET
 static void config_load_file_cb(void *opaque, int err, void *data, size_t size)

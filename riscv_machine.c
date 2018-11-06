@@ -96,9 +96,7 @@ static uint64_t rtc_get_time(RISCVMachine *m)
 {
     uint64_t val;
     if (m->rtc_real_time) {
-#ifdef VERIFICATION
         assert(0); // Verification should not set RTC or it would not be deterministic
-#endif
         val = rtc_get_real_time(m) - m->rtc_start_time;
     } else {
         val = riscv_cpu_get_cycles(m->cpu_state) / RTC_FREQ_DIV;
@@ -146,10 +144,6 @@ static void htif_handle_cmd(RISCVMachine *s)
 #endif
     if (s->htif_tohost == 1) {
         /* shuthost */
-#ifndef VERIFICATION
-        fprintf(stderr, "\nPower off.\n");
-        exit(0);
-#endif
     } else if (device == 1 && cmd == 1) {
         uint8_t buf[1];
         buf[0] = s->htif_tohost & 0xff;
@@ -352,7 +346,6 @@ static void clint_write(void *opaque, uint32_t offset, uint32_t val,
         m->timecmp = (m->timecmp & 0xffffffff) | ((uint64_t)val << 32);
         riscv_cpu_reset_mip(m->cpu_state, MIP_MTIP);
         break;
-#ifdef VERIFICATION
     // WARNING: RISCVEMU assumes same for cpu clock and clint. Create different clocks if needed
     case 0xbff8:
         {
@@ -372,7 +365,6 @@ static void clint_write(void *opaque, uint32_t offset, uint32_t val,
           assert(val2 == val);
         }
         break;
-#endif
     default:
         break;
     }
@@ -761,11 +753,11 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
     fdt_prop_str(s, "status", "okay");
     fdt_prop_str(s, "compatible", "riscv");
 
-    max_xlen = riscv_cpu_get_max_xlen();
+    max_xlen = 64;
     misa = riscv_cpu_get_misa(m->cpu_state);
     q = isa_string;
     q += snprintf(isa_string, sizeof(isa_string), "rv%d", max_xlen);
-    for(i = 0; i < 26; i++) {
+    for (i = 0; i < 26; i++) {
         if (misa & (1 << i))
             *q++ = 'a' + i;
     }
@@ -1037,7 +1029,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     }
 
     /* virtio filesystem */
-    for(i = 0; i < p->fs_count; i++) {
+    for (i = 0; i < p->fs_count; i++) {
         VIRTIODevice *fs_dev;
         vbus->irq = &s->plic_irq[irq_num];
         fs_dev = virtio_9p_init(vbus, p->tab_fs[i].fs_dev,
@@ -1047,22 +1039,6 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
         vbus->addr += VIRTIO_SIZE;
         irq_num++;
         s->virtio_count++;
-    }
-
-    if (p->display_device) {
-        FBDevice *fb_dev;
-        fb_dev = mallocz(sizeof(*fb_dev));
-        s->common.fb_dev = fb_dev;
-        if (!strcmp(p->display_device, "simplefb")) {
-            simplefb_init(s->mem_map,
-                          FRAMEBUFFER_BASE_ADDR,
-                          fb_dev,
-                          p->width, p->height);
-
-        } else {
-            vm_error("unsupported display device: %s\n", p->display_device);
-            exit(1);
-        }
     }
 
     if (p->input_device) {
@@ -1248,16 +1224,7 @@ int virt_machine_repair_store(VirtMachine *m, uint32_t reg_num, uint32_t funct3)
 
 const char *virt_machine_get_name(void)
 {
-    switch(riscv_cpu_get_max_xlen()) {
-    case 32:
-        return "riscv32";
-    case 64:
-        return "riscv64";
-    case 128:
-        return "riscv128";
-    default:
-        abort();
-    }
+    return "riscv64";
 }
 
 void vm_send_key_event(VirtMachine *s1, BOOL is_down,
