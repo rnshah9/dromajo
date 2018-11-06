@@ -81,14 +81,15 @@ KERNEL_S3_PATH=et-maxion-ci-inputs/bbl-vmlinux/$(KERNEL_VERSION)
 $(OUTPUT_DIR)/firesim-golden-download.done:
 	artifacts.py --pull $(KERNEL_S3_PATH)/bbl-vmlinux0.bin.xz $(OUTPUT_DIR)/bbl-vmlinux0.bin.xz
 	artifacts.py --pull $(KERNEL_S3_PATH)/bbl-vmlinux0.cfg.xz $(OUTPUT_DIR)/bbl-vmlinux0.cfg.xz
-	xz -d $(OUTPUT_DIR)/bbl-vmlinux0.bin.xz $(OUTPUT_DIR)/bbl-vmlinux0.cfg.xz
+	xz -fd $(OUTPUT_DIR)/bbl-vmlinux0.bin.xz $(OUTPUT_DIR)/bbl-vmlinux0.cfg.xz
 	date > $@
 
 # Have a separate test-file per linux-boot-test
 # Linux boot takes 6min and we need to be able to parallelize it
 LINUX_BOOT_TESTS = \
 	linux_boot_chkpt_test.py \
-	linux_boot_test_csr_validation_write.py
+	linux_boot_test_csr_validation_write.py \
+	linux_boot_prompt_message.py
 
 
 LINUX_BOOT_TEST_OUTPUT=$(foreach test,$(patsubst %.py,%.xml,$(LINUX_BOOT_TESTS)),$(OUTPUT_DIR)/$(test))

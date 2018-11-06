@@ -1325,6 +1325,7 @@ static int handle_write_validation1(RISCVCPUState *s, target_ulong val)
 
     for (int i = 0; i < countof(validation_events); ++i) {
         if (validation_events[i].terminate
+            && s->terminating_event != NULL
             && strcmp(validation_events[i].name, s->terminating_event) == 0) {
             s->power_down_flag = TRUE;
             fprintf(stderr, "ET terminating validation event: %s encountered.",
