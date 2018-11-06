@@ -60,16 +60,16 @@ int iterate_core(VirtMachine *m)
         if ((insn_raw & 3) == 3)
             fprintf(stderr,"%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, insn_raw);
         else
-            fprintf(stderr,"%d 0x%016"PRIx64" (0x%04x)    ", priv, last_pc, (uint16_t) insn_raw);
+            fprintf(stderr,"%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, (uint16_t) insn_raw);
 
         uint64_t dummy1, dummy2;
         int iregno = virt_machine_get_most_recently_written_reg(m, &dummy1);
         int fregno = virt_machine_get_most_recently_written_fp_reg(m, &dummy2);
 
         if (iregno > 0)
-            fprintf(stderr," x%2d 0x%016"PRIx64, iregno, virt_machine_get_reg(m, iregno));
+            fprintf(stderr," x%-2d 0x%016"PRIx64, iregno, virt_machine_get_reg(m, iregno));
         else if (fregno >= 0)
-            fprintf(stderr," f%2d 0x%016"PRIx64, fregno, virt_machine_get_fpreg(m, fregno));
+            fprintf(stderr," f%-2d 0x%016"PRIx64, fregno, virt_machine_get_fpreg(m, fregno));
 
         putc('\n', stderr);
     }

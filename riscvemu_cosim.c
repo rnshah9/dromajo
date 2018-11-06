@@ -101,7 +101,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
 
     uint64_t dummy1, dummy2;
     int iregno = riscv_get_most_recently_written_reg(s, &dummy1);
-    int fregno = riscv_get_most_recently_written_reg(s, &dummy2);
+    int fregno = riscv_get_most_recently_written_fp_reg(s, &dummy2);
 
     if ((emu_insn & 3) == 3)
         fprintf(stderr, "(0x%08x) ", emu_insn);
@@ -112,14 +112,14 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
         emu_wdata = riscv_get_reg(s, iregno);
         emu_wrote_data = 1;
         if (verbose)
-            fprintf(stderr, "x%-2d %016"PRIx64, iregno, emu_wdata);
+            fprintf(stderr, "x%-2d 0x%016"PRIx64, iregno, emu_wdata);
     } else if (fregno >= 0) {
         emu_wdata = riscv_get_fpreg(s, fregno);
         emu_wrote_data = 1;
         if (verbose)
-            fprintf(stderr, "f%-2d %016"PRIx64, fregno, emu_wdata);
+            fprintf(stderr, "f%-2d 0x%016"PRIx64, fregno, emu_wdata);
     } else
-        fprintf(stderr, "                    ");
+        fprintf(stderr, "                      ");
 
     if (verbose)
         if ((emu_insn & 3) == 3)
