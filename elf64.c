@@ -85,8 +85,7 @@ bool elf64_find_global(const char *image, size_t image_size,
             const Elf64_Sym *sym = &symtab[i];
 
             if (strcmp(key, strtab + sym->st_name) == 0 &&
-                ELF32_ST_BIND(sym->st_info) == STB_GLOBAL &&
-                ELF32_ST_TYPE(sym->st_info) == STT_OBJECT) {
+                ELF32_ST_BIND(sym->st_info) == STB_GLOBAL) {
                 *value = sym->st_value;
                 return true;
             }
