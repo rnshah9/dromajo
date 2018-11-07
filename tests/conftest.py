@@ -4,14 +4,14 @@ def pytest_addoption(parser):
     parser.addoption("--output-dir",
                      required=True,
                      help="Test output folder")
-    parser.addoption("--vharness",
+    parser.addoption("--riscvemu",
                      required=True,
-                     help="Path to vharness")
+                     help="Path to riscvemu")
 
 @pytest.fixture
 def output_dir(request):
     return request.config.getoption("--output-dir")
 
 @pytest.fixture
-def vharness(request):
-    return request.config.getoption("--vharness")
+def riscvemu(request):
+    return request.config.getoption("--riscvemu")

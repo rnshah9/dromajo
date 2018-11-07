@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -662,7 +663,7 @@ static void usage(const char *prog, const char *msg)
             "       --save saves a snapshot upon exit\n"
             "       --maxinsns terminates execution after a number of instructions\n"
             "       --terminate-event name of the validate event to terminate execution\n"
-            "       --trace start trace dump after a number of instructions\n"
+            "       --trace start trace dump after a number of instructions. Trace disabled by default\n"
             "       --memory_size sets the memory size in MiB (default 256 MiB)\n",
             msg, prog);
 
@@ -678,7 +679,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     const char *cmdline            = NULL;
     const char *terminate_event    = NULL;
     uint64_t    maxinsns           = 0;
-    uint64_t    trace              = 0;
+    uint64_t    trace              = UINT64_MAX;
     long        memory_size_override   = 0;
 
     optind = 0;
@@ -741,9 +742,9 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             break;
 
         case 't':
-            if (trace)
+            if (trace != UINT64_MAX)
                 usage(prog, "already had a trace set");
-            trace = atoi(optarg);
+            trace = (uint64_t) atoll(optarg);
             break;
 
         case 'M':

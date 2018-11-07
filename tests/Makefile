@@ -8,7 +8,6 @@ TEST_NAMES = $(basename $(notdir $(TESTS_PATH)))
 CONFIGS_BASENAME = $(addprefix $(OUTPUT_DIR)/, $(TEST_NAMES))
 
 RISCVEMU_DIR=$(dir $(realpath $(firstword) $(MAKEFILE_LIST)))/..
-VHARNESS=$(RISCVEMU_DIR)/vharness
 RISCVEMU=$(RISCVEMU_DIR)/riscvemu
 
 all: configs riscv-tests-report checkpoint-tests linux_boot_tests
@@ -29,14 +28,14 @@ all: configs riscv-tests-report checkpoint-tests linux_boot_tests
 # # 	grep rv64ud $< > $@
 # # 	wc -l $@
 
-# # riscvemu32.testlog: $(VHARNESS) $(patsubst %,%.riscvemu,$(RV32TESTS))
+# # riscvemu32.testlog: $(RISCVEMU) $(patsubst %,%.riscvemu,$(RV32TESTS))
 # # 	for t in $(patsubst %,%.riscvemu,$(RV64TESTS)); do echo $$t `grep Power $$t|head -1`;done > $@
 
-# # riscvemu.testlog: $(VHARNESS) $(patsubst %,%.riscvemu,$(RV64TESTS))
+# # riscvemu.testlog: $(RISCVEMU) $(patsubst %,%.riscvemu,$(RV64TESTS))
 # # 	for t in $(patsubst %,%.riscvemu,$(RV64TESTS)); do echo $$t `grep Power $$t|head -1`;done > $@
 
-$(OUTPUT_DIR)/%.riscvemu: $(OUTPUT_DIR)/%.cfg $(OUTPUT_DIR)/%.bin $(VHARNESS)
-	$(VHARNESS) $< 2> $@
+$(OUTPUT_DIR)/%.riscvemu: $(OUTPUT_DIR)/%.cfg $(OUTPUT_DIR)/%.bin $(RISCVEMU)
+	$(RISCVEMU) --trace 0 $< 2> $@
 
 $(OUTPUT_DIR)/%.spike: $(RISCVTESTS_DIR)/%
 	$(SPIKE) -l $< > $@ 2>&1
@@ -63,7 +62,7 @@ $(OUTPUT_DIR)/riscvemu-test-report.xml: $(patsubst %,%.riscvemu,$(CONFIGS_BASENA
 riscv-tests-report: $(OUTPUT_DIR)/riscvemu-test-report.xml
 
 $(OUTPUT_DIR)/chpt-test-report.xml: $(OUTPUT_DIR)/rv64ui-p-simple.cfg  $(OUTPUT_DIR)/rv64ui-p-simple.bin
-	pytest -s -v chpt_test_riscv_tests.py --output-dir $(OUTPUT_DIR)/ --vharness $(VHARNESS) \
+	pytest -v chpt_test_riscv_tests.py --output-dir $(OUTPUT_DIR)/ --riscvemu $(RISCVEMU) \
 	  --junit-xml=$@
 
 .PHONY: checkpoint-test-riscv-test
@@ -85,9 +84,18 @@ $(OUTPUT_DIR)/firesim-golden-download.done:
 	xz -d $(OUTPUT_DIR)/bbl-vmlinux0.bin.xz $(OUTPUT_DIR)/bbl-vmlinux0.cfg.xz
 	date > $@
 
-$(OUTPUT_DIR)/linux-boot-test-report.xml: $(OUTPUT_DIR)/firesim-golden-download.done
-	pytest -s -v linux_boot_tests.py --output-dir $(OUTPUT_DIR)/ --vharness $(RISCVEMU) \
+# Have a separate test-file per linux-boot-test
+# Linux boot takes 6min and we need to be able to parallelize it
+LINUX_BOOT_TESTS = \
+	linux_boot_chkpt_test.py \
+	linux_boot_test_csr_validation_write.py
+
+
+LINUX_BOOT_TEST_OUTPUT=$(foreach test,$(patsubst %.py,%.xml,$(LINUX_BOOT_TESTS)),$(OUTPUT_DIR)/$(test))
+
+$(OUTPUT_DIR)/linux_boot_%.xml: linux_boot_%.py $(OUTPUT_DIR)/firesim-golden-download.done
+	pytest -v $< --output-dir $(OUTPUT_DIR)/ --riscvemu $(RISCVEMU) \
 	  --junit-xml=$@
 
 .PHONY: linux_boot_tests
-linux_boot_tests: $(OUTPUT_DIR)/linux-boot-test-report.xml
+linux_boot_tests: $(LINUX_BOOT_TEST_OUTPUT)
