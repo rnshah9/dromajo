@@ -1,5 +1,5 @@
 #
-# RISCV emulator
+# RISC-V Emulator
 #
 # Copyright (c) 2016-2017 Fabrice Bellard
 # Copyright (c) 2018 Esperanto Technology
@@ -80,4 +80,3 @@ clean:
 	rm -f *.o *.d *~ $(PROGS)
 
 -include $(wildcard *.d)
--include $(wildcard slirp/*.d)
