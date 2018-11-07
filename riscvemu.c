@@ -716,7 +716,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         case 'm':
             if (maxinsns)
                 usage(prog, "already had a max instructions");
-            maxinsns = atoi(optarg);
+            maxinsns = (uint64_t) atoll(optarg);
             break;
 
         case 'e':
@@ -874,12 +874,21 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 
     s = virt_machine_init(p);
 
-    s->snapshot_load_name = snapshot_load_name;
+    // Overwrite the value specified in the configuration file
+    if (snapshot_load_name) {
+        s->snapshot_load_name = snapshot_load_name;
+    }
     s->snapshot_save_name = snapshot_save_name;
-    s->maxinsns           = maxinsns;
     s->trace              = trace;
-    if (!s->maxinsns)
-        s->maxinsns = ~0ULL;
+    // Allow the command option argument to overwrite the value
+    // specified in the configuration file
+    if (maxinsns > 0) {
+        s->maxinsns = maxinsns;
+    }
+    // If not value is specified in the configuration or the command line
+    // then run indefinitely
+    if (s->maxinsns == 0)
+        s->maxinsns = UINT64_MAX;
 
     virt_machine_free_config(p);
 

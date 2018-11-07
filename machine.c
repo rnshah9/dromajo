@@ -162,6 +162,7 @@ static int virt_machine_parse_config(VirtMachineParams *p,
     const char *tag_name, *machine_name, *str;
     char buf1[256];
     JSONValue cfg, obj, el;
+    p->maxinsns = 0;
 
     cfg = json_parse_value_len(config_file_str, len);
     if (json_is_error(cfg)) {
@@ -221,6 +222,21 @@ static int virt_machine_parse_config(VirtMachineParams *p,
     if (!json_is_undefined(json_object_get(cfg, tag_name)))
       vm_get_int(cfg, tag_name, &val);
     p->htif_base_addr = (uint32_t)val; // Avoid sign-extension
+
+    tag_name = "maxinsns";
+    val = 0;
+    if (!json_is_undefined(json_object_get(cfg, tag_name))) {
+        vm_get_int(cfg, tag_name, &val);
+        p->maxinsns = val;
+    }
+
+    // checkpoint file path
+    p->snapshot_load_name = NULL;
+    tag_name = "load";
+    str = NULL;
+    if (vm_get_str_opt(cfg, tag_name, &str) == 0 && str != NULL) {
+        p->snapshot_load_name = strdup(str);
+    }
 
     for (;;) {
         snprintf(buf1, sizeof(buf1), "drive%d", p->drive_count);

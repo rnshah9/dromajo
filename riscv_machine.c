@@ -961,6 +961,8 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     /* needed to handle the RAM dirty bits */
     s->mem_map->opaque = s;
     s->mem_map->flush_tlb_write_range = riscv_flush_tlb_write_range;
+    s->common.maxinsns = p->maxinsns;
+    s->common.snapshot_load_name = p->snapshot_load_name;
 
     s->cpu_state = riscv_cpu_init(s->mem_map, p->validation_terminate_event);
 
@@ -1135,7 +1137,7 @@ BOOL virt_machine_interp(VirtMachine *s1, int max_exec_cycle)
     RISCVMachine *s = (RISCVMachine *)s1;
     riscv_cpu_interp(s->cpu_state, max_exec_cycle);
 
-    return s->htif_tohost == 0 && riscv_cpu_get_cycles(s->cpu_state) < s1->maxinsns;
+    return s->htif_tohost == 0 && s1->maxinsns > 0;
 }
 
 void virt_machine_set_pc(VirtMachine *m, uint64_t pc)

@@ -373,11 +373,6 @@ static void dump_regs(RISCVCPUState *s)
 #endif
 }
 
-static __attribute__((unused)) void cpu_abort(RISCVCPUState *s)
-{
-    dump_regs(s);
-    abort();
-}
 uint64_t checker_last_addr = 0;
 uint64_t checker_last_data = 0;
 int      checker_last_size = 0;

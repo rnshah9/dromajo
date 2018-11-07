@@ -115,6 +115,12 @@ typedef struct {
 
     void  *elf_image;
     size_t elf_image_size;
+
+    /* maximum increment of instructions to execute */
+    uint64_t maxinsns;
+
+    /* snaphot load file */
+    const char *snapshot_load_name;
 } VirtMachineParams;
 
 typedef struct VirtMachine {

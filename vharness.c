@@ -25,7 +25,6 @@
 #include "riscvemu_cosim.h"
 #endif
 
-static const int trace_enabled = 1;
 
 int iterate_core(VirtMachine *m)
 {
@@ -33,6 +32,10 @@ int iterate_core(VirtMachine *m)
     int keep_going, priv;
     uint64_t last_pc, prev_instret;
     uint32_t insn_raw = 0;
+
+    if (m->maxinsns-- <= 0)
+        /* Succeed after N instructions without failure. */
+        return 0;
 
     /* Loop until an instruction retires.  This is important because
      * exceptions, such as illegal instruction must not be included in
@@ -55,7 +58,7 @@ int iterate_core(VirtMachine *m)
     if (instret < m->trace && instret < m->maxinsns)
         return keep_going;
 
-    if (trace_enabled) {
+    if (instret >= m->trace) {
         if ((insn_raw & 3) == 3)
             fprintf(stderr,"%d 0x%016"PRIx64" (0x%08x)", priv, last_pc, insn_raw);
         else
