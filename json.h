@@ -24,6 +24,8 @@
 #ifndef JSON_H
 #define JSON_H
 
+#include <stdint.h>
+
 #include "cutils.h"
 
 typedef enum {
@@ -46,7 +48,7 @@ typedef struct JSONValue {
     JSONTypeEnum type;
     union {
         JSONString *str;
-        int int32;
+        int64_t int64;
         BOOL b;
         struct JSONObject *obj;
         struct JSONArray *array;
@@ -97,7 +99,7 @@ static inline JSONValue json_undefined_new(void)
 {
     JSONValue val;
     val.type = JSON_UNDEFINED;
-    val.u.int32 = 0;
+    val.u.int64 = 0;
     return val;
 }
 
@@ -105,15 +107,15 @@ static inline JSONValue json_null_new(void)
 {
     JSONValue val;
     val.type = JSON_NULL;
-    val.u.int32 = 0;
+    val.u.int64 = 0;
     return val;
 }
 
-static inline JSONValue json_int32_new(int v)
+static inline JSONValue json_int64_new(int64_t v)
 {
     JSONValue val;
     val.type = JSON_INT;
-    val.u.int32 = v;
+    val.u.int64 = v;
     return val;
 }
 

@@ -344,14 +344,14 @@ JSONValue json_parse_value2(const char **pp)
     char buf[128];
     const char *p;
     JSONValue val, val1, tag;
-    
+
     p = *pp;
     skip_spaces(&p);
     if (*p == '\0') {
         return json_error_new("unexpected end of file");
     }
     if (isdigit(*p)) {
-        val = json_int32_new(strtol(p, (char **)&p, 0));
+        val = json_int64_new(strtoll(p, (char **)&p, 0));
     } else if (*p == '"') {
         val = parse_string(&p);
     } else if (*p == '{') {

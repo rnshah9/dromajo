@@ -21,6 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#include <stdint.h>
+
 #include "json.h"
 
 typedef struct FBDevice FBDevice;
@@ -93,7 +96,7 @@ typedef struct {
     BOOL rtc_real_time;
     BOOL rtc_local_time;
     char *display_device; /* NULL means no display */
-    int width, height; /* graphic width & height */
+    int64_t width, height; /* graphic width & height */
     CharacterDevice *console;
     VMDriveEntry tab_drive[MAX_DRIVE_DEVICE];
     int drive_count;
@@ -140,7 +143,7 @@ typedef struct VirtMachine {
 } VirtMachine;
 
 void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...);
-int vm_get_int(JSONValue obj, const char *name, int *pval);
+int vm_get_int(JSONValue obj, const char *name, int64_t *pval);
 
 const char *virt_machine_get_name(void);
 void virt_machine_set_defaults(VirtMachineParams *p);

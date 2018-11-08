@@ -23,6 +23,7 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
 #include <inttypes.h>
@@ -53,7 +54,7 @@ void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...)
     va_end(ap);
 }
 
-int vm_get_int(JSONValue obj, const char *name, int *pval)
+int vm_get_int(JSONValue obj, const char *name, int64_t *pval)
 {
     JSONValue val;
     val = json_object_get(obj, name);
@@ -65,7 +66,7 @@ int vm_get_int(JSONValue obj, const char *name, int *pval)
         vm_error("%s: integer expected\n", name);
         return -1;
     }
-    *pval = val.u.int32;
+    *pval = val.u.int64;
     return 0;
 }
 
@@ -158,7 +159,7 @@ static char *cmdline_subst(const char *cmdline)
 static int virt_machine_parse_config(VirtMachineParams *p,
                                      char *config_file_str, int len)
 {
-    int version, val;
+    int64_t version, val;
     const char *tag_name, *machine_name, *str;
     char buf1[256];
     JSONValue cfg, obj, el;
