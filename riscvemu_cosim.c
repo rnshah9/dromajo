@@ -49,8 +49,10 @@ static void handle_dut_overrides(RISCVCPUState *s,
     int csrno  = insn >> 20;
     int rd     = (insn >> 7) & 0x1f;
 
-    /* Catch reads from CSR mcycle, ucycle, instret, hpmcounters */
-    if (opcode == 0x73 &&
+    /* Catch reads from CSR mcycle, ucycle, instret, hpmcounters,
+     * If the destination register is x0 then it is actually a csr-write
+     */
+    if (opcode == 0x73 && rd != 0 &&
         (0xB00 <= csrno && csrno < 0xB20 ||
          0xC00 <= csrno && csrno < 0xC20))
         riscv_set_reg(s, rd, dut_wdata);
