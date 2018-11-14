@@ -69,9 +69,9 @@ int iterate_core(VirtMachine *m)
         int fregno = virt_machine_get_most_recently_written_fp_reg(m, &dummy2);
 
         if (iregno > 0)
-            fprintf(stderr," x%-2d 0x%016"PRIx64, iregno, virt_machine_get_reg(m, iregno));
+            fprintf(stderr," x%2d 0x%016"PRIx64, iregno, virt_machine_get_reg(m, iregno));
         else if (fregno >= 0)
-            fprintf(stderr," f%-2d 0x%016"PRIx64, fregno, virt_machine_get_fpreg(m, fregno));
+            fprintf(stderr," f%2d 0x%016"PRIx64, fregno, virt_machine_get_fpreg(m, fregno));
 
         putc('\n', stderr);
     }
