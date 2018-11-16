@@ -23,6 +23,12 @@ riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[])
     return (riscvemu_cosim_state_t *)virt_machine_main(argc, argv);
 }
 
+static bool is_store_conditional(uint32_t insn)
+{
+    int opcode = insn & 0x7f, funct3 = (insn >> 12) & 7;
+    return opcode == 0x2f && insn >> 27 == 2 && (funct3 == 2 || funct3 == 3);
+}
+
 /*
  * handle_dut_overrides --
  *
@@ -35,6 +41,7 @@ riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[])
  */
 static void handle_dut_overrides(RISCVCPUState *s,
                                  uint64_t pc, uint32_t insn,
+                                 uint64_t emu_wdata,
                                  uint64_t dut_wdata,
                                  int dut_intr_pending)
 {
@@ -47,6 +54,12 @@ static void handle_dut_overrides(RISCVCPUState *s,
         (0xB00 <= csrno && csrno < 0xB20 ||
          0xC00 <= csrno && csrno < 0xC20))
         riscv_set_reg(s, rd, dut_wdata);
+
+
+    if (is_store_conditional(insn) && emu_wdata != dut_wdata) {
+        /* XXX We should undo the stored data. */
+        riscv_set_reg(s, rd, dut_wdata);
+    }
 }
 
 /*
@@ -102,8 +115,8 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     };
 
     if (check)
-        handle_dut_overrides(s, emu_pc, emu_insn, dut_wdata,
-                             dut_intr_pending);
+        handle_dut_overrides(s, emu_pc, emu_insn, emu_wdata,
+                             dut_wdata, dut_intr_pending);
 
     if (verbose)
         fprintf(stderr,"%d 0x%016"PRIx64" ", emu_priv, emu_pc);
