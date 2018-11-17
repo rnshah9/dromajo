@@ -26,7 +26,7 @@ riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[])
 static bool is_store_conditional(uint32_t insn)
 {
     int opcode = insn & 0x7f, funct3 = (insn >> 12) & 7;
-    return opcode == 0x2f && insn >> 27 == 2 && (funct3 == 2 || funct3 == 3);
+    return opcode == 0x2f && insn >> 27 == 3 && (funct3 == 2 || funct3 == 3);
 }
 
 /*
@@ -56,12 +56,6 @@ static void handle_dut_overrides(RISCVCPUState *s,
         (0xB00 <= csrno && csrno < 0xB20 ||
          0xC00 <= csrno && csrno < 0xC20))
         riscv_set_reg(s, rd, dut_wdata);
-
-
-    if (is_store_conditional(insn) && emu_wdata != dut_wdata) {
-        /* XXX We should undo the stored data. */
-        riscv_set_reg(s, rd, dut_wdata);
-    }
 }
 
 /*
@@ -97,6 +91,8 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     int      exit_code = 0;
     int      riscv_cpu_interp64(RISCVCPUState *s, int n_cycles);
     bool     verbose = true;
+    uint64_t dummy1, dummy2;
+    int      iregno, fregno;
 
     if (m->maxinsns-- == 0) {
         /* Succeed after N instructions without failure. */
@@ -108,12 +104,30 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
      * may fire, the current instruction may not be executed, thus we
      * have to iterate until one does.
      */
+    iregno = -1;
+    fregno = -1;
+
     for (;;) {
         emu_priv = riscv_get_priv_level(s);
         emu_pc   = riscv_get_pc(s);
         riscv_read_insn(s, &emu_insn, emu_pc);
-        if (riscv_cpu_interp64(s, 1) != 0)
+
+        if (emu_pc == dut_pc && emu_insn == dut_insn &&
+            is_store_conditional(emu_insn) && dut_wdata != 0) {
+
+            /* When DUT fails an SC, we must simulate the same behavior */
+            iregno = (emu_insn >> 7) & 0x1f;
+            if (iregno > 0)
+                riscv_set_reg(s, iregno, dut_wdata);
+            riscv_set_pc(s, emu_pc + 4);
             break;
+        }
+
+        if (riscv_cpu_interp64(s, 1) != 0) {
+            iregno = riscv_get_most_recently_written_reg(s, &dummy1);
+            fregno = riscv_get_most_recently_written_fp_reg(s, &dummy2);
+            break;
+        }
     };
 
     if (check)
@@ -122,10 +136,6 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
 
     if (verbose)
         fprintf(stderr,"%d 0x%016"PRIx64" ", emu_priv, emu_pc);
-
-    uint64_t dummy1, dummy2;
-    int iregno = riscv_get_most_recently_written_reg(s, &dummy1);
-    int fregno = riscv_get_most_recently_written_fp_reg(s, &dummy2);
 
     if ((emu_insn & 3) == 3)
         fprintf(stderr, "(0x%08x) ", emu_insn);
