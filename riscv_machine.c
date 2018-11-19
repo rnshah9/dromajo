@@ -927,12 +927,15 @@ static void copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
     /* jump_addr = 0x80000000 */
 
     q = (uint32_t *)(ram_ptr + (BOOT_BASE_ADDR-ROM_BASE_ADDR));
-    q[0] = 0x0010041b; // addiw   s0, zero, 1
-    q[1] = 0x01f41413; // slli    s0, s0, 31
-    q[2] = 0xf1402573; // csrr    a0, mhartid
-    q[3] = 0x00000597; // auipc   a1, 0x0      = BOOT_BASE_ADDR + 3*4
-    q[4] = 0x01c58593; // addi    a1, a1, 28   = BOOT_BASE_ADDR + 10*4
-    q[5] = 0x00040067; // jr      s0
+    q[0] = 0xf1402573; // csrr    a0, mhartid
+    q[1] = 0x00000597; // auipc   a1, 0x0      = BOOT_BASE_ADDR + 3*4
+    q[2] = 0x02458593; // addi    a1, a1, 28   = BOOT_BASE_ADDR + 10*4
+    q[3] = 0x0010041b; // addiw   s0, zero, 1
+    q[4] = 0x01f41413; // slli    s0, s0, 31
+    q[5] = 0x7b141073; // csrw    dpc, s0
+    q[6] = 0x60300413; // li      s0, 1539
+    q[7] = 0x7b041073; // csrw    dcsr, s0
+    q[8] = 0x7b200073; // dret
 }
 
 static void riscv_flush_tlb_write_range(void *opaque, uint8_t *ram_addr,
