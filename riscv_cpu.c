@@ -230,7 +230,10 @@ struct RISCVCPUState {
     uint64_t mcycle;   // RISCV CSR (updated when insn_counter increases)
     BOOL     stop_the_counter; // Set in debug mode only (cleared after ending Debug)
 
-    BOOL power_down_flag;
+    BOOL power_down_flag; /* True when the core is idle awaiting
+                           * interrupts, does NOT mean terminate
+                           * simulation */
+    BOOL terminate_simulation;
     int pending_exception; /* used during MMU exception handling */
     target_ulong pending_tval;
 
@@ -1312,11 +1315,11 @@ static int get_insn_rm(RISCVCPUState *s, unsigned int rm)
 }
 #endif
 
-static int handle_write_validation1(RISCVCPUState *s, target_ulong val)
+static void handle_write_validation1(RISCVCPUState *s, target_ulong val)
 {
     if (val < 256) {// upper bits zero is the expected
         putchar((char)val); // Console to stdout
-        return 0;
+        return;
     }
 
     target_ulong cmd_payload = val & PAYLOAD_MASK;
@@ -1337,16 +1340,14 @@ static int handle_write_validation1(RISCVCPUState *s, target_ulong val)
         if (validation_events[i].terminate
             && s->terminating_event != NULL
             && strcmp(validation_events[i].name, s->terminating_event) == 0) {
-            s->power_down_flag = TRUE;
+            s->terminate_simulation = TRUE;
             fprintf(stderr, "ET terminating validation event: %s encountered.",
                     s->terminating_event);
             fprintf(stderr, " Instructions committed: %lli \n",
                     (long long)s->minstret);
-            exit(0);
+            break;
         }
     }
-
-    return 0;
 }
 
 /* return -1 if invalid CSR, 0 if OK, 1 if the interpreter loop must be
@@ -1544,12 +1545,12 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
             fprintf(stderr, "ET validation begin code=%llx\n", (long long)val & 0xFFF);
         else if ((val >> 12) == 0x1FEED) {
             fprintf(stderr, "ET validation PASS code=%llx\n", (long long)val & 0xFFF);
-            s->power_down_flag = TRUE;
-            exit(0);
+            s->terminate_simulation = TRUE;
+            break;
         } else if ((val >> 12) == 0x50BAD) {
             fprintf(stderr, "ET validation FAIL code=%llx\n", (long long)val & 0xFFF);
-            s->power_down_flag = TRUE;
-            exit(0);
+            s->terminate_simulation = TRUE;
+            break;
         } else
             fprintf(stderr, "ET UNKNOWN command=%llx code=%llx\n", (long long)val >> 12,
                     (long long)(val & 0xFFF));
@@ -2145,6 +2146,11 @@ int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
         *instret_ts = s->fp_reg_ts[regno];
 
     return regno;
+}
+
+BOOL riscv_terminated(RISCVCPUState *s)
+{
+    return s->terminate_simulation;
 }
 
 static void serialize_memory(const void *base, size_t size, const char *file)

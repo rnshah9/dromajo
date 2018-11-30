@@ -94,9 +94,17 @@ int main(int argc, char **argv)
 #ifdef REGRESS_RISCV_COSIM
     riscvemu_cosim_state_t *costate = 0;
     costate = riscvemu_cosim_init(argc, argv);
+
+    if (!costate)
+        return 1;
+
     do ; while (!riscvemu_cosim_step(costate, 0, 0, 0, 0, false));
 #else
     VirtMachine *m = virt_machine_main(argc, argv);
+
+    if (!m)
+        return 1;
+
     int keep_going;
     do {
         keep_going = iterate_core(m);

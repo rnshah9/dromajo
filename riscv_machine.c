@@ -905,7 +905,8 @@ static void load_elf_image(RISCVMachine *s, const void *image, size_t image_len,
         }
 }
 
-static void copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
+/* Return non-zero on failure */
+static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
                         const char *cmd_line, bool is_elf)
 {
     uint32_t fdt_addr;
@@ -915,7 +916,7 @@ static void copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
 
     if (buf_len > s->ram_size) {
         vm_error("Kernel too big\n");
-        exit(1);
+        return 1;
     }
 
     if (is_elf) {
@@ -923,7 +924,7 @@ static void copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
         if (entry_point != 0x80000000) {
             fprintf(stderr, "RISCVEMU current requires a 0x80000000 starting "
                     "address, image assumes 0x%0lx\n", entry_point);
-            exit(1);
+            return 1;
         }
     }
     else
@@ -946,6 +947,8 @@ static void copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
     q[6] = 0x60300413; // li      s0, 1539
     q[7] = 0x7b041073; // csrw    dcsr, s0
     q[8] = 0x7b200073; // dret
+
+    return 0;
 }
 
 static void riscv_flush_tlb_write_range(void *opaque, uint8_t *ram_addr,
@@ -1077,13 +1080,20 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
         }
     }
 
+    int failure = 0;
     if (p->elf_image)
-        copy_kernel(s, p->elf_image, p->elf_image_size, p->cmdline, true);
-    else if (!p->files[VM_FILE_BIOS].buf)
+        failure = copy_kernel(s, p->elf_image, p->elf_image_size, p->cmdline, true);
+    else if (!p->files[VM_FILE_BIOS].buf) {
         vm_error("No bios found");
-    else
-        copy_kernel(s, p->files[VM_FILE_BIOS].buf, p->files[VM_FILE_BIOS].len,
-                    p->cmdline, false);
+        return NULL;
+    } else
+        failure = copy_kernel(s, p->files[VM_FILE_BIOS].buf,
+                              p->files[VM_FILE_BIOS].len, p->cmdline, false);
+
+    if (failure) {
+        free(s);
+        return NULL;
+    }
 
     return (VirtMachine *)s;
 }
@@ -1150,7 +1160,8 @@ BOOL virt_machine_interp(VirtMachine *s1, int max_exec_cycle)
     RISCVMachine *s = (RISCVMachine *)s1;
     riscv_cpu_interp(s->cpu_state, max_exec_cycle);
 
-    return s->htif_tohost == 0 && s1->maxinsns > 0;
+    return !riscv_terminated(s->cpu_state) &&
+        s->htif_tohost == 0 && s1->maxinsns > 0;
 }
 
 void virt_machine_set_pc(VirtMachine *m, uint64_t pc)

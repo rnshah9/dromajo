@@ -26,7 +26,8 @@
 /*
  * riscvemu_cosim_init --
  *
- * creates and initialize the state of the RISC-V ISA golden model
+ * Creates and initialize the state of the RISC-V ISA golden model
+ * Returns NULL upon failure.
  */
 riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[])
 {
@@ -117,7 +118,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     uint64_t dummy1, dummy2;
     int      iregno, fregno;
 
-    if (m->maxinsns-- == 0) {
+    if (m->maxinsns-- == 0 || riscv_terminated(s)) {
         /* Succeed after N instructions without failure. */
         return 1;
     }
@@ -151,7 +152,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
             fregno = riscv_get_most_recently_written_fp_reg(s, &dummy2);
             break;
         }
-    };
+    }
 
     if (check)
         handle_dut_overrides(s, emu_pc, emu_insn, emu_wdata, dut_wdata);

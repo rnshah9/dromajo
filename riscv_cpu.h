@@ -96,6 +96,7 @@ int riscv_get_most_recently_written_reg(RISCVCPUState *s,
 int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
                                            uint64_t *instret_ts);
 int riscv_cpu_interp64(RISCVCPUState *s, int n_cycles);
+BOOL riscv_terminated(RISCVCPUState *s);
 
 #include "riscv_machine.h"
 void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_name);

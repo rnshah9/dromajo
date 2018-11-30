@@ -884,6 +884,9 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 
     s = virt_machine_init(p);
 
+    if (!s)
+        return NULL;
+
     // Overwrite the value specified in the configuration file
     if (snapshot_load_name) {
         s->snapshot_load_name = snapshot_load_name;

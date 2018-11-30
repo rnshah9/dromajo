@@ -28,7 +28,8 @@ typedef struct riscvemu_cosim_state_st riscvemu_cosim_state_t;
 /*
  * riscvemu_cosim_init --
  *
- * creates and initialize the state of the RISC-V ISA golden model
+ * Creates and initialize the state of the RISC-V ISA golden model
+ * Returns NULL upon failure.
  */
 riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[]);
 
