@@ -47,12 +47,20 @@ riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[]);
  * time, and instret.  For all these cases the model will override
  * with the expected values.
  *
- * The `intr_pending` flag is used to communicate that the DUT will
- * take an interrupt in the next cycle.
  */
 int riscvemu_cosim_step(riscvemu_cosim_state_t *state,
                         uint64_t pc, uint32_t insn, uint64_t wdata,
-                        int intr_pending, bool check);
+                        bool check);
+
+/*
+ * riscvemu_cosim_raise_interrupt --
+ *
+ * DUT asynchronously raises interrupt and provides the cause
+ *
+ */
+void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state,
+                                    int cause);
+
 #ifdef __cplusplus
 } // extern C
 #endif

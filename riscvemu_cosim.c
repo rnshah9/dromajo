@@ -52,8 +52,7 @@ static bool is_store_conditional(uint32_t insn)
 static void handle_dut_overrides(RISCVCPUState *s,
                                  uint64_t pc, uint32_t insn,
                                  uint64_t emu_wdata,
-                                 uint64_t dut_wdata,
-                                 int dut_intr_pending)
+                                 uint64_t dut_wdata)
 {
     int opcode = insn & 0x7f;
     int csrno  = insn >> 20;
@@ -66,6 +65,22 @@ static void handle_dut_overrides(RISCVCPUState *s,
         (0xB00 <= csrno && csrno < 0xB20 ||
          0xC00 <= csrno && csrno < 0xC20))
         riscv_set_reg(s, rd, dut_wdata);
+}
+
+/*
+ * riscvemu_cosim_raise_interrupt --
+ *
+ * DUT asynchronously raises interrupt and provides the cause
+ *
+ */
+void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state,
+                                    int cause)
+{
+    VirtMachine   *m = (VirtMachine  *)state;
+    RISCVMachine  *r = (RISCVMachine *)m;
+    RISCVCPUState *s = r->cpu_state;
+
+    riscv_cpu_set_mip(s, riscv_cpu_get_mip(s) | (1 << cause));
 }
 
 /*
@@ -88,10 +103,9 @@ static void handle_dut_overrides(RISCVCPUState *s,
  */
 int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                         uint64_t dut_pc,    uint32_t dut_insn,
-                        uint64_t dut_wdata, int dut_intr_pending,
-                        bool check)
+                        uint64_t dut_wdata, bool check)
 {
-    VirtMachine   *m = (VirtMachine   *)riscvemu_cosim_state;
+    VirtMachine   *m = (VirtMachine  *)riscvemu_cosim_state;
     RISCVMachine  *r = (RISCVMachine *)m;
     RISCVCPUState *s = r->cpu_state;
     uint64_t emu_pc, emu_wdata = 0;
@@ -99,7 +113,6 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     uint32_t emu_insn;
     bool     emu_wrote_data = false;
     int      exit_code = 0;
-    int      riscv_cpu_interp64(RISCVCPUState *s, int n_cycles);
     bool     verbose = true;
     uint64_t dummy1, dummy2;
     int      iregno, fregno;
@@ -141,8 +154,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     };
 
     if (check)
-        handle_dut_overrides(s, emu_pc, emu_insn, emu_wdata,
-                             dut_wdata, dut_intr_pending);
+        handle_dut_overrides(s, emu_pc, emu_insn, emu_wdata, dut_wdata);
 
     if (verbose)
         fprintf(stderr,"%d 0x%016"PRIx64" ", emu_priv, emu_pc);
