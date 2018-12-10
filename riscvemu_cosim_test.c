@@ -107,5 +107,7 @@ int main(int argc, char *argv[])
 
     free(s);
 
+    printf("\nSUCCESS, PASSED, GOOD!\n");
+
     exit(EXIT_SUCCESS);
 }

@@ -41,7 +41,7 @@ LDFLAGS=
 
 bindir=/usr/local/bin
 INSTALL=install
-PROGS=riscvemu libvharness.a libriscvemu_cosim.a
+PROGS=riscvemu libvharness.a libriscvemu_cosim.a riscvemu_cosim_test
 
 all: $(PROGS)
 
