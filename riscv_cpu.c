@@ -1960,6 +1960,12 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
 #endif
     s->misa |= MCPUID_C;
 
+    /* Match Maxion */
+    s->mvendorid = 0;
+    s->marchid   = (1ULL << 63) | 2;
+    s->mimpid    = 1;
+    s->mhartid   = 0;
+
     s->store_repair_addr = ~0;
     s->tselect = 0;
     for (int i = 0; i < MAX_TRIGGERS; ++i) {
