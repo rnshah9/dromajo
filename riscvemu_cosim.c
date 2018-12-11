@@ -104,7 +104,11 @@ void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state,
  */
 int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                         uint64_t dut_pc,    uint32_t dut_insn,
-                        uint64_t dut_wdata, bool check)
+                        uint64_t dut_wdata,
+                        uint64_t dut_cmit_ghr0,
+                        uint64_t dut_cmit_ghr1,
+                        int      dut_cmit_ghr_ena,,
+                        bool check)
 {
     VirtMachine   *m = (VirtMachine  *)riscvemu_cosim_state;
     RISCVMachine  *r = (RISCVMachine *)m;
