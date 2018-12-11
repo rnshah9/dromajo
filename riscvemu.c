@@ -661,12 +661,12 @@ static BOOL net_poll_cb(void *arg)
 
 #endif
 
-// extern int optind;  XXX Do I need to declare this?
-
 static void usage(const char *prog, const char *msg)
 {
     fprintf(stderr,
             "error: %s\n"
+            CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard,"
+            " Copyright (c) 2018 Esperanto Technologies\n"
             "usage: %s [--load snapshot_name] [--save snapshot_name] [--maxinsns N] "
             "[--memory_size MB] config\n"
             "       --load resumes a previously saved snapshot\n"
