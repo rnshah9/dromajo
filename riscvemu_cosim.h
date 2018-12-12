@@ -49,9 +49,14 @@ riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[]);
  * with the expected values.
  *
  */
-int riscvemu_cosim_step(riscvemu_cosim_state_t *state,
-                        uint64_t pc, uint32_t insn, uint64_t wdata,
-                        bool check);
+int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
+                        uint64_t                dut_pc,
+                        uint32_t                dut_insn,
+                        uint64_t                dut_wdata,
+                        int                     dut_ghr_ena,
+                        uint64_t                dut_ghr0,  // ghistory[63: 0]
+                        uint64_t                dut_ghr1,  // ghistory[89:64]
+                        bool                    check);
 
 /*
  * riscvemu_cosim_raise_interrupt --

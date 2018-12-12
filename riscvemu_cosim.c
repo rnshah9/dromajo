@@ -36,7 +36,7 @@ riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[])
 
 static bool is_store_conditional(uint32_t insn)
 {
-    int opcode = insn & 0x7f, funct3 = (insn >> 12) & 7;
+    int opcode = insn & 0x7f, funct3 = insn >> 12 & 7;
     return opcode == 0x2f && insn >> 27 == 3 && (funct3 == 2 || funct3 == 3);
 }
 
@@ -57,7 +57,7 @@ static void handle_dut_overrides(RISCVCPUState *s,
 {
     int opcode = insn & 0x7f;
     int csrno  = insn >> 20;
-    int rd     = (insn >> 7) & 0x1f;
+    int rd     = insn >> 7 & 0x1f;
 
     /* Catch reads from CSR mcycle, ucycle, instret, hpmcounters,
      * If the destination register is x0 then it is actually a csr-write
@@ -81,7 +81,38 @@ void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state,
     RISCVMachine  *r = (RISCVMachine *)m;
     RISCVCPUState *s = r->cpu_state;
 
-    riscv_cpu_set_mip(s, riscv_cpu_get_mip(s) | (1 << cause));
+    riscv_cpu_set_mip(s, riscv_cpu_get_mip(s) | 1 << cause);
+}
+
+static void cosim_history(RISCVCPUState *s,
+                          uint64_t       dut_pc,
+                          uint64_t       dut_ghr0,  // ghistory[63: 0]
+                          uint64_t       dut_ghr1,  // ghistory[89:64]
+                          int           *exit_code)
+{
+    // XXX keeping simulated state here as statics is pretty disgusting
+    static uint64_t emu_ghr0, emu_ghr1;
+    static uint64_t dut_pc_prev;
+    RISCVCTFInfo info;
+
+    /* Cosimulate the 90-bit global branch history */
+    riscv_get_ctf_info(s, &info);
+    if (info != ctf_nop) {
+        // mock up of the hash
+        // NB, cft is on the just executed instruction, thus insn_addr is the previous pc
+        dut_ghr1 <<= 13;
+        dut_ghr1 |= dut_ghr0 >> (64-13);
+        dut_ghr0 = dut_ghr0 << 13 | (dut_pc ^ dut_pc_prev) & 0x1FFF;
+    }
+
+
+    dut_pc_prev = dut_pc;
+
+    if (dut_ghr0 != emu_ghr0 || dut_ghr1 != emu_ghr1) {
+        fprintf(stderr, "[error] EMU GHR %016"PRIx64"%07"PRIx64" != DUT GHR %07"PRIx64"%016"PRIx64"\n",
+                emu_ghr1, emu_ghr0, dut_ghr1, dut_ghr0);
+        *exit_code = 0x1FFF;
+    }
 }
 
 /*
@@ -103,12 +134,13 @@ void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state,
  * take an interrupt in the next cycle.
  */
 int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
-                        uint64_t dut_pc,    uint32_t dut_insn,
-                        uint64_t dut_wdata,
-                        uint64_t dut_cmit_ghr0,
-                        uint64_t dut_cmit_ghr1,
-                        int      dut_cmit_ghr_ena,,
-                        bool check)
+                        uint64_t                dut_pc,
+                        uint32_t                dut_insn,
+                        uint64_t                dut_wdata,
+                        int                     dut_ghr_ena,
+                        uint64_t                dut_ghr0,  // ghistory[63: 0]
+                        uint64_t                dut_ghr1,  // ghistory[89:64]
+                        bool                    check)
 {
     VirtMachine   *m = (VirtMachine  *)riscvemu_cosim_state;
     RISCVMachine  *r = (RISCVMachine *)m;
@@ -144,7 +176,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
             is_store_conditional(emu_insn) && dut_wdata != 0) {
 
             /* When DUT fails an SC, we must simulate the same behavior */
-            iregno = (emu_insn >> 7) & 0x1f;
+            iregno = emu_insn >> 7 & 0x1f;
             if (iregno > 0)
                 riscv_set_reg(s, iregno, dut_wdata);
             riscv_set_pc(s, emu_pc + 4);
@@ -188,25 +220,33 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
         else
             fprintf(stderr, " DASM(0x%04x)\n", (uint16_t)emu_insn);
 
-    if (check) {
-        if (dut_pc != emu_pc) {
-            fprintf(stderr, "[error] EMU PC %016"PRIx64" != DUT PC %016"PRIx64"\n",
-                    emu_pc, dut_pc);
-            exit_code =  0x1FFF;
-        }
+    if (!check)
+        return 0;
 
-        if (emu_insn != dut_insn && (emu_insn & 3) == 3) {
-            fprintf(stderr, "[error] EMU INSN %08x != DUT INSN %08x\n",
-                    emu_insn, dut_insn);
-            exit_code = 0x1FFF;
-        }
 
-        if (dut_wdata != emu_wdata && emu_wrote_data) {
-            fprintf(stderr, "[error] EMU WDATA %016"PRIx64" != DUT WDATA %016"PRIx64"\n",
-                    emu_wdata, dut_wdata);
-            exit_code = 0x1FFF;
-        }
+    if (dut_pc != emu_pc) {
+        fprintf(stderr, "[error] EMU PC %016"PRIx64" != DUT PC %016"PRIx64"\n",
+                emu_pc, dut_pc);
+        exit_code =  0x1FFF;
     }
+
+    if (emu_insn != dut_insn && (emu_insn & 3) == 3) {
+        fprintf(stderr, "[error] EMU INSN %08x != DUT INSN %08x\n",
+                emu_insn, dut_insn);
+        exit_code = 0x1FFF;
+    }
+
+    if (dut_wdata != emu_wdata && emu_wrote_data) {
+        fprintf(stderr, "[error] EMU WDATA %016"PRIx64" != DUT WDATA %016"PRIx64"\n",
+                emu_wdata, dut_wdata);
+        exit_code = 0x1FFF;
+    }
+
+    if (!dut_ghr_ena)
+        return exit_code;
+
+
+    cosim_history(s, dut_pc, dut_ghr0, dut_ghr1, &exit_code);
 
     return exit_code;
 }

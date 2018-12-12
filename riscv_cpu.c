@@ -288,6 +288,9 @@ struct RISCVCPUState {
 
     // User specified, command line argument terminating event
     const char *terminating_event;
+
+    /* Control Flow Info */
+    RISCVCTFInfo info;
 };
 
 // NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
@@ -1870,6 +1873,18 @@ static inline uint32_t get_field1(uint32_t val, int src_pos,
         return (val >> (src_pos - dst_pos)) & mask;
 }
 
+static inline RISCVCTFInfo ctf_compute_hint(int rd, int rs1)
+{
+    int rd_link  = rd  == 1 || rd  == 5;
+    int rs1_link = rs1 == 1 || rs1 == 5;
+    RISCVCTFInfo k = rd_link*2 + rs1_link + ctf_taken_jalr;
+
+    if (k == ctf_taken_jalr_pop_push && rs1 == rd)
+        return ctf_taken_jalr_push;
+
+    return k;
+}
+
 #define XLEN 32
 #include "riscvemu_template.h"
 
@@ -2146,6 +2161,11 @@ int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
         *instret_ts = s->fp_reg_ts[regno];
 
     return regno;
+}
+
+void riscv_get_ctf_info(RISCVCPUState *s, RISCVCTFInfo *info)
+{
+    *info = s->info;
 }
 
 BOOL riscv_terminated(RISCVCPUState *s)

@@ -201,10 +201,11 @@ static inline uintx_t glue(mulhsu, XLEN)(intx_t a, uintx_t b)
 
 #define C_NEXT_INSN code_ptr += 2; break
 #define NEXT_INSN code_ptr += 4; break
-#define JUMP_INSN do {   \
+#define JUMP_INSN(kind) do {       \
         code_ptr = NULL;           \
         code_end = NULL;           \
         code_to_pc_addend = s->pc; \
+        s->info = kind;            \
         goto jump_insn;            \
     } while (0)
 
@@ -217,6 +218,16 @@ static uint32_t chkfp32(target_ulong a)
 
     return (uint32_t) a;
 }
+
+/*
+ * Table 2.1: Return-address stack prediction hints
+ *      rd      rs1     rs1=rd          RAS action
+ *    !x1/x5  !x1/x5       -            none
+ *    !x1/x5   x1/x5       -            pop
+ *     x1/x5  !x1/x5       -            push
+ *     x1/x5   x1/x5       0            pop, then push
+ *     x1/x5   x1/x5       1            push
+ */
 
 int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles);
 
@@ -236,6 +247,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
     int insn_executed = 0;
     s->most_recently_written_reg = -1;
     s->most_recently_written_fp_reg = -1;
+    s->info = ctf_nop;
 
     if (n_cycles == 0)
         return 0;
@@ -502,7 +514,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                            get_field1(insn, 2, 5, 5), 12);
                 write_reg(1, GET_PC() + 2);
                 s->pc = (intx_t)(GET_PC() + imm);
-                JUMP_INSN;
+                JUMP_INSN(ctf_taken_jump);
 #else
             case 1: /* c.addiw */
                 if (rd != 0) {
@@ -605,7 +617,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                            get_field1(insn, 3, 1, 3) |
                            get_field1(insn, 2, 5, 5), 12);
                 s->pc = (intx_t)(GET_PC() + imm);
-                JUMP_INSN;
+                JUMP_INSN(ctf_taken_jump);
             case 6: /* c.beqz */
                 rs1 = ((insn >> 7) & 7) | 8;
                 imm = sext(get_field1(insn, 12, 8, 8) |
@@ -615,7 +627,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                            get_field1(insn, 2, 5, 5), 9);
                 if (read_reg(rs1) == 0) {
                     s->pc = (intx_t)(GET_PC() + imm);
-                    JUMP_INSN;
+                    JUMP_INSN(ctf_taken_branch);
                 }
                 break;
             case 7: /* c.bnez */
@@ -627,7 +639,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                            get_field1(insn, 2, 5, 5), 9);
                 if (read_reg(rs1) != 0) {
                     s->pc = (intx_t)(GET_PC() + imm);
-                    JUMP_INSN;
+                    JUMP_INSN(ctf_taken_branch);
                 }
                 break;
             default:
@@ -734,7 +746,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                         if (rd == 0)
                             goto illegal_insn;
                         s->pc = read_reg(rd) & ~1;
-                        JUMP_INSN;
+                        JUMP_INSN(ctf_compute_hint(0, rd));
                     } else {
                         /* c.mv */
                         if (rd != 0)
@@ -752,7 +764,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                             val = GET_PC() + 2;
                             s->pc = read_reg(rd) & ~1;
                             write_reg(1, val);
-                            JUMP_INSN;
+                            JUMP_INSN(ctf_compute_hint(1, rd));
                         }
                     } else {
                         if (rd != 0) {
@@ -836,7 +848,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             if (rd != 0)
                 write_reg(rd, GET_PC() + 4);
             s->pc = (intx_t)(GET_PC() + imm);
-            JUMP_INSN;
+            JUMP_INSN(ctf_taken_jump);
         case 0x67: /* jalr */
             imm = (int32_t)insn >> 20;
             val = GET_PC() + 4;
@@ -851,7 +863,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             s->pc = (intx_t)(read_reg(rs1) + imm) & ~1;
             if (rd != 0)
                 write_reg(rd, val);
-            JUMP_INSN;
+            JUMP_INSN(ctf_compute_hint(rd, rs1));
         case 0x63:
             funct3 = (insn >> 12) & 7;
             switch(funct3 >> 1) {
@@ -883,7 +895,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 }
 
                 s->pc = (intx_t)(GET_PC() + imm);
-                JUMP_INSN;
+                JUMP_INSN(ctf_taken_branch);
             }
             NEXT_INSN;
         case 0x03: /* load */
@@ -1312,7 +1324,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 if (err > 0) {
                     s->pc = GET_PC() + 4;
                     if (err == 2)
-                        JUMP_INSN;
+                        JUMP_INSN(ctf_nop);
                     else
                         goto done_interp;
                 }
@@ -1345,7 +1357,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 if (err > 0) {
                     s->pc = GET_PC() + 4;
                     if (err == 2)
-                        JUMP_INSN;
+                        JUMP_INSN(ctf_nop);
                     else
                         goto done_interp;
                 }
@@ -1435,7 +1447,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                         }
                         /* the current code TLB may have been flushed */
                         s->pc = GET_PC() + 4;
-                        JUMP_INSN;
+                        JUMP_INSN(ctf_nop);
                     } else {
                         goto illegal_insn;
                     }

@@ -63,6 +63,19 @@
 
 #define RAM_BASE_ADDR  0x80000000
 
+/* Control-flow summary information */
+typedef enum {
+    ctf_nop = 1,
+    ctf_taken_jump,
+    ctf_taken_branch,
+    // Indirect jumps come in four variants depending on hits
+    // NB: the order is important
+    ctf_taken_jalr,
+    ctf_taken_jalr_pop,
+    ctf_taken_jalr_push,
+    ctf_taken_jalr_pop_push,
+} RISCVCTFInfo;
+
 typedef struct RISCVCPUState RISCVCPUState;
 
 RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map, const char *term_event);
@@ -95,6 +108,8 @@ int riscv_get_most_recently_written_reg(RISCVCPUState *s,
                                         uint64_t *instret_ts);
 int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
                                            uint64_t *instret_ts);
+void riscv_get_ctf_info(RISCVCPUState *s, RISCVCTFInfo *info);
+
 int riscv_cpu_interp64(RISCVCPUState *s, int n_cycles);
 BOOL riscv_terminated(RISCVCPUState *s);
 
