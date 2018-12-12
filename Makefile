@@ -96,3 +96,6 @@ clean:
 	rm -f *.o *.d *~ $(PROGS)
 
 -include $(wildcard *.d)
+
+TAGS:
+	etags *.[hc]
