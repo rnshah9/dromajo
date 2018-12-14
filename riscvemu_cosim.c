@@ -84,34 +84,58 @@ void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state,
     riscv_cpu_set_mip(s, riscv_cpu_get_mip(s) | 1 << cause);
 }
 
+/* cosim_history --
+ *
+ * Simulate up to 128 bits of global history. Currently requires
+ * a manual description of a single hashing function to compare
+ * against.
+ *
+ */
 static void cosim_history(RISCVCPUState *s,
                           uint64_t       dut_pc,
                           uint64_t       dut_ghr0,  // ghistory[63: 0]
                           uint64_t       dut_ghr1,  // ghistory[89:64]
                           int           *exit_code)
 {
-    // XXX keeping simulated state here as statics is pretty disgusting
+    // keeping simulated state here as statics is pretty disgusting
     static uint64_t emu_ghr0, emu_ghr1;
-    static uint64_t dut_pc_prev;
-    RISCVCTFInfo info;
 
-    /* Cosimulate the 90-bit global branch history */
-    riscv_get_ctf_info(s, &info);
-    if (info != ctf_nop) {
-        // mock up of the hash
-        // NB, cft is on the just executed instruction, thus insn_addr is the previous pc
-        dut_ghr1 <<= 13;
-        dut_ghr1 |= dut_ghr0 >> (64-13);
-        dut_ghr0 = dut_ghr0 << 13 | (dut_pc ^ dut_pc_prev) & 0x1FFF;
-    }
+    /* Step 1: Compare GHR betweeen EMU and DUT. */
 
-
-    dut_pc_prev = dut_pc;
+    //fprintf(stderr, "   [emu] GHR %016"PRIx64"%016"PRIx64"\n", emu_ghr1, emu_ghr0);
+    //fprintf(stderr, "   [dut] GHR %016"PRIx64"%016"PRIx64"\n", dut_ghr1, dut_ghr0);
 
     if (dut_ghr0 != emu_ghr0 || dut_ghr1 != emu_ghr1) {
-        fprintf(stderr, "[error] EMU GHR %016"PRIx64"%07"PRIx64" != DUT GHR %07"PRIx64"%016"PRIx64"\n",
+        fprintf(stderr, "[error] EMU GHR %016"PRIx64"%016"PRIx64" != DUT GHR %016"PRIx64"%016"PRIx64"\n",
                 emu_ghr1, emu_ghr0, dut_ghr1, dut_ghr0);
         *exit_code = 0x1FFF;
+    }
+
+    /* Step 2: Compute GHR for the *next* instruction. */
+
+    RISCVCTFInfo info;
+    uint64_t target_pc;
+
+    riscv_get_ctf_info(s, &info);
+    riscv_get_ctf_target(s, &target_pc);
+
+    /* Cosimulate the global branch history */
+    if (info != ctf_nop) {
+        // NB, cft is on the just executed instruction, thus insn_addr is the previous pc
+        // Hard-coded hash function from maxion.
+        int histlen = 16;
+        int shamt = 4;
+        emu_ghr1 <<= shamt;
+        emu_ghr1 |= emu_ghr0 >> (64-shamt);
+        emu_ghr0 = emu_ghr0 << shamt | ((target_pc >> 0) & 0xf);
+
+        // Clear out high-order bits, based on hard-coded history length.
+        if (histlen <= 64) {
+            emu_ghr1 = 0;
+            emu_ghr0 &= (1 << histlen) - 1;
+        } else {
+            emu_ghr1 &= (1 << (histlen-64)) - 1;
+        }
     }
 }
 

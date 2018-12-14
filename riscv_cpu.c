@@ -291,6 +291,7 @@ struct RISCVCPUState {
 
     /* Control Flow Info */
     RISCVCTFInfo info;
+    target_ulong next_addr; /* the CFI target address-- only valid for CFIs. */
 };
 
 // NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
@@ -2166,6 +2167,11 @@ int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
 void riscv_get_ctf_info(RISCVCPUState *s, RISCVCTFInfo *info)
 {
     *info = s->info;
+}
+
+void riscv_get_ctf_target(RISCVCPUState *s, uint64_t *target)
+{
+    *target = s->next_addr;
 }
 
 BOOL riscv_terminated(RISCVCPUState *s)

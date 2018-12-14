@@ -206,6 +206,7 @@ static inline uintx_t glue(mulhsu, XLEN)(intx_t a, uintx_t b)
         code_end = NULL;           \
         code_to_pc_addend = s->pc; \
         s->info = kind;            \
+        s->next_addr = s->pc;      \
         goto jump_insn;            \
     } while (0)
 

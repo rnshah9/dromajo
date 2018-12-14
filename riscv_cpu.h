@@ -109,6 +109,7 @@ int riscv_get_most_recently_written_reg(RISCVCPUState *s,
 int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
                                            uint64_t *instret_ts);
 void riscv_get_ctf_info(RISCVCPUState *s, RISCVCTFInfo *info);
+void riscv_get_ctf_target(RISCVCPUState *s, uint64_t *target);
 
 int riscv_cpu_interp64(RISCVCPUState *s, int n_cycles);
 BOOL riscv_terminated(RISCVCPUState *s);
