@@ -122,19 +122,48 @@ static void cosim_history(RISCVCPUState *s,
     /* Cosimulate the global branch history */
     if (info != ctf_nop) {
         // NB, cft is on the just executed instruction, thus insn_addr is the previous pc
-        // Hard-coded hash function from maxion.
-        int histlen = 16;
+#if 0
+        // a very simple hash function; easy for debugging.
+        int histlen = 90;
         int shamt = 4;
         emu_ghr1 <<= shamt;
         emu_ghr1 |= emu_ghr0 >> (64-shamt);
         emu_ghr0 = emu_ghr0 << shamt | ((target_pc >> 0) & 0xf);
+#endif
+#if 1
+        // Hard-coded hash function from maxion.
+        int histlen = 90; // must be < 128 for cosim reasons.
+        int sz0 = 6; // must be even.
+        int szh = sz0/2;
+
+        int pc = target_pc >> 1; // Remove lsb (always zero).
+        int foldpc = (pc >> 17) ^ pc;
+        int o0 = emu_ghr0 & ((1 << sz0) - 1); // old(sz0-1,0)
+        int o1 = (emu_ghr0 >> sz0) & ((1 << sz0) - 1); // old(2*sz0-1,sz0)
+
+        int h0 = foldpc & ((1 << sz0) - 1); // foldpc(sz0-1,0)
+        int h1 = o0;
+        int h2 = (o1 ^ (o1 >> szh)) & ((1 << szh) - 1); // (o1 ^ (o1 >> (sz0/2).U))(sz0/2-1,0)
+
+        emu_ghr1 <<= szh;
+        emu_ghr1 |= emu_ghr0 >> (64-szh);
+#endif
+
+        //min = h0.getWidth + h1.getWidth
+        // ret := Cat(old(history_length-1, min), h2, h1, h0)
+        emu_ghr0 &= ~((1 << 2*sz0) - 1);
+        emu_ghr0 =
+            (emu_ghr0 << szh) |
+            (h2 << 2*sz0) |
+            (h1 << sz0) |
+            (h0);
 
         // Clear out high-order bits, based on hard-coded history length.
         if (histlen <= 64) {
             emu_ghr1 = 0;
-            emu_ghr0 &= (1 << histlen) - 1;
+            emu_ghr0 &= (1L << histlen) - 1;
         } else {
-            emu_ghr1 &= (1 << (histlen-64)) - 1;
+            emu_ghr1 &= (1L << (histlen-64)) - 1;
         }
     }
 }
