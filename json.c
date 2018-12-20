@@ -10,7 +10,7 @@
 
 /*
  * Pseudo JSON parser
- * 
+ *
  * Copyright (c) 2017 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -52,7 +52,7 @@ static JSONValue parse_string(const char **pp)
     char buf[4096], *q;
     const char *p;
     int c, h;
-    
+
     q = buf;
     p = *pp;
     p++;
@@ -119,7 +119,7 @@ JSONValue json_object_get(JSONValue val, const char *name)
 {
     JSONProperty *f;
     JSONObject *obj;
-    
+
     if (val.type != JSON_OBJ)
         return json_undefined_new();
     obj = val.u.obj;
@@ -134,7 +134,7 @@ int json_object_set(JSONValue val, const char *name, JSONValue prop_val)
     JSONObject *obj;
     JSONProperty *f;
     int new_size;
-    
+
     if (val.type != JSON_OBJ)
         return -1;
     obj = val.u.obj;
@@ -158,7 +158,7 @@ int json_object_set(JSONValue val, const char *name, JSONValue prop_val)
 JSONValue json_array_get(JSONValue val, unsigned int idx)
 {
     JSONArray *array;
-    
+
     if (val.type != JSON_ARRAY)
         return json_undefined_new();
     array = val.u.array;
@@ -173,7 +173,7 @@ int json_array_set(JSONValue val, unsigned int idx, JSONValue prop_val)
 {
     JSONArray *array;
     int new_size;
-    
+
     if (val.type != JSON_ARRAY)
         return -1;
     array = val.u.array;
@@ -360,7 +360,10 @@ JSONValue json_parse_value2(const char **pp)
     if (*p == '\0') {
         return json_error_new("unexpected end of file");
     }
-    if (isdigit(*p)) {
+    if (*p == '0' && p[1] == 'x') {
+        p += 2;
+        val = json_int64_new(strtoll(p, (char **)&p, 16));
+    } else if (isdigit(*p)) {
         val = json_int64_new(strtoll(p, (char **)&p, 0));
     } else if (*p == '"') {
         val = parse_string(&p);
@@ -394,7 +397,7 @@ JSONValue json_parse_value2(const char **pp)
                 return json_error_new("':' expected");
             }
             p++;
-            
+
             val1 = json_parse_value2(&p);
             json_object_set(val, tag.u.str->data, val1);
 
@@ -407,7 +410,7 @@ JSONValue json_parse_value2(const char **pp)
         }
     } else if (*p == '[') {
         int idx;
-        
+
         p++;
         val = json_array_new();
         idx = 0;

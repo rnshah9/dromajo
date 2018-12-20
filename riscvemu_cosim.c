@@ -10,8 +10,6 @@
 
 /*
  * API for RISCVEMU-based cosimulation
- *
- * Copyright (c) 2018 Esperanto Technologies
  */
 
 #include "riscvemu_cosim.h"
@@ -22,6 +20,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <assert.h>
 
 /*
  * riscvemu_cosim_init --
@@ -40,6 +39,42 @@ static bool is_store_conditional(uint32_t insn)
     return opcode == 0x2f && insn >> 27 == 3 && (funct3 == 2 || funct3 == 3);
 }
 
+static inline uint32_t get_field1(uint32_t val, int src_pos,
+                                  int dst_pos, int dst_pos_max)
+{
+    int mask;
+    assert(dst_pos_max >= dst_pos);
+    mask = ((1 << (dst_pos_max - dst_pos + 1)) - 1) << dst_pos;
+    if (dst_pos >= src_pos)
+        return (val << (dst_pos - src_pos)) & mask;
+    else
+        return (val >> (src_pos - dst_pos)) & mask;
+}
+
+/* detect AMO instruction, including LR, but excluding SC */
+static inline bool is_amo(uint32_t insn)
+{
+    int opcode = insn & 0x7f;
+    if (opcode != 0x2f)
+        return false;
+
+    switch (insn >> 27) {
+    case 1: /* amiswap.w */
+    case 2: /* lr.w */
+    case 0: /* amoadd.w */
+    case 4: /* amoxor.w */
+    case 0xc: /* amoand.w */
+    case 0x8: /* amoor.w */
+    case 0x10: /* amomin.w */
+    case 0x14: /* amomax.w */
+    case 0x18: /* amominu.w */
+    case 0x1c: /* amomaxu.w */
+        return true;
+    default:
+        return false;
+    }
+}
+
 /*
  * handle_dut_overrides --
  *
@@ -50,14 +85,18 @@ static bool is_store_conditional(uint32_t insn)
  *
  * Right now we handle just mcycle.
  */
-static void handle_dut_overrides(RISCVCPUState *s,
-                                 uint64_t pc, uint32_t insn,
-                                 uint64_t emu_wdata,
-                                 uint64_t dut_wdata)
+static inline void handle_dut_overrides(RISCVCPUState *s,
+                                        uint64_t mmio_start,
+                                        uint64_t mmio_end,
+                                        int priv,
+                                        uint64_t pc, uint32_t insn,
+                                        uint64_t emu_wdata,
+                                        uint64_t dut_wdata)
 {
     int opcode = insn & 0x7f;
     int csrno  = insn >> 20;
-    int rd     = insn >> 7 & 0x1f;
+    int rd     = (insn >> 7) & 0x1f;
+    int rdc    = ((insn >> 2) & 7) + 8;
 
     /* Catch reads from CSR mcycle, ucycle, instret, hpmcounters,
      * If the destination register is x0 then it is actually a csr-write
@@ -66,6 +105,47 @@ static void handle_dut_overrides(RISCVCPUState *s,
         (0xB00 <= csrno && csrno < 0xB20 ||
          0xC00 <= csrno && csrno < 0xC20))
         riscv_set_reg(s, rd, dut_wdata);
+
+    /* Catch loads and amo from MMIO space */
+    if ((opcode == 3 || is_amo(insn)) && rd != 0 && priv == 3) {
+
+        int      rs1    = (insn >> 15) & 0x1f;
+        int      offset = opcode == 3 ? (int32_t) insn >> 20 : 0;
+        uint64_t addr   = riscv_get_reg_previous(s, rs1) + offset;
+
+        if (mmio_start <= addr && addr < mmio_end) {
+            //fprintf(stderr, "Overriding mmio ld/amo (%lx)\n", addr);
+            riscv_set_reg(s, rd, dut_wdata);
+        }
+    }
+
+    // c.ld  011  uimm[5:3] rs1'[2:0]       uimm[7:6] rd'[2:0] 00
+    if ((insn & 0xE003) == 0x6000 && rdc != 0 && priv == 3) {
+
+        int      rs1c  = ((insn >> 7) & 7) + 8;
+        int      imm   = get_field1(insn, 10, 3, 5) | get_field1(insn, 5, 6, 7);
+        uint64_t addr  = riscv_get_reg_previous(s, rs1c) + imm;
+
+        if (mmio_start <= addr && addr < mmio_end) {
+            //fprintf(stderr, "Overriding mmio c.ld (%lx)\n", addr);
+            riscv_set_reg(s, rdc, dut_wdata);
+        }
+    }
+
+    // c.lw  010  uimm[5:3] rs1'[2:0] uimm[2] uimm[6] rd'[2:0] 00
+    if ((insn & 0xE003) == 0x4000 && rdc != 0 && priv == 3) {
+
+        int      rs1c  = ((insn >> 7) & 7) + 8;
+        int      imm   = (get_field1(insn, 10, 3, 5) |
+                          get_field1(insn,  6, 2, 2) |
+                          get_field1(insn,  5, 6, 6));
+        uint64_t addr  = riscv_get_reg_previous(s, rs1c) + imm;
+
+        if (mmio_start <= addr && addr < mmio_end) {
+            //fprintf(stderr, "Overriding mmio c.lw (%lx)\n", addr);
+            riscv_set_reg(s, rdc, dut_wdata);
+        }
+    }
 }
 
 /*
@@ -207,8 +287,14 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     uint64_t dummy1, dummy2;
     int      iregno, fregno;
 
-    if (m->maxinsns-- == 0 || riscv_terminated(s)) {
-        /* Succeed after N instructions without failure. */
+    /* Succeed after N instructions without failure. */
+    if (m->maxinsns == 0) {
+        return 1;
+    }
+
+    m->maxinsns--;
+
+    if (riscv_terminated(s)) {
         return 1;
     }
 
@@ -244,10 +330,11 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     }
 
     if (check)
-        handle_dut_overrides(s, emu_pc, emu_insn, emu_wdata, dut_wdata);
+        handle_dut_overrides(s, r->mmio_start, r->mmio_end,
+                             emu_priv, emu_pc, emu_insn, emu_wdata, dut_wdata);
 
     if (verbose)
-        fprintf(stderr,"%d 0x%016"PRIx64" ", emu_priv, emu_pc);
+        fprintf(stderr, "%d 0x%016"PRIx64" ", emu_priv, emu_pc);
 
     if ((emu_insn & 3) == 3)
         fprintf(stderr, "(0x%08x) ", emu_insn);
@@ -294,6 +381,9 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                 emu_wdata, dut_wdata);
         exit_code = 0x1FFF;
     }
+
+    if (exit_code == 0)
+        riscv_cpu_sync_regs(s);
 
     if (!dut_ghr_ena)
         return exit_code;

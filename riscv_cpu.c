@@ -207,6 +207,9 @@ typedef struct {
 struct RISCVCPUState {
     target_ulong pc;
     target_ulong reg[32];
+    /* Co-simulation sometimes need to see the value of a register
+     * prior to the just excuted instruction. */
+    target_ulong reg_prior[32];
     /* reg_ts[x] is the timestamp (in executed instructions) of the most
      * recent definition of the register. */
     uint64_t reg_ts[32];
@@ -297,6 +300,7 @@ struct RISCVCPUState {
 // NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
 #define write_reg(x, val) ({s->most_recently_written_reg = (x); \
                            s->reg_ts[x] = GET_INSN_COUNTER();   \
+                           s->reg_prior[x] = s->reg[x]; \
                            s->reg[x] = (val);})
 #define read_reg(x)       (s->reg[x])
 
@@ -393,7 +397,13 @@ static void dump_regs(RISCVCPUState *s)
 uint64_t checker_last_addr = 0;
 uint64_t checker_last_data = 0;
 int      checker_last_size = 0;
-#define TRACK_MEM(addr,size,val)  do { checker_last_addr = addr; checker_last_size = size; checker_last_data = val; } while(0)
+
+#define TRACK_MEM(vaddr,size,val)  \
+do {  \
+    checker_last_addr = vaddr; \
+    checker_last_size = size; \
+    checker_last_data = val; \
+} while(0)
 
 /* addr must be aligned. Only RAM accesses are supported */
 #define PHYS_MEM_READ_WRITE(size, uint_type) \
@@ -436,6 +446,7 @@ static inline __exception int target_read_u ## size(RISCVCPUState *s, uint_type 
     tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);\
     if (likely(s->tlb_read[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
         *pval = *(uint_type *)(s->tlb_read[tlb_idx].mem_addend + (uintptr_t)addr);\
+        TRACK_MEM(addr,size,0);\
     } else {\
         mem_uint_t val;\
         int ret;\
@@ -444,7 +455,6 @@ static inline __exception int target_read_u ## size(RISCVCPUState *s, uint_type 
             return ret;\
         *pval = val;\
     }\
-    TRACK_MEM(addr,size,*pval);\
     return 0;\
 }\
 \
@@ -465,7 +475,6 @@ static inline __exception int target_write_u ## size(RISCVCPUState *s, target_ul
     } else {\
         int r = target_write_slow(s, addr, val, size_log2);\
         if (r) return r; \
-        TRACK_MEM(addr,size,val);\
         return 0; \
     }\
 }
@@ -754,6 +763,7 @@ static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
         }
     }
     *pval = ret;
+    TRACK_MEM(addr,size,*pval);
     return 0;
 }
 
@@ -846,6 +856,7 @@ static no_inline int target_write_slow(RISCVCPUState *s, target_ulong addr,
             }
         }
     }
+    TRACK_MEM(addr,size,val);
     return 0;
 }
 
@@ -861,7 +872,8 @@ static uint32_t get_insn32(uint8_t *ptr)
 
 /* return 0 if OK, != 0 if exception */
 static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
-                                                       uintptr_t *pmem_addend,
+                                                       uint32_t *insn,
+                                                       int size,
                                                        target_ulong addr)
 {
     int tlb_idx;
@@ -887,7 +899,43 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
     ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
     s->tlb_code[tlb_idx].vaddr = addr & ~PG_MASK;
     s->tlb_code[tlb_idx].mem_addend = (uintptr_t)ptr - addr;
-    *pmem_addend = s->tlb_code[tlb_idx].mem_addend;
+
+    /* check for page crossing */
+    int tlb_idx_cross = ((addr+2) >> PG_SHIFT) & (TLB_SIZE - 1);
+    if ((tlb_idx != tlb_idx_cross) && (size == 32)) {
+        target_ulong paddr_cross;
+        int err = get_phys_addr(s, &paddr_cross, addr+2, ACCESS_CODE);
+        if (err) {
+            s->pending_tval = addr;
+            s->pending_exception = err == -1 ?
+                CAUSE_FETCH_PAGE_FAULT : CAUSE_FAULT_FETCH;
+            return -1;
+        }
+
+        PhysMemoryRange *pr_cross = get_phys_mem_range(s->mem_map, paddr_cross);
+        if (!pr_cross || !pr_cross->is_ram) {
+            /* XXX: we only access to execute code from RAM */
+            s->pending_tval = addr;
+            s->pending_exception = CAUSE_FAULT_FETCH;
+            return -1;
+        }
+        uint8_t *ptr_cross = pr_cross->phys_mem + (uintptr_t)(paddr_cross - pr_cross->addr);
+
+        *insn = (uint32_t)*((uint16_t*)ptr);
+        *insn |= ((uint32_t)*((uint16_t*)ptr_cross) << 16);
+        return 0;
+    }
+
+    if (size == 32) {
+        *insn = (uint32_t)*((uint32_t*)ptr);
+    } else if (size == 16) {
+        *insn = (uint32_t)*((uint16_t*)ptr);
+    } else {
+        assert(0);
+    }
+
+    TRACK_MEM(addr,32,*(insn));
+
     return 0;
 }
 
@@ -901,11 +949,15 @@ static inline __exception int target_read_insn_u16(RISCVCPUState *s, uint16_t *p
     tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
     if (likely(s->tlb_code[tlb_idx].vaddr == (addr & ~PG_MASK))) {
         mem_addend = s->tlb_code[tlb_idx].mem_addend;
+        TRACK_MEM(addr,16,*(uint16_t *)(mem_addend + (uintptr_t)addr));
+        *pinsn = *(uint16_t *)(mem_addend + (uintptr_t)addr);
+        return 0;
     } else {
-        if (target_read_insn_slow(s, &mem_addend, addr))
+        uint32_t pinsn_temp;
+        if (target_read_insn_slow(s, &pinsn_temp, 16, addr))
             return -1;
+        *pinsn = (pinsn_temp & 0xffff);
     }
-    *pinsn = *(uint16_t *)(mem_addend + (uintptr_t)addr);
     return 0;
 }
 
@@ -950,18 +1002,29 @@ void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
 }
 
 
-#define SSTATUS_MASK0 (MSTATUS_SIE |                    \
-                       MSTATUS_SPIE |                   \
-                       MSTATUS_SPP |                    \
-                       MSTATUS_FS | MSTATUS_XS |        \
-                       MSTATUS_SUM | MSTATUS_MXR)
-#define SSTATUS_MASK (SSTATUS_MASK0 | MSTATUS_UXL_MASK)
-#define MSTATUS_MASK (MSTATUS_SIE | MSTATUS_MIE |                \
-                      MSTATUS_SPIE | MSTATUS_MPIE |              \
-                      MSTATUS_SPP | MSTATUS_MPP |                \
-                      MSTATUS_FS |                               \
-                      MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR | \
-                      MSTATUS_TVM | MSTATUS_TW | MSTATUS_TSR)
+#define SSTATUS_MASK (  MSTATUS_SIE   \
+                      | MSTATUS_SPIE  \
+                      | MSTATUS_SPP   \
+                      | MSTATUS_FS    \
+                      | MSTATUS_SUM   \
+                      | MSTATUS_MXR   \
+                      | MSTATUS_UXL_MASK )
+
+#define MSTATUS_MASK (  MSTATUS_SIE  \
+                      | MSTATUS_MIE  \
+                      | MSTATUS_SPIE \
+                      | MSTATUS_MPIE \
+                      | MSTATUS_SPP  \
+                      | MSTATUS_MPP  \
+                      | MSTATUS_FS   \
+                      | MSTATUS_MPRV \
+                      | MSTATUS_SUM  \
+                      | MSTATUS_MXR  \
+                      | MSTATUS_TVM  \
+                      | MSTATUS_TW   \
+                      | MSTATUS_TSR  \
+                      | MSTATUS_UXL_MASK \
+                      | MSTATUS_SXL_MASK )
 
 /* cycle and insn counters */
 #define COUNTEREN_MASK ((1 << 0) | (1 << 2))
@@ -1001,17 +1064,10 @@ static void set_mstatus(RISCVCPUState *s, target_ulong val)
     s->fs = (val >> MSTATUS_FS_SHIFT) & 3;
 
     target_ulong mask = MSTATUS_MASK & ~MSTATUS_FS;
-    {
-        // XXX This should be killed as we don't support changing XLEN
-        int uxl, sxl;
-        uxl = (val >> MSTATUS_UXL_SHIFT) & 3;
-        if (uxl >= 1 && uxl <= get_base_from_xlen(64))
-            mask |= MSTATUS_UXL_MASK;
-        sxl = (val >> MSTATUS_UXL_SHIFT) & 3;
-        if (sxl >= 1 && sxl <= get_base_from_xlen(64))
-            mask |= MSTATUS_SXL_MASK;
-    }
     s->mstatus = s->mstatus & ~mask | val & mask;
+
+    /* IMPORTANT NOTE: should never change the UXL and SXL bits */
+    s->mstatus |= ((uint64_t)(2) << MSTATUS_UXL_SHIFT) | ((uint64_t)(2) << MSTATUS_SXL_SHIFT);
 }
 
 static BOOL counter_access_ok(RISCVCPUState *s, uint32_t csr)
@@ -1709,8 +1765,8 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
         fprintf(stderr, "core   0: exception interrupt #%d, epc 0x%016jx\n",
                (cause & (64 - 1)), (uintmax_t)s->pc);
     else if (cause <= CAUSE_STORE_PAGE_FAULT) {
-        fprintf(stderr, "core   0: exception %s, epc 0x%016jx\n",
-               cause_s[cause], (uintmax_t)s->pc);
+        fprintf(stderr, "priv: %d core   0: exception %s, epc 0x%016jx\n",
+               s->priv, cause_s[cause], (uintmax_t)s->pc);
         fprintf(stderr, "core   0:           tval 0x%016jx\n", (uintmax_t)tval);
     } else {
         fprintf(stderr, "core   0: exception %d, epc 0x%016jx\n",
@@ -1738,7 +1794,7 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
         s->sepc = s->pc;
         s->stval = tval;
         s->mstatus = (s->mstatus & ~MSTATUS_SPIE) |
-            (((s->mstatus >> s->priv) & 1) << MSTATUS_SPIE_SHIFT);
+            (!!(s->mstatus & MSTATUS_SIE) << MSTATUS_SPIE_SHIFT);
         s->mstatus = (s->mstatus & ~MSTATUS_SPP) |
             (s->priv << MSTATUS_SPP_SHIFT);
         s->mstatus &= ~MSTATUS_SIE;
@@ -1780,6 +1836,7 @@ static void raise_exception(RISCVCPUState *s, uint32_t cause)
 
 static void handle_sret(RISCVCPUState *s)
 {
+
     /* Copy down SPIE to SIE and set SPIE */
     s->mstatus &= ~MSTATUS_SIE;
     s->mstatus |= (s->mstatus >> 4) & MSTATUS_SIE;
@@ -2021,6 +2078,13 @@ uint64_t riscv_get_reg(RISCVCPUState *s, int rn)
     return s->reg[rn];
 }
 
+uint64_t riscv_get_reg_previous(RISCVCPUState *s, int rn)
+{
+    assert(0 <= rn && rn < 32);
+    return s->reg_prior[rn];
+}
+
+
 void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val)
 {
     switch (csr_num & 0xFFF) {
@@ -2091,6 +2155,22 @@ int riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3)
     return 0;
 }
 
+/* Sync up the shadow register state if there are no errors */
+void riscv_cpu_sync_regs(RISCVCPUState *s)
+{
+  for (int i = 1; i < 32; ++i) {
+     s->reg_prior[i] = s->reg[i];
+   }
+}
+
+uint64_t riscv_cpu_get_mstatus(RISCVCPUState* s){
+  return get_mstatus(s, MSTATUS_MASK);
+}
+
+uint64_t riscv_cpu_get_medeleg(RISCVCPUState* s){
+  return s->medeleg;
+}
+
 uint64_t riscv_get_fpreg(RISCVCPUState *s, int rn)
 {
     assert(0 <= rn && rn < 32);
@@ -2110,13 +2190,13 @@ void riscv_dump_regs(RISCVCPUState *s)
 
 int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr)
 {
-    uintptr_t mem_addend;
+    //uintptr_t mem_addend;
 
-    int i = target_read_insn_slow(s, &mem_addend, addr);
+    int i = target_read_insn_slow(s, insn, 32, addr);
     if (i)
         return i;
 
-    *insn = *(uint32_t *)(mem_addend + addr);
+    //*insn = *(uint32_t *)(mem_addend + addr);
 
     return 0;
 }

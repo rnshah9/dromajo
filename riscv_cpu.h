@@ -92,6 +92,7 @@ void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
 void riscv_set_pc(RISCVCPUState *s, uint64_t pc);
 uint64_t riscv_get_pc(RISCVCPUState *s);
 uint64_t riscv_get_reg(RISCVCPUState *s, int rn);
+uint64_t riscv_get_reg_previous(RISCVCPUState *s, int rn);
 uint64_t riscv_get_fpreg(RISCVCPUState *s, int rn);
 void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);
 void riscv_dump_regs(RISCVCPUState *s);
@@ -103,6 +104,7 @@ int riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3);
 int riscv_repair_load(RISCVCPUState *s, uint32_t reg_num, uint64_t reg_val,
                       uint64_t htif_tohost_addr, uint64_t *htif_tohost,
                       uint64_t *htif_fromhost);
+void riscv_cpu_sync_regs(RISCVCPUState *s);
 int riscv_get_priv_level(RISCVCPUState *s);
 int riscv_get_most_recently_written_reg(RISCVCPUState *s,
                                         uint64_t *instret_ts);

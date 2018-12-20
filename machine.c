@@ -66,17 +66,37 @@ void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...)
 
 int vm_get_int(JSONValue obj, const char *name, int64_t *pval)
 {
-    JSONValue val;
-    val = json_object_get(obj, name);
+    JSONValue val = json_object_get(obj, name);
+
     if (json_is_undefined(val)) {
         vm_error("expecting '%s' property\n", name);
         return -1;
     }
+
     if (val.type != JSON_INT) {
         vm_error("%s: integer expected\n", name);
         return -1;
     }
+
     *pval = val.u.int64;
+
+    return 0;
+}
+
+int vm_get_optional_int(JSONValue obj, const char *name, uint64_t *pval)
+{
+    JSONValue val = json_object_get(obj, name);
+
+    if (json_is_undefined(val))
+        return -1;
+
+    if (val.type != JSON_INT) {
+        vm_error("%s: integer expected\n", name);
+        return -1;
+    }
+
+    *pval = (uint64_t)val.u.int64;
+
     return 0;
 }
 
@@ -355,6 +375,9 @@ static int virt_machine_parse_config(VirtMachineParams *p,
         }
         p->rtc_local_time = el.u.b;
     }
+
+    vm_get_optional_int(cfg, "mmio_start", &p->mmio_start);
+    vm_get_optional_int(cfg, "mmio_end",   &p->mmio_end);
 
     json_free(cfg);
     return 0;

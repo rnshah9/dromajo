@@ -134,6 +134,10 @@ typedef struct {
 
     /* snaphot load file */
     const char *snapshot_load_name;
+
+    /* MMIO range (for co-simulation only) */
+    uint64_t mmio_start;
+    uint64_t mmio_end;
 } VirtMachineParams;
 
 typedef struct VirtMachine {

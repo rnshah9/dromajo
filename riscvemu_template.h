@@ -297,7 +297,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
         if (unlikely(code_ptr >= code_end)) {
             uint32_t tlb_idx;
             uint16_t insn_high;
-            uintptr_t mem_addend;
             target_ulong addr;
 
             /* check pending interrupts */
@@ -311,27 +310,29 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
             if (likely(s->tlb_code[tlb_idx].vaddr == (addr & ~PG_MASK))) {
                 /* TLB match */
+                uintptr_t mem_addend;
                 mem_addend = s->tlb_code[tlb_idx].mem_addend;
-            } else {
-                if (unlikely(target_read_insn_slow(s, &mem_addend, addr)))
-                    goto mmu_exception;
-            }
-            code_ptr = (uint8_t *)(mem_addend + (uintptr_t)addr);
-            code_end = (uint8_t *)(mem_addend +
-                                   (uintptr_t)((addr & ~PG_MASK) + PG_MASK - 1));
-            code_to_pc_addend = addr - (uintptr_t)code_ptr;
-            if (unlikely(code_ptr >= code_end)) {
-                /* instruction is potentially half way between two
-                   pages ? */
-                insn = *(uint16_t *)code_ptr;
-                if ((insn & 3) == 3) {
-                    /* instruction is half way between two pages */
-                    if (unlikely(target_read_insn_u16(s, &insn_high, addr + 2)))
-                        goto mmu_exception;
-                    insn |= insn_high << 16;
+                code_ptr = (uint8_t *)(mem_addend + (uintptr_t)addr);
+                code_end = (uint8_t *)(mem_addend +
+                                       (uintptr_t)((addr & ~PG_MASK) + PG_MASK - 1));
+                code_to_pc_addend = addr - (uintptr_t)code_ptr;
+                if (unlikely(code_ptr >= code_end)) {
+                    /* instruction is potentially half way between two
+                       pages ? */
+                    insn = *(uint16_t *)code_ptr;
+                    if ((insn & 3) == 3) {
+                        /* instruction is half way between two pages */
+                        if (unlikely(target_read_insn_u16(s, &insn_high, addr + 2)))
+                            goto mmu_exception;
+                        insn |= insn_high << 16;
+                    }
+                } else {
+                    insn = get_insn32(code_ptr);
                 }
+
             } else {
-                insn = get_insn32(code_ptr);
+                if (unlikely(target_read_insn_slow(s, &insn, 32, addr)))
+                    goto mmu_exception;
             }
         } else {
             /* fast path */

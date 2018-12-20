@@ -34,6 +34,10 @@ typedef struct RISCVMachine {
     VIRTIODevice *mouse_dev;
 
     int virtio_count;
+
+    /* MMIO range (for co-simulation only) */
+    uint64_t mmio_start;
+    uint64_t mmio_end;
 } RISCVMachine;
 
 #define CLINT_BASE_ADDR 0x02000000

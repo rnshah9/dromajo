@@ -316,7 +316,10 @@ static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
     uint32_t val;
 
     assert(size_log2 == 2);
-    switch(offset) {
+    switch (offset) {
+    case 0:
+        val = (riscv_cpu_get_mip(m->cpu_state) & MIP_MSIP) != 0;
+        break;
     case 0xbff8:
         val = rtc_get_time(m);
         break;
@@ -347,7 +350,14 @@ static void clint_write(void *opaque, uint32_t offset, uint32_t val,
     RISCVMachine *m = opaque;
 
     assert(size_log2 == 2);
-    switch(offset) {
+    switch (offset) {
+    case 0:
+        if (val & 1)
+            riscv_cpu_set_mip(m->cpu_state, MIP_MSIP);
+        else
+            riscv_cpu_reset_mip(m->cpu_state, MIP_MSIP);
+        break;
+
     case 0x4000:
         m->timecmp = (m->timecmp & ~0xffffffff) | val;
         riscv_cpu_reset_mip(m->cpu_state, MIP_MTIP);
@@ -1094,6 +1104,9 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
         free(s);
         return NULL;
     }
+
+    s->mmio_start = p->mmio_start;
+    s->mmio_end   = p->mmio_end;
 
     return (VirtMachine *)s;
 }
