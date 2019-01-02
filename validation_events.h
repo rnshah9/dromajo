@@ -46,16 +46,29 @@
 #define PAYLOAD_OFFSET 0
 #define PAYLOAD_MASK ((1ULL << CMD_OFFSET) - 1)
 
-
+/* List of different validation commands
+ */
 enum VALIDATON_CMD {
     VALIDATION_CMD_INVALID = 0,
-    VALIDATION_CMD_LINUX = 1ULL,
+    VALIDATION_CMD_LINUX = 1ULL, // Linux events
+    VALIDATION_CMD_BENCH = 2ULL, // Benchmark events
 };
 
+/* List of Linux related events
+ */
 enum LINUX_CMD_VALUE {
     LINUX_CMD_VALUE_INVALID = 0,
-    LINUX_CMD_VALUE_LINUX_BOOT = 1,
+    LINUX_CMD_VALUE_BOOT_DONE, // We are done booting
     LINUX_CMD_VALUE_NUM
+};
+
+/* List of benchmark related events
+ */
+enum BENCH_CMD_VALUE {
+    BENCH_CMD_VALUE_INVALID = 0,
+    BENCH_CMD_VALUE_START, // Benchmark start
+    BENCH_CMD_VALUE_END, // Benchmark end
+    BENCH_CMD_VALUE_NUM
 };
 
 #define EVENT(CMD_NAME, PAYLOAD) (((uint64_t)VALIDATION_CMD_ ## CMD_NAME << CMD_OFFSET) | CMD_NAME ## _CMD_VALUE_ ## PAYLOAD)
@@ -70,7 +83,9 @@ struct event_info
 /* List of the different validation events that we can recognize
  */
 static const struct event_info validation_events[] = {
-    { EVENT(LINUX, LINUX_BOOT), "linux-boot", TRUE },
+    { EVENT(LINUX, BOOT_DONE), "linux-boot", TRUE },
+    { EVENT(BENCH, START), "benchmark-start", TRUE },
+    { EVENT(BENCH, END), "benchmark-end", TRUE },
 };
 
 #endif // VALIDATION_EVENTS_H

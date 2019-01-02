@@ -669,6 +669,7 @@ static void usage(const char *prog, const char *msg)
             " Copyright (c) 2018 Esperanto Technologies\n"
             "usage: %s [--load snapshot_name] [--save snapshot_name] [--maxinsns N] "
             "[--memory_size MB] config\n"
+            "       --cmdline Kernel command line arguments to append \n"
             "       --load resumes a previously saved snapshot\n"
             "       --save saves a snapshot upon exit\n"
             "       --maxinsns terminates execution after a number of instructions\n"
@@ -697,6 +698,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     for (;;) {
         int option_index = 0;
         static struct option long_options[] = {
+            {"cmdline", required_argument, 0,  'c' },
             {"load",    required_argument, 0,  'l' },
             {"save",    required_argument, 0,  's' },
             {"maxinsns",required_argument, 0,  'm' },
@@ -711,6 +713,12 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             break;
 
         switch (c) {
+        case 'c':
+            if (cmdline)
+                usage(prog, "already had a kernel command line");
+            cmdline = strdup(optarg);
+            break;
+
         case 'l':
             if (snapshot_load_name)
                 usage(prog, "already had a snapshot to load");
@@ -730,25 +738,32 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             break;
 
         case 'e':
-            if (terminate_event) {
-                usage(prog, "already had a terminate event");
-            }
-            for (int i = 0; i < countof(validation_events); ++i) {
-                if (validation_events[i].terminate
-                    && strcmp(validation_events[i].name, optarg) != 0)
-                {
-                    fprintf(stderr, "Unknown terminate event\n");
+            {
+                BOOL unknown_event = TRUE;
+                if (terminate_event) {
+                    usage(prog, "already had a terminate event");
+                }
+                for (int i = 0; i < countof(validation_events); ++i) {
+                    if (validation_events[i].terminate
+                        && strcmp(validation_events[i].name, optarg) != 0)
+                    {
+                        unknown_event = FALSE;
+                        break;
+                    }
+                }
+                if (unknown_event) {
+                    fprintf(stderr, "Unknown terminate event \"%s\" \n", optarg);
                     fprintf(stderr, "Valid termination events: \n");
                     for (int j = 0; j < countof(validation_events); ++j) {
                         if (validation_events[j].terminate) {
-                            fprintf(stderr, "\t%s\n",
+                            fprintf(stderr, "\t\"%s\"\n",
                                     validation_events[j].name);
                         }
                     }
                     usage(prog, "unknown terminate event");
                 }
+                terminate_event = strdup(optarg);
             }
-            terminate_event = strdup(optarg);
             break;
 
         case 't':

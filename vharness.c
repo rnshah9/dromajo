@@ -110,13 +110,6 @@ int main(int argc, char **argv)
         keep_going = iterate_core(m);
     } while (keep_going);
 
-    if (m->trace > m->maxinsns) {
-        // Dump trace after --save for debug. It should match after --load
-        for (int i = m->trace - m->maxinsns; i > 0; --i) {
-            iterate_core(m);
-        }
-    }
-
     fprintf(stderr,"\nPower off.\n");
 
     virt_machine_end(m);

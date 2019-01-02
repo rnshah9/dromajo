@@ -1394,12 +1394,21 @@ static void handle_write_validation1(RISCVCPUState *s, target_ulong val)
                     cmd_payload);
         }
         break;
+    case VALIDATION_CMD_BENCH:
+        if (cmd_payload == BENCH_CMD_VALUE_INVALID
+            || cmd_payload >= BENCH_CMD_VALUE_NUM) {
+            fprintf(stderr, "ET UNKNOWN benchmark command=%" PR_target_ulong "\n",
+                    cmd_payload);
+        }
+        break;
+
     default:
         fprintf(stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)val);
     }
 
     for (int i = 0; i < countof(validation_events); ++i) {
-        if (validation_events[i].terminate
+        if (val == validation_events[i].value
+            && validation_events[i].terminate
             && s->terminating_event != NULL
             && strcmp(validation_events[i].name, s->terminating_event) == 0) {
             s->terminate_simulation = TRUE;
@@ -2580,7 +2589,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
     char *f_name = alloca(n);
     snprintf(f_name, n, "%s.bootram", dump_name);
 
-    if (ROM_BASE_ADDR + ROM_SIZE < s->pc) {
+    if (s->priv != 3 || ROM_BASE_ADDR + ROM_SIZE < s->pc) {
         fprintf(stderr, "NOTE: creating a new boot rom\n");
         create_boot_rom(s, m, f_name);
     } else if (BOOT_BASE_ADDR < s->pc) {
