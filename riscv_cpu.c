@@ -1600,6 +1600,9 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case 0x7b2:
         s->dscratch = val;
         break;
+    case 0x81F: // Esperanto Flush All cachelines
+        // Ignore it
+        break;
     case 0x8D0: // Esperanto validation0 register
         if ((val >> 12) == 0xDEAD0) // Begin
             fprintf(stderr, "ET validation begin code=%llx\n", (long long)val & 0xFFF);
