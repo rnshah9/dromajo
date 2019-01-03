@@ -519,11 +519,11 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 JUMP_INSN(ctf_taken_jump);
 #else
             case 1: /* c.addiw */
-                if (rd != 0) {
-                    imm = sext(get_field1(insn, 12, 5, 5) |
-                               get_field1(insn, 2, 0, 4), 6);
-                    write_reg(rd, (int32_t)(read_reg(rd) + imm));
-                }
+                if (rd == 0)
+                    goto illegal_insn;
+                imm = sext(get_field1(insn, 12, 5, 5) |
+                           get_field1(insn, 2, 0, 4), 6);
+                write_reg(rd, (int32_t)(read_reg(rd) + imm));
                 break;
 #endif
             case 2: /* c.li */
@@ -548,6 +548,8 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     /* c.lui */
                     imm = sext(get_field1(insn, 12, 17, 17) |
                                get_field1(insn, 2, 12, 16), 18);
+                    if (imm == 0)
+                        goto illegal_insn;
                     write_reg(rd, imm);
                 }
                 break;
@@ -666,6 +668,8 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 break;
 #if XLEN == 128
             case 1: /* c.lqsp */
+                if (rd == 0)
+                    goto illegal_insn;
                 imm = get_field1(insn, 12, 5, 5) |
                     (rs2 & (1 << 4)) |
                     get_field1(insn, 2, 6, 9);
@@ -697,6 +701,8 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             case 2: /* c.lwsp */
                 {
                     uint32_t rval;
+                    if (rd == 0)
+                        goto illegal_insn;
                     imm = get_field1(insn, 12, 5, 5) |
                         (rs2 & (7 << 2)) |
                         get_field1(insn, 2, 6, 7);
@@ -704,14 +710,15 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     s->last_addr = addr;
                     if (target_read_u32(s, &rval, addr))
                         goto mmu_exception;
-                    if (rd != 0)
-                        write_reg(rd, (int32_t)rval);
+                    write_reg(rd, (int32_t)rval);
                 }
                 break;
 #if XLEN >= 64
             case 3: /* c.ldsp */
                 {
                     uint64_t rval;
+                    if (rd == 0)
+                        goto illegal_insn;
                     imm = get_field1(insn, 12, 5, 5) |
                         (rs2 & (3 << 3)) |
                         get_field1(insn, 2, 6, 8);
@@ -719,8 +726,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     s->last_addr = addr;
                     if (target_read_u64(s, &rval, addr))
                         goto mmu_exception;
-                    if (rd != 0)
-                        write_reg(rd, (int64_t)rval);
+                    write_reg(rd, (int64_t)rval);
                 }
                 break;
 #elif FLEN >= 32
@@ -769,9 +775,9 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                             JUMP_INSN(ctf_compute_hint(1, rd));
                         }
                     } else {
-                        if (rd != 0) {
-                            write_reg(rd, (intx_t)(read_reg(rd) + read_reg(rs2)));
-                        }
+                        if (rd == 0)
+                            goto illegal_insn;
+                        write_reg(rd, (intx_t)(read_reg(rd) + read_reg(rs2)));
                     }
                 }
                 break;
