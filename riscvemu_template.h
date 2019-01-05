@@ -858,6 +858,9 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             s->pc = (intx_t)(GET_PC() + imm);
             JUMP_INSN(ctf_taken_jump);
         case 0x67: /* jalr */
+            funct3 = (insn >> 12) & 7;
+            if (funct3 != 0)
+                goto illegal_insn;
             imm = (int32_t)insn >> 20;
             val = GET_PC() + 4;
             {
