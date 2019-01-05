@@ -92,8 +92,25 @@ install: $(PROGS)
 debug:
 	$(MAKE) CFLAGS_OPT=
 
+build:
+	mkdir -p build
+
+build/artifacts: | build
+	mkdir -p build/artifacts
+
+regression-artifacts: $(PROGS) | build/artifacts
+	cp riscvemu build/artifacts/
+	xz -f build/artifacts/riscvemu
+
+run-tests: | build/artifacts
+	# FIXME enable all tests under the tests folder
+	+$(MAKE) -C tests OUTPUT_DIR=$$PWD/build linux_boot_tests
+	cp build/*.log build/artifacts/
+
+
 clean:
 	rm -f *.o *.d *~ $(PROGS)
+	rm -rf build
 
 -include $(wildcard *.d)
 

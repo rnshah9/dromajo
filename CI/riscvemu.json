@@ -1,0 +1,25 @@
+{
+    "_comment": [
+        "Copyright (C) 2018, Esperanto Technologies Inc.",
+        "The copyright to the computer program(s) herein is the",
+        "property of Esperanto Technologies, Inc. All Rights Reserved.",
+        "The program(s) may be used and/or copied only with",
+        "the written permission of Esperanto Technologies and",
+        "in accordance with the terms and conditions stipulated in the",
+        "agreement/contract under which the program(s) have been supplied."
+    ],
+    "GIT_STEPS": [
+        "echo \"GIT STEPS START\"",
+        "git submodule update --init --recursive",
+        "echo \"GIT STEPS DONE\""
+    ],
+    "BUILD_STEPS": [
+        "echo \"BUILD START\"",
+        "./riscvemu.py et-riscvemu make -s -j $(nproc)",
+        "echo \"BUILD DONE\""
+    ],
+    "TEST_STEPS": [
+        "./riscvemu.py et-riscvemu make run-tests -j $(nproc)",
+        "echo \"TEST DONE\""
+    ]
+}

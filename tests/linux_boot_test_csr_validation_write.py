@@ -24,5 +24,6 @@ sys.dont_write_bytecode = True
 def test_linux_boot(output_dir, riscvemu):
     linux_cfg = os.path.join(output_dir, 'bbl-vmlinux0.cfg')
     cmd = [riscvemu, linux_cfg, '--terminate-event', 'linux-boot']
-    print(" ".join(cmd))
+    print("Command: " + " ".join(cmd))
+    sys.stdout.flush()
     subprocess.check_call(cmd, timeout=600)

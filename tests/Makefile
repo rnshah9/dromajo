@@ -105,8 +105,8 @@ LINUX_BOOT_TESTS = \
 LINUX_BOOT_TEST_OUTPUT=$(foreach test,$(patsubst %.py,%.xml,$(LINUX_BOOT_TESTS)),$(OUTPUT_DIR)/$(test))
 
 $(OUTPUT_DIR)/linux_boot_%.xml: linux_boot_%.py $(OUTPUT_DIR)/firesim-golden-download.done
-	pytest -v $< --output-dir $(OUTPUT_DIR)/ --riscvemu $(RISCVEMU) \
-	  --junit-xml=$@
+	pytest -s -v $< --output-dir $(OUTPUT_DIR)/ --riscvemu $(RISCVEMU) \
+	  --junit-xml=$@ 1>$(patsubst %.xml,%.log,$@) 2>&1
 
 .PHONY: linux_boot_tests
 linux_boot_tests: $(LINUX_BOOT_TEST_OUTPUT)
