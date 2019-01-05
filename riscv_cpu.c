@@ -1206,7 +1206,7 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         break;
 
     case 0xb00: /* mcycle */
-    case 0xc00: /* ucycle */
+    case 0xc00: /* cycle */
         if (!counter_access_ok(s, csr))
             goto invalid_csr;
         val = (int64_t)s->mcycle;
@@ -1276,17 +1276,19 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0xc1e:
     case 0xb1f:
     case 0xc1f:
+        if (!counter_access_ok(s, csr))
+            goto invalid_csr;
         val = 0; // mhpmcounter3..31
         break;
     case 0xb80: /* mcycleh */
-    case 0xc80: /* ucycleh */
+    case 0xc80: /* cycleh */
         if (s->cur_xlen != 32 || !counter_access_ok(s, csr))
             goto invalid_csr;
         val = s->mcycle >> 32;
         break;
 
     case 0xb82: /* minstreth */
-    case 0xc82: /* uinstreth */
+    case 0xc82: /* instreth */
         if (s->cur_xlen != 32 || !counter_access_ok(s, csr))
             goto invalid_csr;
         val = s->minstret >> 32;
@@ -1628,74 +1630,35 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->minstret = val;
         break;
     case 0xb03:
-    case 0xc03:
     case 0xb04:
-    case 0xc04:
     case 0xb05:
-    case 0xc05:
     case 0xb06:
-    case 0xc06:
     case 0xb07:
-    case 0xc07:
     case 0xb08:
-    case 0xc08:
     case 0xb09:
-    case 0xc09:
     case 0xb0a:
-    case 0xc0a:
     case 0xb0b:
-    case 0xc0b:
     case 0xb0c:
-    case 0xc0c:
     case 0xb0d:
-    case 0xc0d:
     case 0xb0e:
-    case 0xc0e:
     case 0xb0f:
-    case 0xc0f:
     case 0xb10:
-    case 0xc10:
     case 0xb11:
-    case 0xc11:
     case 0xb12:
-    case 0xc12:
     case 0xb13:
-    case 0xc13:
     case 0xb14:
-    case 0xc14:
     case 0xb15:
-    case 0xc15:
     case 0xb16:
-    case 0xc16:
     case 0xb17:
-    case 0xc17:
     case 0xb18:
-    case 0xc18:
     case 0xb19:
-    case 0xc19:
     case 0xb1a:
-    case 0xc1a:
     case 0xb1b:
-    case 0xc1b:
     case 0xb1c:
-    case 0xc1c:
     case 0xb1d:
-    case 0xc1d:
     case 0xb1e:
-    case 0xc1e:
     case 0xb1f:
-    case 0xc1f:
-        // Ignore, but allow to write to performance counters mhpmcounter
-        break;
-    case 0xc00: /* ucycle */
-        if (!counter_access_ok(s, csr))
-            goto invalid_csr;
-        s->mcycle = val; // XXX not exactly clear what happens in RV32
-        break;
-    case 0xc02: /* uinstret */
-        if (!counter_access_ok(s, csr))
-            goto invalid_csr;
-        s->minstret = val; // XXX not exactly clear what happens in RV32
+        // Allow, but ignore to write to performance counters mhpmcounter
         break;
 
     case 0xb80: /* mcycleh */
