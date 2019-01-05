@@ -2038,7 +2038,7 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
     s->misa |= MCPUID_C;
 
     /* Match Maxion */
-    s->mvendorid = 0;
+    s->mvendorid = 11 * 128 + 101; // Esperanto JEDEC number 101 in bank 11
     s->marchid   = (1ULL << 63) | 2;
     s->mimpid    = 1;
     s->mhartid   = 0;
