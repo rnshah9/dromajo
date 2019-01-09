@@ -1,5 +1,5 @@
 //******************************************************************************
-// Copyright (C) 2018, Esperanto Technologies Inc.
+// Copyright (C) 2018,2019, Esperanto Technologies Inc.
 // The copyright to the computer program(s) herein is the
 // property of Esperanto Technologies, Inc. All Rights Reserved.
 // The program(s) may be used and/or copied only with
@@ -602,7 +602,7 @@ BOOL virt_machine_run(VirtMachine *m)
 void help(void)
 {
     fprintf(stderr,"riscvemu version " CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard\n"
-           "                             Copyright (c) 2018 Esperanto Technologies\n"
+           "                             Copyright (c) 2018,2019 Esperanto Technologies\n"
            "usage: riscvemu [options] config_file\n"
            "options are:\n"
            "-m ram_size       set the RAM size in MB\n"
@@ -666,7 +666,7 @@ static void usage(const char *prog, const char *msg)
     fprintf(stderr,
             "error: %s\n"
             CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard,"
-            " Copyright (c) 2018 Esperanto Technologies\n"
+            " Copyright (c) 2018,2019 Esperanto Technologies\n"
             "usage: %s [--load snapshot_name] [--save snapshot_name] [--maxinsns N] "
             "[--memory_size MB] config\n"
             "       --cmdline Kernel command line arguments to append \n"

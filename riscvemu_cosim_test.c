@@ -1,5 +1,5 @@
 //******************************************************************************
-// Copyright (C) 2018, Esperanto Technologies Inc.
+// Copyright (C) 2018,2019, Esperanto Technologies Inc.
 // The copyright to the computer program(s) herein is the
 // property of Esperanto Technologies, Inc. All Rights Reserved.
 // The program(s) may be used and/or copied only with
@@ -11,7 +11,7 @@
 /*
  * Test bench for riscvemu_cosim API
  *
- * Copyright (c) 2018 Esperanto Technologies
+ * Copyright (c) 2018,2019 Esperanto Technologies
  *
  * Parse the trace output and check that we cosim correctly.
  */
