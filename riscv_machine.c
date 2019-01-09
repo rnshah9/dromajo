@@ -984,12 +984,10 @@ void virt_machine_set_defaults(VirtMachineParams *p)
 
 VirtMachine *virt_machine_init(const VirtMachineParams *p)
 {
-    RISCVMachine *s;
     VIRTIODevice *blk_dev;
     int irq_num, i;
     VIRTIOBusDef vbus_s, *vbus = &vbus_s;
-
-    s = mallocz(sizeof(*s));
+    RISCVMachine *s = mallocz(sizeof(*s));
 
     s->ram_size = p->ram_size;
     s->ram_base_addr = p->ram_base_addr;

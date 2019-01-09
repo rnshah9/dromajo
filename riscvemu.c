@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdarg.h>
 #include <string.h>
 #include <inttypes.h>
@@ -603,14 +604,14 @@ static void usage(const char *prog, const char *msg)
             "error: %s\n"
             CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard,"
             " Copyright (c) 2018,2019 Esperanto Technologies\n"
-            "usage: %s [--load snapshot_name] [--save snapshot_name] [--maxinsns N] "
-            "[--memory_size MB] config\n"
+            "usage: %s {options} [config|elf-file]\n"
             "       --cmdline Kernel command line arguments to append \n"
             "       --load resumes a previously saved snapshot\n"
             "       --save saves a snapshot upon exit\n"
             "       --maxinsns terminates execution after a number of instructions\n"
             "       --terminate-event name of the validate event to terminate execution\n"
             "       --trace start trace dump after a number of instructions. Trace disabled by default\n"
+            "       --ignore_sbi_shutdown continue simulation even upon seeing the SBI_SHUTDOWN call\n"
             "       --memory_size sets the memory size in MiB (default 256 MiB)\n"
             "       --memory_addr sets the memory start address (default 0x%lx)\n",
             msg, prog, (long)RAM_BASE_ADDR);
@@ -630,6 +631,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     uint64_t    trace              = UINT64_MAX;
     long        memory_size_override = 0;
     uint64_t    memory_addr_override = 0;
+    bool        ignore_sbi_shutdown  = false;
 
     optind = 0;
 
@@ -642,6 +644,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             {"maxinsns",required_argument, 0,  'm' },
             {"terminate-event", required_argument, 0, 'e'},
             {"trace   ",required_argument, 0,  't' },
+            {"ignore_sbi_shutdown", required_argument, 0,  'P' },
             {"memory_size", required_argument, 0,  'M' },
             {"memory_addr", required_argument, 0,  'A' },
             {0,         0,                 0,  0 }
@@ -711,6 +714,10 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             trace = (uint64_t) atoll(optarg);
             break;
 
+        case 'P':
+            ignore_sbi_shutdown = true;
+            break;
+
         case 'M':
             memory_size_override = atoi(optarg);
             break;
@@ -735,7 +742,6 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         usage(prog, "too many arguments");
 
     assert(path);
-    VirtMachine *s;
     BlockDeviceModeEnum drive_mode = BF_MODE_SNAPSHOT;
     VirtMachineParams p_s, *p = &p_s;
 
@@ -836,7 +842,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     p->rtc_real_time = FALSE;
     p->validation_terminate_event = terminate_event;
 
-    s = virt_machine_init(p);
+    VirtMachine *s = virt_machine_init(p);
 
     if (!s)
         return NULL;
@@ -856,6 +862,8 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     // then run indefinitely
     if (s->maxinsns == 0)
         s->maxinsns = UINT64_MAX;
+
+    ((RISCVMachine *)s)->cpu_state->ignore_sbi_shutdown = ignore_sbi_shutdown;
 
     virt_machine_free_config(p);
 

@@ -148,4 +148,20 @@
 
 #define PHYSICAL_ADDR_LEN_DEFAULT               40
 
+/* SBI calls */
+typedef enum {
+    SBI_SET_TIMER,
+    SBI_CONSOLE_PUTCHAR,
+    SBI_CONSOLE_GETCHAR,
+    SBI_CLEAR_IPI,
+    SBI_SEND_IPI,
+    SBI_REMOTE_FENCE_I,
+    SBI_REMOTE_SFENCE_VMA,
+    SBI_REMOTE_SFENCE_VMA_ASID,
+    SBI_SHUTDOWN,
+    SBI_DISK_READ,
+    SBI_DISK_WRITE,
+    SBI_DISK_SIZE,
+} sbi_call_t;
+
 #endif
