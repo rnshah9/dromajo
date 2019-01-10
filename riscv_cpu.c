@@ -1513,10 +1513,11 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
          * suppress the C per 3.1.1 in the priv 1.11 (draft) spec.
          */
         break;
-    case 0x302:
-        mask = (1 << (CAUSE_STORE_PAGE_FAULT + 1)) - 1;
+    case 0x302: {
+        target_ulong mask = 0xB109; // matching Spike and Maxion
         s->medeleg = s->medeleg & ~mask | val & mask;
         break;
+    }
     case 0x303:
         mask = MIP_SSIP | MIP_STIP | MIP_SEIP;
         s->mideleg = s->mideleg & ~mask | val & mask;
