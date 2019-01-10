@@ -1338,6 +1338,7 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         val = s->mhpmevent[csr & 0x1F];
         break;
 
+    case 0x81F: // Esperanto Flush All cachelines
     case 0x8D0:
     case 0x8D1:
         val = 0;
