@@ -1026,9 +1026,6 @@ void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
                       | MSTATUS_UXL_MASK \
                       | MSTATUS_SXL_MASK )
 
-/* cycle and insn counters */
-#define COUNTEREN_MASK ((1 << 0) | (1 << 2))
-
 /* return the complete mstatus with the SD bit */
 static target_ulong get_mstatus(RISCVCPUState *s, target_ulong mask)
 {
@@ -1075,7 +1072,7 @@ static BOOL counter_access_ok(RISCVCPUState *s, uint32_t csr)
     uint32_t counteren = 0;
 
     switch (s->priv) {
-    case PRV_U: counteren = s->mcounteren & s->scounteren; break;
+    case PRV_U: counteren = s->scounteren; break;
     case PRV_S: counteren = s->mcounteren; break;
     case PRV_M: counteren = ~0; break;
     default: ;
@@ -1462,7 +1459,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->stvec = val & ~2;
         break;
     case 0x106:
-        s->scounteren = val & COUNTEREN_MASK;
+        s->scounteren = val;
         break;
     case 0x140:
         s->sscratch = val;
@@ -1534,7 +1531,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mtvec = val & ~2;
         break;
     case 0x306:
-        s->mcounteren = val & COUNTEREN_MASK;
+        s->mcounteren = val;
         break;
     case 0x340:
         s->mscratch = val;
