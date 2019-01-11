@@ -1457,6 +1457,8 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mie = s->mie & ~mask | val & mask;
         break;
     case 0x105:
+        // RTLMAX-178, Maxion enforces 64-byte alignment for vectored interrupts
+        if (val & 1) val &= ~63 + 1;
         s->stvec = val & ~2;
         break;
     case 0x106:
@@ -1527,6 +1529,8 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mie = s->mie & ~mask | val & mask;
         break;
     case 0x305:
+        // RTLMAX-178, Maxion enforces 64-byte alignment for vectored interrupts
+        if (val & 1) val &= ~63 + 1;
         s->mtvec = val & ~2;
         break;
     case 0x306:
