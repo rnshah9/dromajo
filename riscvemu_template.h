@@ -282,8 +282,8 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
          * precompute the mask and pattern to lower some of the
          * cost). */
         target_ulong t_mctl  = MCONTROL_EXECUTE | (MCONTROL_U << s->priv);
-        target_ulong t_mask  = ((target_ulong)0xF << (s->cur_xlen - 4)) | t_mctl;
-        target_ulong t_match = ((target_ulong)0x2 << (s->cur_xlen - 4)) | t_mctl;
+        target_ulong t_mask  = ((target_ulong)0xF << 60) | t_mctl;
+        target_ulong t_match = ((target_ulong)0x2 << 60) | t_mctl;
 
         for (int i = 0; i < MAX_TRIGGERS; ++i)
             if ((s->tdata1[i] & t_mask) != t_match && s->tdata2[i] == s->pc) {

@@ -223,10 +223,8 @@ struct RISCVCPUState {
     uint8_t frm;
 #endif
 
-    uint8_t cur_xlen;  /* current XLEN value, <= 64 */
     uint8_t priv; /* see PRV_x */
     uint8_t fs; /* MSTATUS_FS value */
-    uint8_t mxl; /* MXL field in MISA register */
 
     uint64_t insn_counter; // Simulator internal
     uint64_t minstret; // RISCV CSR (updated when insn_counter increases)
@@ -519,14 +517,9 @@ static int get_phys_addr(RISCVCPUState *s,
     if (priv == PRV_M) {
         /* rv64mi-p-access expects illegal physical addresses to fail.
            We arbitrarily sets PA to 56. */
-        if (s->cur_xlen > 32 && (uint64_t)vaddr >> 56 != 0)
+        if ((uint64_t)vaddr >> 56 != 0)
             return -2;
-        if (s->cur_xlen < 64) {
-            /* truncate virtual address */
-            *ppaddr = vaddr & (((target_ulong)1 << s->cur_xlen) - 1);
-        } else {
-            *ppaddr = vaddr;
-        }
+        *ppaddr = vaddr;
         return 0;
     }
     mode = (s->satp >> 60) & 0xf;
@@ -1034,20 +1027,10 @@ static target_ulong get_mstatus(RISCVCPUState *s, target_ulong mask)
     val = s->mstatus | (s->fs << MSTATUS_FS_SHIFT);
     val &= mask;
     sd = ((val & MSTATUS_FS) == MSTATUS_FS) |
-        ((val & MSTATUS_XS) == MSTATUS_XS);
+         ((val & MSTATUS_XS) == MSTATUS_XS);
     if (sd)
-        val |= (target_ulong)1 << (s->cur_xlen - 1);
+        val |= (target_ulong)1 << 63;
     return val;
-}
-
-static int get_base_from_xlen(int xlen)
-{
-    if (xlen == 32)
-        return 1;
-    else if (xlen == 64)
-        return 2;
-    else
-        return 3;
 }
 
 static void set_mstatus(RISCVCPUState *s, target_ulong val)
@@ -1063,9 +1046,6 @@ static void set_mstatus(RISCVCPUState *s, target_ulong val)
     target_ulong mask = MSTATUS_MASK &
         ~(MSTATUS_FS | MSTATUS_UXL_MASK | MSTATUS_SXL_MASK);
     s->mstatus = s->mstatus & ~mask | val & mask;
-
-    /* IMPORTANT NOTE: should never change the UXL and SXL bits */
-    s->mstatus |= ((uint64_t)(2) << MSTATUS_UXL_SHIFT) | ((uint64_t)(2) << MSTATUS_SXL_SHIFT);
 }
 
 static BOOL counter_access_ok(RISCVCPUState *s, uint32_t csr)
@@ -1149,7 +1129,7 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         break;
     case 0x301:
         val = s->misa;
-        val |= (target_ulong)s->mxl << (s->cur_xlen - 2);
+        val |= (target_ulong)2 << 62;
         break;
     case 0x302:
         val = s->medeleg;
@@ -1277,19 +1257,6 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         if (!counter_access_ok(s, csr))
             goto invalid_csr;
         val = 0; // mhpmcounter3..31
-        break;
-    case 0xb80: /* mcycleh */
-    case 0xc80: /* cycleh */
-        if (s->cur_xlen != 32 || !counter_access_ok(s, csr))
-            goto invalid_csr;
-        val = s->mcycle >> 32;
-        break;
-
-    case 0xb82: /* minstreth */
-    case 0xc82: /* instreth */
-        if (s->cur_xlen != 32 || !counter_access_ok(s, csr))
-            goto invalid_csr;
-        val = s->minstret >> 32;
         break;
 
     case 0xf14:
@@ -1469,7 +1436,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->sepc = val & (s->misa & MCPUID_C ? ~1 : ~3);
         break;
     case 0x142:
-        s->scause = val & (CAUSE_MASK | (target_ulong)1 << (s->cur_xlen - 1));
+        s->scause = val & (CAUSE_MASK | (target_ulong)1 << 63);
         break;
     case 0x143:
         s->stval = val;
@@ -1494,24 +1461,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         set_mstatus(s, val);
         break;
     case 0x301: /* misa */
-        {
-            int new_mxl;
-            new_mxl = (val >> (s->cur_xlen - 2)) & 3;
-            if (new_mxl >= 1 && new_mxl <= get_base_from_xlen(64)) {
-                /* Note: misa is only modified in M level, so cur_xlen
-                   = 2^(mxl + 4) */
-                if (s->mxl != new_mxl) {
-                    s->mxl = new_mxl;
-                    s->cur_xlen = 1 << (new_mxl + 4);
-                    return 1;
-                }
-            }
-        }
-        /*
-         * We don't support turning C on dynamically, but if we did we
-         * would have to check for PC alignment here and potentially
-         * suppress the C per 3.1.1 in the priv 1.11 (draft) spec.
-         */
+        /* We don't support changing misa */
         break;
     case 0x302: {
         target_ulong mask = 0xB109; // matching Spike and Maxion
@@ -1541,7 +1491,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mepc = val & (s->misa & MCPUID_C ? ~1 : ~3);
         break;
     case 0x342:
-        s->mcause = val & (CAUSE_MASK | (target_ulong)1 << (s->cur_xlen - 1));
+        s->mcause = val & (CAUSE_MASK | (target_ulong)1 << 63);
         break;
     case 0x343:
         s->mtval = val;
@@ -1556,11 +1506,11 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case 0x7a1: // tdata1
         // Only support No Trigger and MControl
         {
-            int type = val >> (s->cur_xlen - 4);
+            int type = val >> 60;
             if (type != 0 && type != 2)
                 break;
             // SW can write type and mcontrol bits M and EXECUTE
-            mask = ((target_ulong)15 << (s->cur_xlen - 4)) | MCONTROL_M | MCONTROL_EXECUTE;
+            mask = ((target_ulong)15 << 60) | MCONTROL_M | MCONTROL_EXECUTE;
             s->tdata1[s->tselect] = s->tdata1[s->tselect] & ~mask | val & mask;
         }
         break;
@@ -1674,19 +1624,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         // Allow, but ignore to write to performance counters mhpmcounter
         break;
 
-    case 0xb80: /* mcycleh */
-        if (s->cur_xlen != 32)
-            goto invalid_csr;
-        s->mcycle = (uint32_t) s->mcycle | ((uint64_t)val << 32);
-        break;
-    case 0xb82: /* minstreth */
-        if (s->cur_xlen != 32)
-            goto invalid_csr;
-        s->minstret = (uint32_t) s->minstret | ((uint64_t)val << 32);
-        break;
-
     default:
-    invalid_csr:
 #ifdef DUMP_INVALID_CSR
         fprintf(stderr, "csr_write: invalid CSR=0x%x\n", csr);
 #endif
@@ -1699,17 +1637,6 @@ static void set_priv(RISCVCPUState *s, int priv)
 {
     if (s->priv != priv) {
         tlb_flush_all(s);
-        /* change the current xlen */
-        {
-            int mxl;
-            if (priv == PRV_S)
-                mxl = (s->mstatus >> MSTATUS_SXL_SHIFT) & 3;
-            else if (priv == PRV_U)
-                mxl = (s->mstatus >> MSTATUS_UXL_SHIFT) & 3;
-            else
-                mxl = s->mxl;
-            s->cur_xlen = 1 << (4 + mxl);
-        }
         s->priv = priv;
     }
 }
@@ -1742,7 +1669,7 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
 
     if (cause & CAUSE_INTERRUPT)
         fprintf(stderr, "core   0: exception interrupt #%d, epc 0x%016jx\n",
-               (cause & (64 - 1)), (uintmax_t)s->pc);
+                cause & 63, (uintmax_t)s->pc);
     else if (cause <= CAUSE_STORE_PAGE_FAULT) {
         fprintf(stderr, "priv: %d core   0: exception %s, epc 0x%016jx\n",
                s->priv, cause_s[cause], (uintmax_t)s->pc);
@@ -1757,7 +1684,7 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
     if (s->priv <= PRV_S) {
         /* delegate the exception to the supervisor priviledge */
         if (cause & CAUSE_INTERRUPT)
-            deleg = (s->mideleg >> (cause & (64 - 1))) & 1;
+            deleg = (s->mideleg >> (cause & 63)) & 1;
         else
             deleg = (s->medeleg >> cause) & 1;
     } else {
@@ -1766,7 +1693,7 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
 
     causel = cause & CAUSE_MASK;
     if (cause & CAUSE_INTERRUPT)
-        causel |= (target_ulong)1 << (s->cur_xlen - 1);
+        causel |= (target_ulong)1 << 63;
 
     if (deleg) {
         s->scause = causel;
@@ -1930,26 +1857,10 @@ static inline RISCVCTFInfo ctf_compute_hint(int rd, int rs1)
 
 int riscv_cpu_interp(RISCVCPUState *s, int n_cycles)
 {
-    int executed = 0;
-
 #ifdef USE_GLOBAL_STATE
     s = &riscv_cpu_global_state;
 #endif
-    uint64_t timeout;
-
-    timeout = s->insn_counter + n_cycles;
-    {
-        n_cycles = timeout - s->insn_counter;
-        switch (s->cur_xlen) {
-        case 64:
-            executed += riscv_cpu_interp64(s, n_cycles);
-            break;
-        default:
-            abort();
-        }
-    }
-
-    return executed;
+    return riscv_cpu_interp64(s, n_cycles);
 }
 
 /* Note: the value is not accurate when called in riscv_cpu_interp() */
@@ -1994,11 +1905,9 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
     s->mem_map = mem_map;
     s->pc = BOOT_BASE_ADDR;
     s->priv = PRV_M;
-    s->cur_xlen = 64;
-    s->mxl = get_base_from_xlen(64);
-    s->mstatus = ((uint64_t)s->mxl << MSTATUS_UXL_SHIFT) |
-        ((uint64_t)s->mxl << MSTATUS_SXL_SHIFT) |
-        (3 << MSTATUS_MPP_SHIFT);
+    s->mstatus = ((uint64_t)2 << MSTATUS_UXL_SHIFT) |
+                 ((uint64_t)2 << MSTATUS_SXL_SHIFT) |
+                 (3 << MSTATUS_MPP_SHIFT);
     s->misa |= MCPUID_SUPER | MCPUID_USER | MCPUID_I | MCPUID_M | MCPUID_A;
     s->most_recently_written_reg = -1;
 #if FLEN >= 32
@@ -2407,7 +2316,7 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     // register for performance reasons. E.g: restoring the fflags also changes
     // parts of the mstats
     create_csr64_recovery(rom, &code_pos, &data_pos, 0x300, get_mstatus(s, (target_ulong)-1)); // mstatus
-    create_csr64_recovery(rom, &code_pos, &data_pos, 0x301, s->misa | ((target_ulong)s->mxl << (s->cur_xlen - 2))); // misa
+    create_csr64_recovery(rom, &code_pos, &data_pos, 0x301, s->misa | ((target_ulong)2 << 62)); // misa
 
     // All the remaining CSRs
     if (s->fs) { // If the FPU is down, you can not recover flags
