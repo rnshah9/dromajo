@@ -1060,7 +1060,8 @@ static void set_mstatus(RISCVCPUState *s, target_ulong val)
     }
     s->fs = (val >> MSTATUS_FS_SHIFT) & 3;
 
-    target_ulong mask = MSTATUS_MASK & ~MSTATUS_FS;
+    target_ulong mask = MSTATUS_MASK &
+        ~(MSTATUS_FS | MSTATUS_UXL_MASK | MSTATUS_SXL_MASK);
     s->mstatus = s->mstatus & ~mask | val & mask;
 
     /* IMPORTANT NOTE: should never change the UXL and SXL bits */
