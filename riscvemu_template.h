@@ -775,9 +775,8 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                             JUMP_INSN(ctf_compute_hint(1, rd));
                         }
                     } else {
-                        if (rd == 0)
-                            goto illegal_insn;
-                        write_reg(rd, (intx_t)(read_reg(rd) + read_reg(rs2)));
+                        if (rd != 0)
+                            write_reg(rd, (intx_t)(read_reg(rd) + read_reg(rs2)));
                     }
                 }
                 break;
