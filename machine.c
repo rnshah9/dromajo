@@ -46,14 +46,11 @@
 #include "cutils.h"
 #include "iomem.h"
 #include "virtio.h"
-#include "machine.h"
 #include "fs_utils.h"
 #ifdef CONFIG_FS_NET
 #include "fs_wget.h"
 #endif
-#ifdef CONFIG_CPU_RISCV
 #include "riscv_cpu.h"
-#endif
 #include "elf64.h"
 
 void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...)
@@ -221,6 +218,14 @@ static int virt_machine_parse_config(VirtMachineParams *p,
         vm_error("Unsupported machine: '%s' (running machine is '%s')\n",
                  str, machine_name);
         return -1;
+    }
+
+    tag_name = "memory_base_addr";
+    p->ram_base_addr = RAM_BASE_ADDR;
+    if (!json_is_undefined(json_object_get(cfg, tag_name))) {
+        if (vm_get_int(cfg, tag_name, &val) < 0)
+            goto tag_fail;
+        p->ram_base_addr = val;
     }
 
     tag_name = "memory_size";
@@ -510,6 +515,7 @@ static void config_file_loaded(void *opaque, uint8_t *buf, int buf_len)
 
     if (elf64_is_riscv64((const char *)buf, buf_len)) {
         /* Fake the corresponding config file */
+        p->ram_base_addr = RAM_BASE_ADDR;
         p->ram_size = (size_t)256 << 20; // Default to 256 MiB
         p->elf_image_size = buf_len;
         p->elf_image = malloc(buf_len);

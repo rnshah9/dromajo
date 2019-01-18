@@ -19,6 +19,7 @@ typedef struct RISCVMachine {
     PhysMemoryMap *mem_map;
     RISCVCPUState *cpu_state;
     uint64_t ram_size;
+    uint64_t ram_base_addr;
     /* RTC */
     BOOL rtc_real_time;
     uint64_t rtc_start_time;

@@ -64,6 +64,7 @@
 #define ROM_BASE_ADDR  0x00010000
 #define BOOT_BASE_ADDR 0x00010000
 
+// The default RAM base, can be relocated with config "memory_base_addr"
 #define RAM_BASE_ADDR  0x80000000
 
 #ifndef FLEN
@@ -369,6 +370,6 @@ BOOL riscv_terminated(RISCVCPUState *s);
 
 #include "riscv_machine.h"
 void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_name);
-void riscv_cpu_deserialize(RISCVCPUState *s, const char *dump_name);
+void riscv_cpu_deserialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_name);
 
 #endif

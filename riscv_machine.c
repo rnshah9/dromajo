@@ -799,10 +799,10 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
 
     fdt_end_node(s); /* cpus */
 
-    fdt_begin_node_num(s, "memory", RAM_BASE_ADDR);
+    fdt_begin_node_num(s, "memory", m->ram_base_addr);
     fdt_prop_str(s, "device_type", "memory");
-    tab[0] = (uint64_t)RAM_BASE_ADDR >> 32;
-    tab[1] = RAM_BASE_ADDR;
+    tab[0] = m->ram_base_addr >> 32;
+    tab[1] = m->ram_base_addr;
     tab[2] = m->ram_size >> 32;
     tab[3] = m->ram_size;
     fdt_prop_tab_u32(s, "reg", tab, 4);
@@ -931,14 +931,15 @@ static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
 
     if (is_elf) {
         load_elf_image(s, buf, buf_len, &entry_point);
-        if (entry_point != 0x80000000) {
-            fprintf(stderr, "RISCVEMU current requires a 0x80000000 starting "
-                    "address, image assumes 0x%0lx\n", entry_point);
+        if (entry_point != s->ram_base_addr) {
+            fprintf(stderr, "RISCVEMU current requires a 0x%lx starting "
+                    "address, image assumes 0x%0lx\n",
+                    s->ram_base_addr, entry_point);
             return 1;
         }
     }
     else
-        memcpy(get_ram_ptr(s, RAM_BASE_ADDR), buf, buf_len);
+        memcpy(get_ram_ptr(s, s->ram_base_addr), buf, buf_len);
 
     ram_ptr = get_ram_ptr(s, ROM_BASE_ADDR);
 
@@ -952,7 +953,13 @@ static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
     q[1] = 0x00000597; // auipc   a1, 0x0      = BOOT_BASE_ADDR + 3*4
     q[2] = 0x02458593; // addi    a1, a1, 28   = BOOT_BASE_ADDR + 10*4
     q[3] = 0x0010041b; // addiw   s0, zero, 1
-    q[4] = 0x01f41413; // slli    s0, s0, 31
+    if (s->ram_base_addr == 0x80000000)
+        q[4] = 0x01f41413; // slli    s0, s0, 39   ; s0 =      8000_0000
+    else if (s->ram_base_addr == 0x8000000000)
+        q[4] = 0x02741413; // slli    s0, s0, 39   ; s0 =   80_0000_0000
+    else
+        // XXX Don't want to rock the boat right now and make the right fix
+        assert(s->ram_base_addr == 0x80000000 || s->ram_base_addr == 0x8000000000);
     q[5] = 0x7b141073; // csrw    dpc, s0
     q[6] = 0x60300413; // li      s0, 1539
     q[7] = 0x7b041073; // csrw    dcsr, s0
@@ -983,6 +990,8 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     s = mallocz(sizeof(*s));
 
     s->ram_size = p->ram_size;
+    s->ram_base_addr = p->ram_base_addr;
+
     s->mem_map = phys_mem_map_init();
     /* needed to handle the RAM dirty bits */
     s->mem_map->opaque = s;
@@ -993,7 +1002,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     s->cpu_state = riscv_cpu_init(s->mem_map, p->validation_terminate_event);
 
     /* RAM */
-    cpu_register_ram(s->mem_map, RAM_BASE_ADDR, p->ram_size, 0);
+    cpu_register_ram(s->mem_map, s->ram_base_addr, s->ram_size, 0);
     cpu_register_ram(s->mem_map, ROM_BASE_ADDR, ROM_SIZE, 0);
 
     s->rtc_real_time = p->rtc_real_time;
@@ -1139,7 +1148,7 @@ void virt_machine_deserialize(VirtMachine *s1, const char *dump_name)
     RISCVMachine *m = (RISCVMachine *)s1;
     RISCVCPUState *s = m->cpu_state;
 
-    riscv_cpu_deserialize(s, dump_name);
+    riscv_cpu_deserialize(s, m, dump_name);
 }
 
 int virt_machine_get_sleep_duration(VirtMachine *s1, int ms_delay)

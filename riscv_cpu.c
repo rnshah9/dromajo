@@ -2232,7 +2232,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
             assert(!boot_ram);
             boot_ram = pr;
 
-        } else if (pr->is_ram && pr->addr == RAM_BASE_ADDR) {
+        } else if (pr->is_ram && pr->addr == m->ram_base_addr) {
 
             assert(!main_ram_found);
             main_ram_found = 1;
@@ -2268,7 +2268,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
     }
 }
 
-void riscv_cpu_deserialize(RISCVCPUState *s, const char *dump_name)
+void riscv_cpu_deserialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_name)
 {
     for (int i = s->mem_map->n_phys_mem_range - 1; i >= 0; --i) {
         PhysMemoryRange *pr = &s->mem_map->phys_mem_range[i];
@@ -2281,7 +2281,7 @@ void riscv_cpu_deserialize(RISCVCPUState *s, const char *dump_name)
 
             deserialize_memory(pr->phys_mem, pr->size, boot_name);
 
-        } else if (pr->is_ram && pr->addr == RAM_BASE_ADDR) {
+        } else if (pr->is_ram && pr->addr == m->ram_base_addr) {
 
             size_t n = strlen(dump_name) + 64;
             char *main_name = alloca(n);

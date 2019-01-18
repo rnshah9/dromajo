@@ -611,8 +611,9 @@ static void usage(const char *prog, const char *msg)
             "       --maxinsns terminates execution after a number of instructions\n"
             "       --terminate-event name of the validate event to terminate execution\n"
             "       --trace start trace dump after a number of instructions. Trace disabled by default\n"
-            "       --memory_size sets the memory size in MiB (default 256 MiB)\n",
-            msg, prog);
+            "       --memory_size sets the memory size in MiB (default 256 MiB)\n"
+            "       --memory_addr sets the memory start address (default 0x%lx)\n",
+            msg, prog, (long)RAM_BASE_ADDR);
 
     exit(EXIT_FAILURE);
 }
@@ -627,7 +628,8 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     const char *terminate_event    = NULL;
     uint64_t    maxinsns           = 0;
     uint64_t    trace              = UINT64_MAX;
-    long        memory_size_override   = 0;
+    long        memory_size_override = 0;
+    uint64_t    memory_addr_override = 0;
 
     optind = 0;
 
@@ -641,6 +643,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             {"terminate-event", required_argument, 0, 'e'},
             {"trace   ",required_argument, 0,  't' },
             {"memory_size", required_argument, 0,  'M' },
+            {"memory_addr", required_argument, 0,  'A' },
             {0,         0,                 0,  0 }
         };
 
@@ -712,6 +715,12 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             memory_size_override = atoi(optarg);
             break;
 
+        case 'A':
+            if (optarg[0] != '0' || optarg[1] != 'x')
+                usage(prog, "--memory_addr expects argument to start with 0x... ");
+            memory_addr_override = strtoll(optarg + 2, NULL, 16);
+            break;
+
         default:
             usage(prog, "I'm not having this argument");
         }
@@ -741,12 +750,13 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 #endif
 
     /* override some config parameters */
+    if (memory_addr_override)
+        p->ram_base_addr = memory_addr_override;
     if (memory_size_override)
         p->ram_size = memory_size_override << 20;
 
-    if (cmdline) {
+    if (cmdline)
         vm_add_cmdline(p, cmdline);
-    }
 
     /* open the files & devices */
     for (int i = 0; i < p->drive_count; i++) {
