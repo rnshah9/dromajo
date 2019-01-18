@@ -727,7 +727,6 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 
     assert(path);
     VirtMachine *s;
-    int ram_size = -1, accel_enable = -1;
     BlockDeviceModeEnum drive_mode = BF_MODE_SNAPSHOT;
     VirtMachineParams p_s, *p = &p_s;
 
@@ -736,20 +735,14 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     fs_wget_init();
 #endif
     virt_machine_load_config_file(p, path, NULL, NULL);
-    if (memory_size_override)
-        p->ram_size = memory_size_override << 20;
 
 #ifdef CONFIG_FS_NET
     fs_net_event_loop(NULL, NULL);
 #endif
 
     /* override some config parameters */
-
-    if (ram_size > 0) {
-        p->ram_size = ram_size << 20;
-    }
-    if (accel_enable != -1)
-        p->accel_enable = accel_enable;
+    if (memory_size_override)
+        p->ram_size = memory_size_override << 20;
 
     if (cmdline) {
         vm_add_cmdline(p, cmdline);
