@@ -166,22 +166,6 @@ static void term_resize_handler(int sig)
         global_stdio_device->resize_pending = TRUE;
 }
 
-static void console_get_size(STDIODevice *s, int *pw, int *ph)
-{
-    struct winsize ws;
-    int width, height;
-    /* default values */
-    width = 80;
-    height = 25;
-    if (ioctl(s->stdin_fd, TIOCGWINSZ, &ws) == 0 &&
-        ws.ws_col >= 4 && ws.ws_row >= 4) {
-        width = ws.ws_col;
-        height = ws.ws_row;
-    }
-    *pw = width;
-    *ph = height;
-}
-
 CharacterDevice *console_init(BOOL allow_ctrlc)
 {
     CharacterDevice *dev;
@@ -544,59 +528,11 @@ static EthernetDevice *slirp_open(void)
 
 BOOL virt_machine_run(VirtMachine *m)
 {
-    fd_set rfds, wfds, efds;
-    int fd_max, ret, delay;
-    struct timeval tv;
-    int stdin_fd;
+    RISCVMachine *s = (RISCVMachine *)m;
+    riscv_cpu_interp64(s->cpu_state, 1);
 
-    delay = virt_machine_get_sleep_duration(m, MAX_SLEEP_TIME);
-
-    /* wait for an event */
-    FD_ZERO(&rfds);
-    FD_ZERO(&wfds);
-    FD_ZERO(&efds);
-    fd_max = -1;
-
-    if (m->console_dev && virtio_console_can_write_data(m->console_dev)) {
-        STDIODevice *s = m->console->opaque;
-        stdin_fd = s->stdin_fd;
-        FD_SET(stdin_fd, &rfds);
-        fd_max = stdin_fd;
-
-        if (s->resize_pending) {
-            int width, height;
-            console_get_size(s, &width, &height);
-            virtio_console_resize_event(m->console_dev, width, height);
-            s->resize_pending = FALSE;
-        }
-    }
-
-    if (m->net) {
-        m->net->select_fill(m->net, &fd_max, &rfds, &wfds, &efds, &delay);
-    }
-#ifdef CONFIG_FS_NET
-    fs_net_set_fdset(&fd_max, &rfds, &wfds, &efds, &delay);
-#endif
-    tv.tv_sec = delay / 1000;
-    tv.tv_usec = delay % 1000;
-    ret = select(fd_max + 1, &rfds, &wfds, &efds, &tv);
-    if (m->net) {
-        m->net->select_poll(m->net, &rfds, &wfds, &efds, ret);
-    }
-    if (ret > 0) {
-        if (m->console_dev && FD_ISSET(stdin_fd, &rfds)) {
-            uint8_t buf[128];
-            int ret, len;
-            len = virtio_console_get_write_len(m->console_dev);
-            len = min_int(len, sizeof(buf));
-            ret = m->console->read_data(m->console->opaque, buf, len);
-            if (ret > 0) {
-                virtio_console_write_data(m->console_dev, buf, ret);
-            }
-        }
-    }
-
-    return virt_machine_interp(m, MAX_EXEC_CYCLE);
+    return !riscv_terminated(s->cpu_state) &&
+        s->htif_tohost == 0 && m->maxinsns > 0;
 }
 
 void help(void)

@@ -43,6 +43,9 @@ bindir=/usr/local/bin
 INSTALL=install
 PROGS=riscvemu libvharness.a libriscvemu_cosim.a riscvemu_cosim_test
 
+# We don't have a large enough shared workload in a known location, so please adjust for your needs
+BENCH_WORKLOAD=../from-ccelio/bbl-vmlinux-initramfs
+
 all: $(PROGS)
 
 EMU_OBJS:=virtio.o pci.o fs.o cutils.o iomem.o \
@@ -116,3 +119,6 @@ clean:
 
 TAGS:
 	etags *.[hc]
+
+bench: riscvemu
+	bash -c 'time ./riscvemu --maxinsns 100000000 '$(BENCH_WORKLOAD)

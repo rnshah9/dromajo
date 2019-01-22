@@ -1171,7 +1171,7 @@ int virt_machine_get_sleep_duration(VirtMachine *s1, int ms_delay)
 BOOL virt_machine_interp(VirtMachine *s1, int max_exec_cycle)
 {
     RISCVMachine *s = (RISCVMachine *)s1;
-    riscv_cpu_interp(s->cpu_state, max_exec_cycle);
+    riscv_cpu_interp64(s->cpu_state, max_exec_cycle);
 
     return !riscv_terminated(s->cpu_state) &&
         s->htif_tohost == 0 && s1->maxinsns > 0;
