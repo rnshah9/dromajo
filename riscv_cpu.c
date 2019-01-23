@@ -1119,6 +1119,10 @@ static void handle_write_validation1(RISCVCPUState *s, target_ulong val)
         }
         break;
 
+    case VALIDATION_CMD_EXIT_CODE:
+        s->benchmark_exit_code = cmd_payload;
+        break;
+
     default:
         fprintf(stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)val);
     }
@@ -1691,6 +1695,9 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
     // Initialize valiation event info
     s->terminating_event = validation_terminate_event;
 
+    // Exit code of the user-space benchmark app
+    s->benchmark_exit_code = 0;
+
     return s;
 }
 
@@ -1881,6 +1888,11 @@ int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
         *instret_ts = s->fp_reg_ts[regno];
 
     return regno;
+}
+
+int riscv_benchmark_exit_code(RISCVCPUState *s)
+{
+    return s->benchmark_exit_code;
 }
 
 void riscv_get_ctf_info(RISCVCPUState *s, RISCVCTFInfo *info)

@@ -322,6 +322,8 @@ struct RISCVCPUState {
 
     // User specified, command line argument terminating event
     const char *terminating_event;
+    // Benchmark return value
+    uint64_t benchmark_exit_code;
 
     /* Control Flow Info */
     RISCVCTFInfo info;
@@ -367,6 +369,8 @@ void riscv_get_ctf_target(RISCVCPUState *s, uint64_t *target);
 
 int riscv_cpu_interp64(RISCVCPUState *s, int n_cycles);
 BOOL riscv_terminated(RISCVCPUState *s);
+
+int riscv_benchmark_exit_code(RISCVCPUState *s);
 
 #include "riscv_machine.h"
 void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_name);

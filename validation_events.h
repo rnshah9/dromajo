@@ -52,6 +52,7 @@ enum VALIDATON_CMD {
     VALIDATION_CMD_INVALID = 0,
     VALIDATION_CMD_LINUX = 1ULL, // Linux events
     VALIDATION_CMD_BENCH = 2ULL, // Benchmark events
+    VALIDATION_CMD_EXIT_CODE = 3ULL, // The binary reutrn value
 };
 
 /* List of Linux related events

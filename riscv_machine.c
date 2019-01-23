@@ -1318,3 +1318,8 @@ int virt_machine_get_most_recently_written_fp_reg(VirtMachine *m, uint64_t *inst
 {
     return riscv_get_most_recently_written_fp_reg(((RISCVMachine *)m)->cpu_state, instret_ts);
 }
+
+int virt_machine_benchmark_exit_code(VirtMachine *m)
+{
+    return riscv_benchmark_exit_code(((RISCVMachine *)m)->cpu_state);
+}

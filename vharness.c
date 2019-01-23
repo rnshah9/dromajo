@@ -110,6 +110,12 @@ int main(int argc, char **argv)
         keep_going = iterate_core(m);
     } while (keep_going);
 
+    int benchmark_exit_code = virt_machine_benchmark_exit_code(m);
+    if (benchmark_exit_code != 0){
+        fprintf(stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
+        return 1;
+    }
+
     fprintf(stderr,"\nPower off.\n");
 
     virt_machine_end(m);
