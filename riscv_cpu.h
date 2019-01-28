@@ -200,6 +200,16 @@ typedef uint128_t mem_uint_t;
 #define MSTATUS_UXL_MASK ((uint64_t)3 << MSTATUS_UXL_SHIFT)
 #define MSTATUS_SXL_MASK ((uint64_t)3 << MSTATUS_SXL_SHIFT)
 
+/* Esperanto special CSRs */
+#define CSR_ET_PREFETCH         0x81c
+#define CSR_ET_FLUSHVAR         0x81d
+#define CSR_ET_FLUSHVAW         0x81e
+#define CSR_ET_FLUSHALL         0x81f
+
+#define CSR_ET_VALIDATION0      0x8D0
+#define CSR_ET_VALIDATION1      0x8D1
+
+
 #define PG_SHIFT 12
 #define PG_MASK ((1 << PG_SHIFT) - 1)
 

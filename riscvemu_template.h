@@ -1326,6 +1326,8 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     goto illegal_insn;
                 val2 = (intx_t)val2;
                 err = csr_write(s, imm, val);
+                if (err == -2)
+                    goto mmu_exception;
                 if (err < 0)
                     goto illegal_insn;
                 if (rd != 0)
@@ -1357,6 +1359,8 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     else
                         val = val2 & ~val;
                     err = csr_write(s, imm, val);
+                    if (err == -2)
+                        goto mmu_exception;
                     if (err < 0)
                         goto illegal_insn;
                 } else {

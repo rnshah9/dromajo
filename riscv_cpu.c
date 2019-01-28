@@ -1054,9 +1054,13 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         val = s->mhpmevent[csr & 0x1F];
         break;
 
-    case 0x81F: // Esperanto Flush All cachelines
-    case 0x8D0:
-    case 0x8D1:
+    case CSR_ET_PREFETCH:
+    case CSR_ET_FLUSHVAR:
+    case CSR_ET_FLUSHVAW:
+    case CSR_ET_FLUSHALL:
+
+    case CSR_ET_VALIDATION0:
+    case CSR_ET_VALIDATION1:
         val = 0;
         break;
 
@@ -1142,8 +1146,8 @@ static void handle_write_validation1(RISCVCPUState *s, target_ulong val)
     }
 }
 
-/* return -1 if invalid CSR, 0 if OK, 1 if the interpreter loop must be
-   exited (e.g. XLEN was modified), 2 if TLBs have been flushed. */
+/* return -1 if invalid CSR, 0 if OK, -2 if CSR raised an exception,
+ * 2 if TLBs have been flushed. */
 static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
 {
     target_ulong mask;
@@ -1153,7 +1157,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     print_target_ulong(val);
     fprintf(stderr, "\n");
 #endif
-    switch(csr) {
+    switch (csr) {
 #if FLEN > 0
     case 0x001: /* fflags */
         s->fflags = val & 0x1f;
@@ -1320,10 +1324,37 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case 0x7b2:
         s->dscratch = val;
         break;
-    case 0x81F: // Esperanto Flush All cachelines
+
+    case CSR_ET_PREFETCH:
+    case CSR_ET_FLUSHALL:
         // Ignore it
         break;
-    case 0x8D0: // Esperanto validation0 register
+
+    case CSR_ET_FLUSHVAW: {
+        target_ulong paddr;
+        int err = get_phys_addr(s, &paddr, val, ACCESS_READ);
+        if (err) {
+            s->pending_tval = val;
+            s->pending_exception = err == -1
+                ? CAUSE_LOAD_PAGE_FAULT : CAUSE_FAULT_LOAD;
+            return -2;
+        }
+        break;
+    }
+
+    case CSR_ET_FLUSHVAR: {
+        target_ulong paddr;
+        int err = get_phys_addr(s, &paddr, val, ACCESS_WRITE);
+        if (err) {
+            s->pending_tval = val;
+            s->pending_exception = err == -1
+                ? CAUSE_STORE_PAGE_FAULT : CAUSE_FAULT_STORE;
+            return -2;
+        }
+        break;
+    }
+
+    case CSR_ET_VALIDATION0: // Esperanto validation0 register
         if ((val >> 12) == 0xDEAD0) // Begin
             fprintf(stderr, "ET validation begin code=%llx\n", (long long)val & 0xFFF);
         else if ((val >> 12) == 0x1FEED) {
@@ -1338,9 +1369,11 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
             fprintf(stderr, "ET UNKNOWN command=%llx code=%llx\n", (long long)val >> 12,
                     (long long)(val & 0xFFF));
         break;
-    case 0x8D1: // Esperanto validation1 register
+
+    case CSR_ET_VALIDATION1: // Esperanto validation1 register
         handle_write_validation1(s, val);
         break;
+
     case 0xb00: /* mcycle */
         s->mcycle = val;
         break;
