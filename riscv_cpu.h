@@ -198,6 +198,16 @@ typedef struct RISCVCPUState {
 
     target_ulong mhpmevent[32];
 
+    uint64_t csr_pmpcfg[4]; // But only 0 and 2 are valid
+    uint64_t csr_pmpaddr[16];
+
+    // pmpcfg and pmpadddr unpacked
+    int pmp_n; // 0..pmp_n-1 entries are valid
+    struct pmp_addr {
+        uint64_t lo, hi; // [lo; hi)  NB: not inclusive
+    } pmp[16];
+    uint8_t pmpcfg[16];
+
     target_ulong stvec;
     target_ulong sscratch;
     target_ulong sepc;

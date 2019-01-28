@@ -164,4 +164,24 @@ typedef enum {
     SBI_DISK_SIZE,
 } sbi_call_t;
 
+/* PMP */
+
+#define CSR_PMPCFG(n)                           (0x3A0 + (n)) // n = 0 or 2
+#define CSR_PMPADDR(n)                          (0x3B0 + (n)) // n = 0..15
+
+#define PMP_N           8 // Spec defines 16, we implement 8
+
+typedef enum {
+    PMPCFG_R       =    1, // NB: the three bottom bits follow the standard permissions order
+    PMPCFG_W       =    2,
+    PMPCFG_X       =    4,
+    PMPCFG_A_MASK  = 0x18,
+    PMPCFG_A_OFF   =    0,
+    PMPCFG_A_TOR   =    8,
+    PMPCFG_A_NA4   = 0x10,
+    PMPCFG_A_NAPOT = 0x18,
+    PMPCFG_RES     = 0x60,
+    PMPCFG_L       = 0x80,
+} pmpcfg_t;
+
 #endif

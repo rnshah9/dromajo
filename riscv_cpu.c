@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <string.h>
 #include <inttypes.h>
 #include <assert.h>
@@ -154,29 +155,86 @@ do {  \
     checker_last_data = val; \
 } while(0)
 
+/* "PMP checks are applied to all accesses when the hart is running in
+ * S or U modes, and for loads and stores when the MPRV bit is set in
+ * the mstatus register and the MPP field in the mstatus register
+ * contains S or U. Optionally, PMP checks may additionally apply to
+ * M-mode accesses, in which case the PMP registers themselves are
+ * locked, so that even M-mode software cannot change them without a
+ * system reset.  In effect, PMP can grant permissions to S and U
+ * modes, which by default have none, and can revoke permissions from
+ * M-mode, which by default has full permissions." */
+static bool inline
+pmp_access_ok(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t perm)
+{
+    int priv;
+
+    /* rv64mi-p-access expects illegal physical addresses to fail. */
+    if ((uint64_t)paddr >> s->physical_addr_len != 0)
+        return false;
+
+    if ((s->mstatus & MSTATUS_MPRV) && !(perm & PMPCFG_X)) {
+        /* use previous privilege */
+        priv = (s->mstatus >> MSTATUS_MPP_SHIFT) & 3;
+    } else {
+        priv = s->priv;
+    }
+
+    // Check for _any_ bytes from the range overlapping with a PMP
+    // region XXX We don't support the cases where the PMP region is
+    // smaller than the access
+    for (int i = 0; i < s->pmp_n; ++i)
+        // [lo;hi)  `intersect` [paddr;paddr+size) is non-empty
+        // Alas, doing this properly is expensive due to the risk of
+        // integer overflow so we accept a coverage hole and only test
+        // that paddr is in [lo;hi).
+        if (s->pmp[i].lo <= paddr && paddr < s->pmp[i].hi)
+            if (priv < PRV_M || s->pmpcfg[i] & PMPCFG_L)
+                return (perm & s->pmpcfg[i]) == perm;
+            else
+                return true;
+
+    return priv == PRV_M;
+}
+
+static inline PhysMemoryRange *
+get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t perm)
+{
+    if (!pmp_access_ok(s, paddr, size, perm))
+        return NULL;
+    else
+        return get_phys_mem_range(s->mem_map, paddr);
+}
+
 /* addr must be aligned. Only RAM accesses are supported */
 #define PHYS_MEM_READ_WRITE(size, uint_type) \
-static __maybe_unused inline void phys_write_u ## size(RISCVCPUState *s, target_ulong addr,\
-                                        uint_type val)                   \
-{\
-    PhysMemoryRange *pr = get_phys_mem_range(s->mem_map, addr);\
-    if (!pr || !pr->is_ram)\
-        return;\
-    TRACK_MEM(addr,size,val);\
-    *(uint_type *)(pr->phys_mem + \
-                 (uintptr_t)(addr - pr->addr)) = val;\
-}\
-\
-static __maybe_unused inline uint_type phys_read_u ## size(RISCVCPUState *s, target_ulong addr) \
-{\
-    PhysMemoryRange *pr = get_phys_mem_range(s->mem_map, addr);\
-    if (!pr || !pr->is_ram)\
-        return 0;\
-    uint_type pval =  *(uint_type *)(pr->phys_mem + \
-                          (uintptr_t)(addr - pr->addr));     \
-    TRACK_MEM(addr,size,pval);\
-    return pval;\
-}
+    static __maybe_unused inline void phys_write_u ## size(RISCVCPUState *s, target_ulong paddr, \
+                                                           uint_type val, bool *fail) \
+    {                                                                   \
+        PhysMemoryRange *pr = get_phys_mem_range_pmp(s, paddr, size/8, PMPCFG_W); \
+        if (!pr || !pr->is_ram) {                                       \
+            *fail = true;                                               \
+            return;                                                     \
+        }                                                               \
+        TRACK_MEM(paddr, size, val);                                    \
+        *(uint_type *)(pr->phys_mem + (uintptr_t)(paddr - pr->addr)) = val; \
+        *fail = false;                                                  \
+    }                                                                   \
+                                                                        \
+    static __maybe_unused inline uint_type phys_read_u ## size(RISCVCPUState *s, target_ulong paddr, \
+                                                               bool *fail) \
+    {                                                                   \
+        PhysMemoryRange *pr = get_phys_mem_range_pmp(s, paddr, size/8, PMPCFG_R);   \
+        if (!pr) {                                                      \
+            *fail = true;                                               \
+            return 0;                                                   \
+        }                                                               \
+        uint_type pval =  *(uint_type *)(pr->phys_mem +                 \
+                                         (uintptr_t)(paddr - pr->addr)); \
+        TRACK_MEM(paddr, size, pval);                                   \
+        *fail = false;                                                  \
+        return pval;                                                    \
+    }
 
 PHYS_MEM_READ_WRITE(8, uint8_t)
 PHYS_MEM_READ_WRITE(32, uint32_t)
@@ -243,16 +301,18 @@ TARGET_READ_WRITE(128, uint128_t, 4)
 #define PTE_A_MASK (1 << 6)
 #define PTE_D_MASK (1 << 7)
 
-#define ACCESS_READ  0
-#define ACCESS_WRITE 1
-#define ACCESS_CODE  2
+typedef enum {
+    ACCESS_READ,
+    ACCESS_WRITE,
+    ACCESS_CODE,
+} access_t;
 
 /* access = 0: read, 1 = write, 2 = code. Set the exception_pending
    field if necessary. return 0 if OK, -1 if translation error, -2 if
    the physical address is illegal. */
 static int get_phys_addr(RISCVCPUState *s,
                          target_ulong *ppaddr, target_ulong vaddr,
-                         int access)
+                         access_t access)
 {
     int mode, levels, pte_bits, pte_idx, pte_mask, pte_size_log2, xwr, priv;
     int need_write, vaddr_shift, i, pte_addr_bits;
@@ -266,9 +326,6 @@ static int get_phys_addr(RISCVCPUState *s,
     }
 
     if (priv == PRV_M) {
-        /* rv64mi-p-access expects illegal physical addresses to fail. */
-        if ((uint64_t)vaddr >> s->physical_addr_len != 0)
-            return -2;
         *ppaddr = vaddr;
         return 0;
     }
@@ -290,13 +347,19 @@ static int get_phys_addr(RISCVCPUState *s,
     pte_bits = 12 - pte_size_log2;
     pte_mask = (1 << pte_bits) - 1;
     for (i = 0; i < levels; i++) {
+        bool fail;
+
         vaddr_shift = PG_SHIFT + pte_bits * (levels - 1 - i);
         pte_idx = (vaddr >> vaddr_shift) & pte_mask;
         pte_addr += pte_idx << pte_size_log2;
         if (pte_size_log2 == 2)
-            pte = phys_read_u32(s, pte_addr);
+            pte = phys_read_u32(s, pte_addr, &fail);
         else
-            pte = phys_read_u64(s, pte_addr);
+            pte = phys_read_u64(s, pte_addr, &fail);
+
+        if (fail)
+            return -2;
+
         if (!(pte & PTE_V_MASK))
             return -1; /* invalid PTE */
         paddr = (pte >> 10) << PG_SHIFT;
@@ -345,10 +408,13 @@ static int get_phys_addr(RISCVCPUState *s,
                 if (access == ACCESS_WRITE)
                     pte |= PTE_D_MASK;
                 if (need_write) {
+                    bool fail;
                     if (pte_size_log2 == 2)
-                        phys_write_u32(s, pte_addr, pte);
+                        phys_write_u32(s, pte_addr, pte, &fail);
                     else
-                        phys_write_u64(s, pte_addr, pte);
+                        phys_write_u64(s, pte_addr, pte, &fail);
+                    if (fail)
+                        return -2;
                 }
             }
 
@@ -381,7 +447,7 @@ static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
         s->pending_exception = CAUSE_MISALIGNED_LOAD;
         return -1;
     } else if (al != 0) {
-        switch(size_log2) {
+        switch (size_log2) {
         case 1:
             {
                 uint8_t v0, v1;
@@ -442,20 +508,23 @@ static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
         }
     } else {
         int err = get_phys_addr(s, &paddr, addr, ACCESS_READ);
+
         if (err) {
             s->pending_tval = addr;
             s->pending_exception = err == -1
                 ? CAUSE_LOAD_PAGE_FAULT : CAUSE_FAULT_LOAD;
             return -1;
         }
-        pr = get_phys_mem_range(s->mem_map, paddr);
+        pr = get_phys_mem_range_pmp(s, paddr, 1 << PG_SHIFT, PMPCFG_R);
         if (!pr) {
 #ifdef DUMP_INVALID_MEM_ACCESS
             fprintf(stderr, "target_read_slow: invalid physical address 0x");
             print_target_ulong(paddr);
             fprintf(stderr, "\n");
 #endif
-            return 0;
+            s->pending_tval = addr;
+            s->pending_exception = CAUSE_FAULT_LOAD;
+            return -1;
         } else if (pr->is_ram) {
             tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
             ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
@@ -535,19 +604,23 @@ static no_inline int target_write_slow(RISCVCPUState *s, target_ulong addr,
         }
     } else {
         int err = get_phys_addr(s, &paddr, addr, ACCESS_WRITE);
+
         if (err) {
             s->pending_tval = addr;
             s->pending_exception = err == -1 ?
                 CAUSE_STORE_PAGE_FAULT : CAUSE_FAULT_STORE;
             return -1;
         }
-        pr = get_phys_mem_range(s->mem_map, paddr);
+        pr = get_phys_mem_range_pmp(s, paddr, 1 << PG_SHIFT, PMPCFG_W);
         if (!pr) {
 #ifdef DUMP_INVALID_MEM_ACCESS
             fprintf(stderr, "target_write_slow: invalid physical address 0x");
             print_target_ulong(paddr);
             fprintf(stderr, "\n");
 #endif
+            s->pending_tval = addr;
+            s->pending_exception = err == CAUSE_FAULT_STORE;
+            return -1;
         } else if (pr->is_ram) {
             phys_mem_set_dirty_bit(pr, paddr - pr->addr);
             tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
@@ -632,7 +705,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
             CAUSE_FETCH_PAGE_FAULT : CAUSE_FAULT_FETCH;
         return -1;
     }
-    pr = get_phys_mem_range(s->mem_map, paddr);
+    pr = get_phys_mem_range_pmp(s, paddr, size/8, PMPCFG_X);
     if (!pr || !pr->is_ram) {
         /* XXX: we only access to execute code from RAM */
         s->pending_tval = addr;
@@ -656,7 +729,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
             return -1;
         }
 
-        PhysMemoryRange *pr_cross = get_phys_mem_range(s->mem_map, paddr_cross);
+        PhysMemoryRange *pr_cross = get_phys_mem_range_pmp(s, paddr_cross, 2, PMPCFG_X);
         if (!pr_cross || !pr_cross->is_ram) {
             /* XXX: we only access to execute code from RAM */
             s->pending_tval = addr;
@@ -825,7 +898,7 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     if (s->priv < ((csr >> 8) & 3))
         return -1; /* not enough priviledge */
 
-    switch(csr) {
+    switch (csr) {
 #if FLEN > 0
     case 0x001: /* fflags */
         if (s->fs == 0)
@@ -1054,6 +1127,30 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         val = s->mhpmevent[csr & 0x1F];
         break;
 
+    case CSR_PMPCFG(0): // NB: 1 and 3 are _illegal_ in RV64
+    case CSR_PMPCFG(2):
+        val = s->csr_pmpcfg[csr - CSR_PMPCFG(0)];
+        break;
+
+    case CSR_PMPADDR(0): // NB: *must* support either none or all
+    case CSR_PMPADDR(1):
+    case CSR_PMPADDR(2):
+    case CSR_PMPADDR(3):
+    case CSR_PMPADDR(4):
+    case CSR_PMPADDR(5):
+    case CSR_PMPADDR(6):
+    case CSR_PMPADDR(7):
+    case CSR_PMPADDR(8):
+    case CSR_PMPADDR(9):
+    case CSR_PMPADDR(10):
+    case CSR_PMPADDR(11):
+    case CSR_PMPADDR(12):
+    case CSR_PMPADDR(13):
+    case CSR_PMPADDR(14):
+    case CSR_PMPADDR(15):
+        val = s->csr_pmpaddr[csr - CSR_PMPADDR(0)];
+        break;
+
     case CSR_ET_PREFETCH:
     case CSR_ET_FLUSHVAR:
     case CSR_ET_FLUSHVAW:
@@ -1164,6 +1261,75 @@ static void handle_write_validation1(RISCVCPUState *s, target_ulong val)
             break;
         }
     }
+}
+
+static void unpack_pmpaddrs(RISCVCPUState *s)
+{
+    uint8_t cfg;
+    s->pmp_n = 0;
+
+    for (int i = 0; i < 16; ++i) {
+        if (i < 8)
+            cfg = s->csr_pmpcfg[0] >> (i * 8);
+        else
+            cfg = s->csr_pmpcfg[2] >> ((i - 8) * 8);
+
+        switch (cfg & PMPCFG_A_MASK) {
+        case PMPCFG_A_OFF:
+            break;
+
+        case PMPCFG_A_TOR:
+            s->pmpcfg[s->pmp_n] = cfg;
+            s->pmp[s->pmp_n].lo = i == 0 ? 0 : s->csr_pmpaddr[i-1] << 2;
+            s->pmp[s->pmp_n].hi = s->csr_pmpaddr[i] << 2;
+            s->pmp_n++;
+            break;
+
+        case PMPCFG_A_NA4:
+            s->pmpcfg[s->pmp_n] = cfg;
+            s->pmp[s->pmp_n].lo = s->csr_pmpaddr[i] << 2;
+            s->pmp[s->pmp_n].hi = (s->csr_pmpaddr[i] << 2) + 4;
+            s->pmp_n++;
+            break;
+
+        case PMPCFG_A_NAPOT: {
+            s->pmpcfg[s->pmp_n] = cfg;
+            int j;
+            // Count trailing ones
+            for (j = 0; j < 64; ++j)
+                if ((s->csr_pmpaddr[i] & (1 << j)) == 0)
+                    break;
+            j += 3; // 8-byte is the lowest option
+            // NB, meaningless when i >= 56!
+            if (j >= 64) {
+                s->pmp[s->pmp_n].lo = 0;
+                s->pmp[s->pmp_n].hi = ~0;
+            } else {
+                s->pmp[s->pmp_n].lo = (s->csr_pmpaddr[i] << 2) & ~((1llu << j) - 1);
+                s->pmp[s->pmp_n].hi = s->pmp[i].lo + (1llu << j);
+            }
+            s->pmp_n++;
+            break;
+        }
+        }
+    }
+
+#if 0
+    for (int i = 0; i < s->pmp_n; ++i) {
+        cfg = s->pmpcfg[i];
+        fprintf(stderr,
+                "PMP%d [%016lx; %016lx) %c %c %c %c %s\n",
+                i, s->pmp[i].lo, s->pmp[i].hi,
+                " L"[!!(cfg & PMPCFG_L)],
+                " X"[!!(cfg & PMPCFG_X)],
+                " W"[!!(cfg & PMPCFG_W)],
+                " R"[!!(cfg & PMPCFG_R)],
+
+                (cfg & PMPCFG_A_MASK) == PMPCFG_A_TOR ? "TOR" :
+                (cfg & PMPCFG_A_MASK) == PMPCFG_A_NA4 ? "NA4" :
+                (cfg & PMPCFG_A_MASK) == PMPCFG_A_NAPOT ? "NAPOT" : "?");
+    }
+#endif
 }
 
 /* return -1 if invalid CSR, 0 if OK, -2 if CSR raised an exception,
@@ -1329,6 +1495,57 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case 0x33f:
         s->mhpmevent[csr & 0x1F] = val;
         break;
+
+    case CSR_PMPCFG(0): // NB: 1 and 3 are _illegal_ in RV64
+    case CSR_PMPCFG(2): {
+        assert(PMP_N % 8 == 0);
+        int      c    = csr - CSR_PMPCFG(0);
+
+        if (PMP_N <= c/2 * 8)
+            break;
+
+        uint64_t orig = s->csr_pmpcfg[c];
+        uint64_t new  = 0;
+
+        for (int i = 0; i < 8; ++i) {
+            uint8_t cfg = orig >> (i * 8);
+            if ((cfg & PMPCFG_L) == 0)
+                cfg = val >> (i * 8);
+            cfg &= ~PMPCFG_RES;
+            new |= cfg << (i * 8);
+        }
+
+        s->csr_pmpcfg[c] = new;
+
+        unpack_pmpaddrs(s);
+        break;
+    }
+
+    case CSR_PMPADDR(0): // NB: *must* support either none or all
+    case CSR_PMPADDR(1):
+    case CSR_PMPADDR(2):
+    case CSR_PMPADDR(3):
+    case CSR_PMPADDR(4):
+    case CSR_PMPADDR(5):
+    case CSR_PMPADDR(6):
+    case CSR_PMPADDR(7):
+    case CSR_PMPADDR(8):
+    case CSR_PMPADDR(9):
+    case CSR_PMPADDR(10):
+    case CSR_PMPADDR(11):
+    case CSR_PMPADDR(12):
+    case CSR_PMPADDR(13):
+    case CSR_PMPADDR(14):
+    case CSR_PMPADDR(15):
+        if (PMP_N <= csr - CSR_PMPADDR(0))
+            break;
+
+        // Note, due to TOR ranges, one PMPADDR can affect two entries
+        // but we just recalculate all of them
+        s->csr_pmpaddr[csr - CSR_PMPADDR(0)] = val;
+        unpack_pmpaddrs(s);
+        break;
+
     case 0x7b0:
         /* XXX We have a very incomplete implementation of debug mode, only just enough
            to restore a snapshot and stop counters */
@@ -1353,7 +1570,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case CSR_ET_FLUSHVAR: {
         target_ulong paddr;
         int err = get_phys_addr(s, &paddr, val, ACCESS_READ);
-        if (err) {
+        if (err || !pmp_access_ok(s, paddr, 1, PMPCFG_R)) {
             s->pending_tval = val;
             s->pending_exception = err == -1
                 ? CAUSE_LOAD_PAGE_FAULT : CAUSE_FAULT_LOAD;
@@ -1365,7 +1582,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case CSR_ET_FLUSHVAW: {
         target_ulong paddr;
         int err = get_phys_addr(s, &paddr, val, ACCESS_WRITE);
-        if (err) {
+        if (err || !pmp_access_ok(s, paddr, 1, PMPCFG_W)) {
             s->pending_tval = val;
             s->pending_exception = err == -1
                 ? CAUSE_STORE_PAGE_FAULT : CAUSE_FAULT_STORE;
@@ -1923,12 +2140,12 @@ int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr)
 
 int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr)
 {
-    *data = phys_read_u64(s, addr);
+    bool fail;
+    *data = phys_read_u64(s, addr, &fail);
     fprintf(stderr, "data:0x%" PRIx64 " addr:0x%08" PRIx64 "\n", *data, addr);
-    int i = 0;
-    if (i) {
+    if (fail) {
         fprintf(stderr, "Illegal read addr:%"  PRIx64 "\n", addr);
-        return i;
+        return 1;
     }
 
     return 0;
@@ -2198,7 +2415,11 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     create_csr12_recovery(rom, &code_pos, 0x306, s->mcounteren);
     create_csr12_recovery(rom, &code_pos, 0x106, s->scounteren);
 
-    // NOTE: no pmp (pmpcfg0). Not implemented in RTL
+    // NB: restore addr before cfgs for fewer surprises!
+    for (int i = 0; i < 16; ++i)
+        create_csr64_recovery(rom, &code_pos, &data_pos, CSR_PMPADDR(i), s->csr_pmpaddr[i]);
+    for (int i = 0; i < 4; i += 2)
+        create_csr64_recovery(rom, &code_pos, &data_pos, CSR_PMPCFG(i), s->csr_pmpcfg[i]);
 
     create_csr64_recovery(rom, &code_pos, &data_pos, 0x340, s->mscratch);
     create_csr64_recovery(rom, &code_pos, &data_pos, 0x341, s->mepc);
@@ -2303,6 +2524,11 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
     fprintf(conf_fd, "stval:%llx\n", (unsigned long long)s->stval);
     fprintf(conf_fd, "satp:%llx\n", (unsigned long long)s->satp);
     fprintf(conf_fd, "scounteren:%llx\n", (unsigned long long)s->scounteren);
+
+    for (int i = 0; i < 4; i += 2)
+        fprintf(conf_fd, "pmpcfg%d:%llx\n", i, (unsigned long long)s->csr_pmpcfg[i]);
+    for (int i = 0; i < 16; ++i)
+        fprintf(conf_fd, "pmpaddr%d:%llx\n", i, (unsigned long long)s->csr_pmpaddr[i]);
 
     PhysMemoryRange *boot_ram = 0;
     int main_ram_found = 0;
