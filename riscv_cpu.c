@@ -1330,7 +1330,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         // Ignore it
         break;
 
-    case CSR_ET_FLUSHVAW: {
+    case CSR_ET_FLUSHVAR: {
         target_ulong paddr;
         int err = get_phys_addr(s, &paddr, val, ACCESS_READ);
         if (err) {
@@ -1342,7 +1342,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
     }
 
-    case CSR_ET_FLUSHVAR: {
+    case CSR_ET_FLUSHVAW: {
         target_ulong paddr;
         int err = get_phys_addr(s, &paddr, val, ACCESS_WRITE);
         if (err) {
