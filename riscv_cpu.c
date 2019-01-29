@@ -1064,6 +1064,26 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         val = 0;
         break;
 
+    case CSR_ET_MCE_ENABLE_MASK:
+        val = s->mce_enable_mask;
+        break;
+
+    case CSR_ET_MCE_INJECT_MASK:
+        val = s->mce_inject_mask;
+        break;
+
+    case CSR_ET_MCE_FETCH_WATCHDOG_INIT:
+        val = s->mce_fetch_watchdog_init;
+        break;
+
+    case CSR_ET_MCE_MEMORY_WATCHDOG_INIT:
+        val = s->mce_memory_watchdog_init;
+        break;
+
+    case CSR_ET_MCE_RETIRE_WATCHDOG_INIT:
+        val = s->mce_retire_watchdog_init;
+        break;
+
     default:
     invalid_csr:
 #ifdef DUMP_INVALID_CSR
@@ -1412,6 +1432,26 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         // Allow, but ignore to write to performance counters mhpmcounter
         break;
 
+    case CSR_ET_MCE_ENABLE_MASK:
+        s->mce_enable_mask = val & ET_MCE_MASK_BITS;
+        break;
+
+    case CSR_ET_MCE_INJECT_MASK:
+        s->mce_inject_mask = val & ET_MCE_MASK_BITS;
+        break;
+
+    case CSR_ET_MCE_FETCH_WATCHDOG_INIT:
+        s->mce_fetch_watchdog_init = val & ET_MCE_WATCHDOG_BITS;
+        break;
+
+    case CSR_ET_MCE_MEMORY_WATCHDOG_INIT:
+        s->mce_memory_watchdog_init = val & ET_MCE_WATCHDOG_BITS;
+        break;
+
+    case CSR_ET_MCE_RETIRE_WATCHDOG_INIT:
+        s->mce_retire_watchdog_init = val & ET_MCE_WATCHDOG_BITS;
+        break;
+
     default:
 #ifdef DUMP_INVALID_CSR
         fprintf(stderr, "csr_write: invalid CSR=0x%x\n", csr);
@@ -1722,6 +1762,12 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
       s->tdata1[i] = ~(target_ulong)0;
       s->tdata2[i] = ~(target_ulong)0;
     }
+
+    s->mce_enable_mask          = ET_MCE_ENABLE_MASK_RESET;
+    s->mce_inject_mask          = ET_MCE_INJECT_MASK_RESET;
+    s->mce_fetch_watchdog_init  = ET_MCE_FETCH_WATCHDOG_INIT_RESET;
+    s->mce_memory_watchdog_init = ET_MCE_MEMORY_WATCHDOG_INIT_RESET;
+    s->mce_retire_watchdog_init = ET_MCE_RETIRE_WATCHDOG_INIT_RESET;
 
     tlb_init(s);
 

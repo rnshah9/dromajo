@@ -109,13 +109,34 @@
 #define MSTATUS_SXL_MASK ((uint64_t)3 << MSTATUS_SXL_SHIFT)
 
 /* Esperanto special CSRs */
-#define CSR_ET_PREFETCH         0x81c
-#define CSR_ET_FLUSHVAR         0x81d
-#define CSR_ET_FLUSHVAW         0x81e
-#define CSR_ET_FLUSHALL         0x81f
+#define CSR_ET_PREFETCH                         0x81c
+#define CSR_ET_FLUSHVAR                         0x81d
+#define CSR_ET_FLUSHVAW                         0x81e
+#define CSR_ET_FLUSHALL                         0x81f
 
-#define CSR_ET_VALIDATION0      0x8D0
-#define CSR_ET_VALIDATION1      0x8D1
+#define CSR_ET_VALIDATION0                      0x8D0
+#define CSR_ET_VALIDATION1                      0x8D1
+
+// These magic values are extracted from Maxion RTL
+#define ET_MCE_MASK_SZ                             25
+#define ET_MCE_WATCHDOG_SZ                         24
+
+// Derived masks (but calling them that would be confusing)
+#define ET_MCE_MASK_BITS                        ((1<<ET_MCE_MASK_SZ)-1)
+#define ET_MCE_WATCHDOG_BITS                    ((1<<ET_MCE_WATCHDOG_SZ)-1)
+
+// Values at reset, extracted from Maxion RTL
+#define ET_MCE_ENABLE_MASK_RESET                ET_MCE_MASK_BITS
+#define ET_MCE_INJECT_MASK_RESET                0
+#define ET_MCE_FETCH_WATCHDOG_INIT_RESET        0x3FFFF
+#define ET_MCE_MEMORY_WATCHDOG_INIT_RESET       0x1FFFF
+#define ET_MCE_RETIRE_WATCHDOG_INIT_RESET       0x7FFFF
+
+#define CSR_ET_MCE_ENABLE_MASK                  0xBA0
+#define CSR_ET_MCE_INJECT_MASK                  0xBA1
+#define CSR_ET_MCE_FETCH_WATCHDOG_INIT          0xBA2
+#define CSR_ET_MCE_MEMORY_WATCHDOG_INIT         0xBA3
+#define CSR_ET_MCE_RETIRE_WATCHDOG_INIT         0xBA4
 
 
 // A few of Debug Trigger Match Control bits (there are many more)

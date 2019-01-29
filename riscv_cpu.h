@@ -209,6 +209,13 @@ struct RISCVCPUState {
     target_ulong dpc;  // Debug DPC 0x7b1 (debug spec only)
     target_ulong dscratch;  // Debug dscratch 0x7b2 (debug spec only)
 
+    // ET MCE registers (just bits, nothing happens on these)
+    uint32_t mce_enable_mask;
+    uint32_t mce_inject_mask;
+    uint32_t mce_fetch_watchdog_init;
+    uint32_t mce_memory_watchdog_init;
+    uint32_t mce_retire_watchdog_init;
+
     target_ulong load_res; /* for atomic LR/SC */
     uint32_t  store_repair_val32; /* saving previous value of memory so it can be repaired */
     uint64_t  store_repair_val64;
