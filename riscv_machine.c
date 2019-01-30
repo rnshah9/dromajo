@@ -978,6 +978,8 @@ static void riscv_flush_tlb_write_range(void *opaque, uint8_t *ram_addr,
 void virt_machine_set_defaults(VirtMachineParams *p)
 {
     memset(p, 0, sizeof *p);
+    p->physical_addr_len = PHYSICAL_ADDR_LEN_DEFAULT;
+    p->ram_base_addr     = RAM_BASE_ADDR;
 }
 
 VirtMachine *virt_machine_init(const VirtMachineParams *p)
@@ -1004,6 +1006,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     /* RAM */
     cpu_register_ram(s->mem_map, s->ram_base_addr, s->ram_size, 0);
     cpu_register_ram(s->mem_map, ROM_BASE_ADDR, ROM_SIZE, 0);
+    s->cpu_state->physical_addr_len = p->physical_addr_len;
 
     s->rtc_real_time = p->rtc_real_time;
     if (p->rtc_real_time) {
@@ -1024,7 +1027,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     for(i = 1; i < 32; i++) {
         irq_init(&s->plic_irq[i], plic_set_irq, s, i);
     }
-    s->htif_tohost_addr=p->htif_base_addr;
+    s->htif_tohost_addr = p->htif_base_addr;
 
     cpu_register_device(s->mem_map,
                         p->htif_base_addr ? p->htif_base_addr : HTIF_BASE_ADDR,

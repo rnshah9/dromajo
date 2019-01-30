@@ -146,4 +146,6 @@
 #define MCONTROL_STORE     (1 << 1)
 #define MCONTROL_LOAD      (1 << 0)
 
+#define PHYSICAL_ADDR_LEN_DEFAULT               40
+
 #endif

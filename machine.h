@@ -139,6 +139,7 @@ typedef struct {
     /* MMIO range (for co-simulation only) */
     uint64_t mmio_start;
     uint64_t mmio_end;
+    uint64_t physical_addr_len;
 } VirtMachineParams;
 
 typedef struct VirtMachine {

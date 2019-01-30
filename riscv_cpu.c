@@ -266,9 +266,8 @@ static int get_phys_addr(RISCVCPUState *s,
     }
 
     if (priv == PRV_M) {
-        /* rv64mi-p-access expects illegal physical addresses to fail.
-           We arbitrarily sets PA to 56. */
-        if ((uint64_t)vaddr >> 56 != 0)
+        /* rv64mi-p-access expects illegal physical addresses to fail. */
+        if ((uint64_t)vaddr >> s->physical_addr_len != 0)
             return -2;
         *ppaddr = vaddr;
         return 0;
@@ -276,7 +275,7 @@ static int get_phys_addr(RISCVCPUState *s,
     mode = (s->satp >> 60) & 0xf;
     if (mode == 0) {
         /* bare: no translation */
-        *ppaddr = vaddr;
+        *ppaddr = vaddr; // XXX Mask based on physical_addr_len?
         return 0;
     } else {
         /* sv39/sv48 */
@@ -354,6 +353,7 @@ static int get_phys_addr(RISCVCPUState *s,
             }
 
             vaddr_mask = ((target_ulong)1 << vaddr_shift) - 1;
+            // XXX Should we mask off bits based on physical_addr_len?
             *ppaddr = paddr & ~vaddr_mask | vaddr & vaddr_mask;
             return 0;
         } else {
@@ -1258,7 +1258,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case 0x305:
         // RTLMAX-178, Maxion enforces 64-byte alignment for vectored interrupts
         if (val & 1) val &= ~63 + 1;
-        s->mtvec = val & ~2;
+        s->mtvec = val & ((1ull << s->physical_addr_len) - 3); // mtvec[1] === 0
         break;
     case 0x306:
         s->mcounteren = val;

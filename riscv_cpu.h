@@ -224,6 +224,7 @@ struct RISCVCPUState {
     uint64_t last_addr; /* saving previous value of address so it can be repaired */
 
     PhysMemoryMap *mem_map;
+    int physical_addr_len;
 
     TLBEntry tlb_read[TLB_SIZE];
     TLBEntry tlb_write[TLB_SIZE];

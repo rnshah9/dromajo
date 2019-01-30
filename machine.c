@@ -80,21 +80,19 @@ int vm_get_int(JSONValue obj, const char *name, int64_t *pval)
     return 0;
 }
 
-int vm_get_optional_int(JSONValue obj, const char *name, uint64_t *pval)
+static void vm_get_uint64_opt(JSONValue obj, const char *name, uint64_t *pval)
 {
     JSONValue val = json_object_get(obj, name);
 
     if (json_is_undefined(val))
-        return -1;
+        return;
 
     if (val.type != JSON_INT) {
         vm_error("%s: integer expected\n", name);
-        return -1;
+        return;
     }
 
     *pval = (uint64_t)val.u.int64;
-
-    return 0;
 }
 
 static int vm_get_str2(JSONValue obj, const char *name, const char **pstr,
@@ -220,13 +218,7 @@ static int virt_machine_parse_config(VirtMachineParams *p,
         return -1;
     }
 
-    tag_name = "memory_base_addr";
-    p->ram_base_addr = RAM_BASE_ADDR;
-    if (!json_is_undefined(json_object_get(cfg, tag_name))) {
-        if (vm_get_int(cfg, tag_name, &val) < 0)
-            goto tag_fail;
-        p->ram_base_addr = val;
-    }
+    vm_get_uint64_opt(cfg, "memory_base_addr", &p->ram_base_addr);
 
     tag_name = "memory_size";
     if (vm_get_int(cfg, tag_name, &val) < 0)
@@ -253,18 +245,8 @@ static int virt_machine_parse_config(VirtMachineParams *p,
         p->cmdline = cmdline_subst(str);
     }
 
-    tag_name = "htif_base_addr";
-    val = 0;
-    if (!json_is_undefined(json_object_get(cfg, tag_name)))
-      vm_get_int(cfg, tag_name, &val);
-    p->htif_base_addr = (uint32_t)val; // Avoid sign-extension
-
-    tag_name = "maxinsns";
-    val = 0;
-    if (!json_is_undefined(json_object_get(cfg, tag_name))) {
-        vm_get_int(cfg, tag_name, &val);
-        p->maxinsns = val;
-    }
+    vm_get_uint64_opt(cfg, "htif_base_addr", &p->htif_base_addr);
+    vm_get_uint64_opt(cfg, "maxinsns", &p->maxinsns);
 
     // checkpoint file path
     p->snapshot_load_name = NULL;
@@ -381,8 +363,9 @@ static int virt_machine_parse_config(VirtMachineParams *p,
         p->rtc_local_time = el.u.b;
     }
 
-    vm_get_optional_int(cfg, "mmio_start", &p->mmio_start);
-    vm_get_optional_int(cfg, "mmio_end",   &p->mmio_end);
+    vm_get_uint64_opt(cfg, "mmio_start", &p->mmio_start);
+    vm_get_uint64_opt(cfg, "mmio_end",   &p->mmio_end);
+    vm_get_uint64_opt(cfg, "physical_addr_len", &p->physical_addr_len);
 
     json_free(cfg);
     return 0;
