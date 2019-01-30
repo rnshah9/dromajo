@@ -1215,7 +1215,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->sepc = val & (s->misa & MCPUID_C ? ~1 : ~3);
         break;
     case 0x142:
-        s->scause = val & (CAUSE_MASK | (target_ulong)1 << 63);
+        s->scause = val & SCAUSE_MASK;
         break;
     case 0x143:
         s->stval = val;
@@ -1270,7 +1270,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mepc = val & (s->misa & MCPUID_C ? ~1 : ~3);
         break;
     case 0x342:
-        s->mcause = val & (CAUSE_MASK | (target_ulong)1 << 63);
+        s->mcause = val & MCAUSE_MASK;
         break;
     case 0x343:
         s->mtval = val;
@@ -1469,11 +1469,10 @@ static void set_priv(RISCVCPUState *s, int priv)
     }
 }
 
-static void raise_exception2(RISCVCPUState *s, uint32_t cause,
+static void raise_exception2(RISCVCPUState *s, uint64_t cause,
                              target_ulong tval)
 {
     BOOL deleg;
-    target_ulong causel;
 
 #if defined(DUMP_EXCEPTIONS)
     const static char *cause_s[] = {
@@ -1519,12 +1518,8 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
         deleg = 0;
     }
 
-    causel = cause & CAUSE_MASK;
-    if (cause & CAUSE_INTERRUPT)
-        causel |= (target_ulong)1 << 63;
-
     if (deleg) {
-        s->scause = causel;
+        s->scause = cause;
         s->sepc = s->pc;
         s->stval = tval;
         s->mstatus = (s->mstatus & ~MSTATUS_SPIE) |
@@ -1538,7 +1533,7 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
         else
             s->pc = s->stvec;
     } else {
-        s->mcause = causel;
+        s->mcause = cause;
         s->mepc = s->pc;
         s->mtval = tval;
 
@@ -1563,7 +1558,7 @@ static void raise_exception2(RISCVCPUState *s, uint32_t cause,
     }
 }
 
-static void raise_exception(RISCVCPUState *s, uint32_t cause)
+static void raise_exception(RISCVCPUState *s, uint64_t cause)
 {
     raise_exception2(s, cause, 0);
 }

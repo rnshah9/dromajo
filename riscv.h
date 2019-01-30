@@ -55,10 +55,9 @@
 #define CAUSE_LOAD_PAGE_FAULT     0xd
 #define CAUSE_STORE_PAGE_FAULT    0xf
 
-#define CAUSE_MASK 0x1f // not including the MSB for interrupt
-
-/* Note: converted to correct bit position at runtime */
-#define CAUSE_INTERRUPT  ((uint32_t)1 << 31)
+#define SCAUSE_MASK     0x800000000000001full // Maxion has 5 writable bits+MSB
+#define MCAUSE_MASK     0x80000000000000ffull // Maxion has 8 writable bits+MSB
+#define CAUSE_INTERRUPT 0x8000000000000000ull
 
 #define PRV_U 0
 #define PRV_S 1
