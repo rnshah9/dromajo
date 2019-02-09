@@ -839,7 +839,6 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 
     p->console = console_init(TRUE);
 
-    p->rtc_real_time = FALSE;
     p->validation_terminate_event = terminate_event;
 
     VirtMachine *s = virt_machine_init(p);

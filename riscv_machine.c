@@ -94,25 +94,9 @@ enum {
 
 #define RTC_FREQ 10000000
 
-static uint64_t rtc_get_real_time(RISCVMachine *s)
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * RTC_FREQ +
-        (ts.tv_nsec / (1000000000 / RTC_FREQ));
-}
-
 static uint64_t rtc_get_time(RISCVMachine *m)
 {
-    uint64_t val;
-    if (m->rtc_real_time) {
-        assert(0); // Verification should not set RTC or it would not be deterministic
-        val = rtc_get_real_time(m) - m->rtc_start_time;
-    } else {
-        val = riscv_cpu_get_cycles(m->cpu_state) / RTC_FREQ_DIV;
-    }
-    //    fprintf(stderr, "rtc_time=%" PRId64 "\n", val);
-    return val;
+    return m->cpu_state->mcycle / RTC_FREQ_DIV;
 }
 
 static uint32_t htif_read(void *opaque, uint32_t offset,
@@ -314,6 +298,7 @@ static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
 {
     RISCVMachine *m = opaque;
     uint32_t val;
+    uint64_t mtime = m->cpu_state->mcycle / RTC_FREQ_DIV;
 
     assert(size_log2 == 2);
     switch (offset) {
@@ -321,10 +306,10 @@ static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
         val = (riscv_cpu_get_mip(m->cpu_state) & MIP_MSIP) != 0;
         break;
     case 0xbff8:
-        val = rtc_get_time(m);
+        val = mtime;
         break;
     case 0xbffc:
-        val = rtc_get_time(m) >> 32;
+        val = mtime >> 32;
         break;
     case 0x4000:
         val = m->timecmp;
@@ -348,6 +333,7 @@ static void clint_write(void *opaque, uint32_t offset, uint32_t val,
                         int size_log2)
 {
     RISCVMachine *m = opaque;
+    uint64_t mtime = m->cpu_state->mcycle / RTC_FREQ_DIV;
 
     assert(size_log2 == 2);
     switch (offset) {
@@ -366,24 +352,13 @@ static void clint_write(void *opaque, uint32_t offset, uint32_t val,
         m->timecmp = (m->timecmp & 0xffffffff) | ((uint64_t)val << 32);
         riscv_cpu_reset_mip(m->cpu_state, MIP_MTIP);
         break;
-    // WARNING: RISCVEMU assumes same for cpu clock and clint. Create different clocks if needed
     case 0xbff8:
-        {
-          uint32_t val2 = rtc_get_time(m);
-          if (val2 != val) {
-            fprintf(stderr, "clint_write: 32b timem=%d rtc_get_time=%d\n", val, val2);
-          }
-          assert(val2 == val);
-        }
+        mtime = (mtime & 0xFFFFFFFF00000000L) + val;
+        m->cpu_state->mcycle = mtime * RTC_FREQ_DIV;
         break;
     case 0xbffc:
-        {
-          uint32_t val2 = rtc_get_time(m) >> 32;
-          if (val2 != val) {
-            fprintf(stderr, "clint_write: 32h timem=%d rtc_get_time=%d\n", val, val2);
-          }
-          assert(val2 == val);
-        }
+        mtime = (mtime & 0x00000000FFFFFFFFL) + ((uint64_t)val << 32);
+        m->cpu_state->mcycle = mtime * RTC_FREQ_DIV;
         break;
     default:
         break;
@@ -1005,11 +980,6 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     cpu_register_ram(s->mem_map, s->ram_base_addr, s->ram_size, 0);
     cpu_register_ram(s->mem_map, ROM_BASE_ADDR, ROM_SIZE, 0);
     s->cpu_state->physical_addr_len = p->physical_addr_len;
-
-    s->rtc_real_time = p->rtc_real_time;
-    if (p->rtc_real_time) {
-        s->rtc_start_time = rtc_get_real_time(s);
-    }
 
     SiFiveUARTState *uart = (SiFiveUARTState *)calloc(sizeof *uart, 1);
     uart->irq = UART0_IRQ;

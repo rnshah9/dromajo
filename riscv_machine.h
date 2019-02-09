@@ -21,8 +21,6 @@ typedef struct RISCVMachine {
     uint64_t ram_size;
     uint64_t ram_base_addr;
     /* RTC */
-    BOOL rtc_real_time;
-    uint64_t rtc_start_time;
     uint64_t timecmp;
     /* PLIC */
     uint32_t plic_pending_irq, plic_served_irq;

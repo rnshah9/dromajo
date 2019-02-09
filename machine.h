@@ -104,7 +104,6 @@ typedef struct {
     char *cfg_filename;
     uint64_t ram_base_addr;
     uint64_t ram_size;
-    BOOL rtc_real_time;
     BOOL rtc_local_time;
     char *display_device; /* NULL means no display */
     int64_t width, height; /* graphic width & height */
