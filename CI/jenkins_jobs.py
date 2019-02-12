@@ -35,7 +35,7 @@ _LOG_LEVEL_STRINGS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
 # List of parameters that the different Jenkinsfiles expect
 
 
-JENKINS_SERVER = 'http://jenkins.local'
+JENKINS_SERVER = 'http://10.10.1.15:8066'
 
 
 def parent_job_info(child_job_name, child_build_id, timeout=10):
@@ -85,7 +85,7 @@ class JenkinsfileParams:
 
 
 JOB_DESCRIPTION = {
-    'maxion-riscvemu': JenkinsfileParams('maxion-riscvemu.json'),
+    'riscvemu': JenkinsfileParams('riscvemu.json'),
 }
 
 

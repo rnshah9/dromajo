@@ -27,14 +27,16 @@ node('AWS')
             submoduleCfg: [],
             userRemoteConfigs: [[
                 credentialsId: 'jennkis_aws_centos',
-                url: 'git@gitlab.local:maxion/boom-template.git'
+                url: 'git@gitlab:verification/riscvemu.git'
             ]]
         ])
         // Explicitely clean things and update specific modules
         sshagent (credentials: ['jennkis_aws_centos']) {
-            sh 'git clean -xfd'
+            sh 'git clean -xfd -r --cached'
             sh 'git submodule foreach --recursive git clean -xfd'
             sh 'git reset --hard'
+            sh 'git submodule sync'
+            sh 'git submodule foreach --recursive git sync'
             sh 'git submodule foreach --recursive git reset --hard'
             sh 'git submodule update --init --recursive riscvemu'
         }
