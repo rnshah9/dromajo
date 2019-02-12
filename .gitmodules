@@ -1,3 +1,6 @@
 [submodule "infra_tools"]
 	path = infra_tools
 	url = git@gitlab:software/infra-tools.git
+[submodule "maxion-tests"]
+	path = maxion-tests
+	url = git@gitlab:verification/maxion-tests
