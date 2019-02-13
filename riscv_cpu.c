@@ -2333,16 +2333,16 @@ static void create_io64_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t *da
 
 static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
 {
-    uint32_t rom[ROM_SIZE/4];
-    memset(rom, 0, ROM_SIZE);
+    uint32_t rom[ROM_SIZE / 4];
+    memset(rom, 0, sizeof rom);
 
     // ROM organization
-    // 0..40 wasted
-    // 40..0x800 boot code
-    // 0x800..0x1000 boot data
+    // 0000..003F wasted
+    // 0040..0AFF boot code (2,752 B)
+    // 0B00..0FFF boot data (  512 B)
 
-    uint32_t code_pos = (BOOT_BASE_ADDR - ROM_BASE_ADDR) / sizeof(uint32_t);
-    uint32_t data_pos = ROM_SIZE / 2 / sizeof(uint32_t);
+    uint32_t code_pos = (BOOT_BASE_ADDR - ROM_BASE_ADDR) / sizeof *rom;
+    uint32_t data_pos = 0xB00 / sizeof *rom;
     uint32_t data_pos_start = data_pos;
 
     create_csr64_recovery(rom, &code_pos, &data_pos, 0x7b1, s->pc); // Write to DPC (CSR, 0x7b1)
@@ -2440,13 +2440,14 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     // Recover CLINT (Close to the end of the recovery to avoid extra cycles)
     // TODO: One per hart (multicore/SMP)
 
-    fprintf(stderr, "clint hart0 timecmp=%lld cycles (%lld)\n", (long long)m->timecmp, (long long)riscv_cpu_get_cycles(s)/RTC_FREQ_DIV);
-    create_io64_recovery(rom, &code_pos, &data_pos, CLINT_BASE_ADDR + 0x4000, m->timecmp); // Assuming 16 ratio between CPU and CLINT and that CPU is reset to zero
+    fprintf(stderr, "clint hart0 timecmp=%ld cycles (%ld)\n", m->timecmp, s->mcycle/RTC_FREQ_DIV);
 
+    // Assuming 16 ratio between CPU and CLINT and that CPU is reset to zero
+    create_io64_recovery( rom, &code_pos, &data_pos, CLINT_BASE_ADDR + 0x4000, m->timecmp);
     create_csr64_recovery(rom, &code_pos, &data_pos, 0xb02, s->minstret);
     create_csr64_recovery(rom, &code_pos, &data_pos, 0xb00, s->mcycle);
 
-    create_io64_recovery(rom, &code_pos, &data_pos, CLINT_BASE_ADDR + 0xbff8, s->mcycle/RTC_FREQ_DIV);
+    create_io64_recovery( rom, &code_pos, &data_pos, CLINT_BASE_ADDR + 0xbff8, s->mcycle/RTC_FREQ_DIV);
 
     for (int i = 1; i < 3; i++) { // recover 1 and 2 now
       create_reg_recovery(rom, &code_pos, &data_pos, i, s->reg[i]);
@@ -2460,9 +2461,9 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     // dret 0x7b200073
     rom[code_pos++] = 0x7b200073;
 
-    if (data_pos >= (ROM_SIZE / sizeof(uint32_t)) || code_pos >= data_pos_start) {
-        fprintf(stderr, "ERROR: rom is too small. ROM_SIZE should increase. Current code_pos=%d data_pos=%d\n",
-                code_pos,data_pos);
+    if (sizeof rom / sizeof *rom <= data_pos || data_pos_start <= code_pos) {
+        fprintf(stderr, "ERROR: ROM is too small. ROM_SIZE should increase.  "
+                "Current code_pos=%d data_pos=%d\n", code_pos, data_pos);
         exit(-6);
     }
 
