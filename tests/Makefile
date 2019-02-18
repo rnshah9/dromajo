@@ -60,9 +60,9 @@ $(OUTPUT_DIR)/%.bin: $(RISCVTESTS_DIR)/%
 	riscv64-unknown-elf-objcopy -O binary $< $@
 
 $(OUTPUT_DIR)/%.cfg: $(OUTPUT_DIR)/%.bin $(RISCVTESTS_DIR)/%
-	echo "{version:1,machine:\"riscv64\",memory_size:128,bios:\"${<}\",htif_base_addr:0x"$$(nm $(word 2,$^)|grep 'D tohost'|grep tohost|cut -d' ' -f1)",}" > $@
+	echo "{version:1,memory_base_addr:0x8000000000,machine:\"riscv64\",memory_size:128,bios:\"${<}\",htif_base_addr:0x"$$(nm $(word 2,$^)|grep 'D tohost'|grep tohost|cut -d' ' -f1)",}" > $@
 
-configs: $(patsubst %,%.riscvemu,$(CONFIGS_BASENAME)) $(patsubst %,%.spike,$(CONFIGS_BASENAME))
+configs: $(patsubst %,%.riscvemu,$(CONFIGS_BASENAME)) #$(patsubst %,%.spike,$(CONFIGS_BASENAME))
 
 $(OUTPUT_DIR)/riscvemu-test-report.xml: $(patsubst %,%.riscvemu,$(CONFIGS_BASENAME))
 	./riscv_test_report.py --output-dir=$(OUTPUT_DIR) \
