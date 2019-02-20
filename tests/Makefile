@@ -10,6 +10,9 @@
 
 SPIKE=spike
 
+# This tells Spike to allocate 256 MiB at the 512 GiB address (0x80_0000_0000)
+SPIKE_OPTS=-m549755813888:268435456
+
 OUTPUT_DIR ?= $(abspath .)
 RISCVTESTS_DIR:=
 
@@ -48,7 +51,7 @@ $(OUTPUT_DIR)/%.riscvemu: $(OUTPUT_DIR)/%.cfg $(OUTPUT_DIR)/%.bin $(RISCVEMU)
 	$(RISCVEMU) --trace 0 $< 2> $@
 
 $(OUTPUT_DIR)/%.spike: $(RISCVTESTS_DIR)/%
-	$(SPIKE) -l $< > $@ 2>&1
+	$(SPIKE) $(SPIKE_OPTS) -l $< > $@ 2>&1
 
 %.cmp: $(OUTPUT_DIR)/%.spike $(OUTPUT_DIR)/%.riscvemu
 	diff -U100 $^ | less
@@ -62,7 +65,7 @@ $(OUTPUT_DIR)/%.bin: $(RISCVTESTS_DIR)/%
 $(OUTPUT_DIR)/%.cfg: $(OUTPUT_DIR)/%.bin $(RISCVTESTS_DIR)/%
 	echo "{version:1,memory_base_addr:0x8000000000,machine:\"riscv64\",memory_size:128,bios:\"${<}\",htif_base_addr:0x"$$(nm $(word 2,$^)|grep 'D tohost'|grep tohost|cut -d' ' -f1)",}" > $@
 
-configs: $(patsubst %,%.riscvemu,$(CONFIGS_BASENAME)) #$(patsubst %,%.spike,$(CONFIGS_BASENAME))
+configs: $(patsubst %,%.riscvemu,$(CONFIGS_BASENAME)) $(patsubst %,%.spike,$(CONFIGS_BASENAME))
 
 $(OUTPUT_DIR)/riscvemu-test-report.xml: $(patsubst %,%.riscvemu,$(CONFIGS_BASENAME))
 	./riscv_test_report.py --output-dir=$(OUTPUT_DIR) \
