@@ -274,10 +274,6 @@ void riscv_dump_regs(RISCVCPUState *s);
 int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr);
 void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num,
                       uint64_t csr_val);
-int riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3);
-int riscv_repair_load(RISCVCPUState *s, uint32_t reg_num, uint64_t reg_val,
-                      uint64_t htif_tohost_addr, uint64_t *htif_tohost,
-                      uint64_t *htif_fromhost);
 void riscv_cpu_sync_regs(RISCVCPUState *s);
 int riscv_get_priv_level(RISCVCPUState *s);
 int riscv_get_most_recently_written_reg(RISCVCPUState *s,

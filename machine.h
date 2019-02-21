@@ -171,7 +171,6 @@ char *get_file_path(const char *base_filename, const char *filename);
 void virt_machine_free_config(VirtMachineParams *p);
 VirtMachine *virt_machine_init(const VirtMachineParams *p);
 int virt_machine_get_sleep_duration(VirtMachine *s, int delay);
-BOOL virt_machine_interp(VirtMachine *s, int max_exec_cycle);
 BOOL vm_mouse_is_absolute(VirtMachine *s);
 void vm_send_mouse_event(VirtMachine *s1, int dx, int dy, int dz,
                          unsigned int buttons);
@@ -215,7 +214,6 @@ uint64_t     virt_machine_get_pc(VirtMachine *m);
 void         virt_machine_set_pc(VirtMachine *m, uint64_t pc);
 uint64_t     virt_machine_get_reg(VirtMachine *m, int rn);
 uint64_t     virt_machine_get_fpreg(VirtMachine *m, int rn);
-uint64_t     virt_machine_read_htif_tohost(VirtMachine *m);
 uint64_t     virt_machine_get_instret(VirtMachine *m);
 int          virt_machine_get_priv_level(VirtMachine *m);
 int          virt_machine_get_most_recently_written_reg(VirtMachine *m, uint64_t *instret_ts);

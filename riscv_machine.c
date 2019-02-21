@@ -99,106 +99,6 @@ static uint64_t rtc_get_time(RISCVMachine *m)
     return m->cpu_state->mcycle / RTC_FREQ_DIV;
 }
 
-static uint32_t htif_read(void *opaque, uint32_t offset,
-                          int size_log2)
-{
-    RISCVMachine *s = opaque;
-    uint32_t val;
-
-    assert(size_log2 == 2);
-    switch(offset) {
-    case 0:
-        val = s->htif_tohost;
-        break;
-    case 4:
-        val = s->htif_tohost >> 32;
-        break;
-    case 8:
-        val = s->htif_fromhost;
-        break;
-    case 12:
-        val = s->htif_fromhost >> 32;
-        break;
-    default:
-        val = 0;
-        break;
-    }
-    return val;
-}
-
-static void htif_handle_cmd(RISCVMachine *s)
-{
-    uint32_t device, cmd;
-
-
-    device = s->htif_tohost >> 56;
-    cmd = (s->htif_tohost >> 48) & 0xff;
-#ifdef DUMP_HTIF
-    fprintf(stderr, "htif_handle_cmd: device=%d cmd=%d tohost=0x%016" PRIx64 "\n", device, cmd, s->htif_tohost);
-#endif
-    if (s->htif_tohost == 1) {
-        /* shuthost */
-    } else if (device == 1 && cmd == 1) {
-        uint8_t buf[1];
-        buf[0] = s->htif_tohost & 0xff;
-        s->common.console->write_data(s->common.console->opaque, buf, 1);
-        s->htif_tohost = 0;
-        s->htif_fromhost = ((uint64_t)device << 56) | ((uint64_t)cmd << 48);
-    } else if (device == 1 && cmd == 0) {
-        /* request keyboard interrupt */
-        s->htif_tohost = 0;
-    } else {
-#ifdef DUMP_HTIF
-      // NOTE: This happens all the time wiht firesim, but it is OK :)
-      fprintf(stderr, "HTIF: unsupported tohost=0x%016" PRIx64 "\n", s->htif_tohost);
-#endif
-    }
-}
-
-static void htif_write(void *opaque, uint32_t offset, uint32_t val,
-                       int size_log2)
-{
-    RISCVMachine *s = opaque;
-
-    assert(size_log2 == 2);
-    switch(offset) {
-    case 0:
-        s->htif_tohost = (s->htif_tohost & ~0xffffffff) | val;
-        // fesvr/Spike, processes commands when this is non-zero
-        htif_handle_cmd(s);
-        break;
-    case 4:
-        s->htif_tohost = (s->htif_tohost & 0xffffffff) | ((uint64_t)val << 32);
-        htif_handle_cmd(s);
-        break;
-    case 8:
-        s->htif_fromhost = (s->htif_fromhost & ~0xffffffff) | val;
-        break;
-    case 12:
-        s->htif_fromhost = (s->htif_fromhost & 0xffffffff) |
-            (uint64_t)val << 32;
-        break;
-    default:
-        break;
-    }
-}
-
-#if 0
-static void htif_poll(RISCVMachine *s)
-{
-    uint8_t buf[1];
-    int ret;
-
-    if (s->htif_fromhost == 0) {
-        ret = s->console->read_data(s->console->opaque, buf, 1);
-        if (ret == 1) {
-            s->htif_fromhost = ((uint64_t)1 << 56) | ((uint64_t)0 << 48) |
-                buf[0];
-        }
-    }
-}
-#endif
-
 typedef struct SiFiveUARTState {
   CharacterDevice *cs; // Console
 
@@ -997,9 +897,6 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     }
     s->htif_tohost_addr = p->htif_base_addr;
 
-    cpu_register_device(s->mem_map,
-                        p->htif_base_addr ? p->htif_base_addr : HTIF_BASE_ADDR,
-                        16, s, htif_read, htif_write, DEVIO_SIZE32);
     s->common.console = p->console;
 
     memset(vbus, 0, sizeof(*vbus));
@@ -1148,15 +1045,6 @@ int virt_machine_get_sleep_duration(VirtMachine *s1, int ms_delay)
     return ms_delay;
 }
 
-BOOL virt_machine_interp(VirtMachine *s1, int max_exec_cycle)
-{
-    RISCVMachine *s = (RISCVMachine *)s1;
-    riscv_cpu_interp64(s->cpu_state, max_exec_cycle);
-
-    return !riscv_terminated(s->cpu_state) &&
-        s->htif_tohost == 0 && s1->maxinsns > 0;
-}
-
 void virt_machine_set_pc(VirtMachine *m, uint64_t pc)
 {
     RISCVMachine *s = (RISCVMachine *)m;
@@ -1203,18 +1091,6 @@ void virt_machine_repair_csr(VirtMachine *m, uint32_t reg_num, uint64_t csr_num,
 {
     RISCVMachine *s = (RISCVMachine *)m;
     riscv_repair_csr(s->cpu_state,reg_num,csr_num,csr_val);
-}
-
-int virt_machine_repair_load(VirtMachine *m,uint32_t reg_num,uint64_t reg_val)
-{
-    RISCVMachine *s = (RISCVMachine *)m;
-    return riscv_repair_load(s->cpu_state,reg_num,reg_val,s->htif_tohost_addr,&s->htif_tohost,&s->htif_fromhost);
-}
-
-int virt_machine_repair_store(VirtMachine *m, uint32_t reg_num, uint32_t funct3)
-{
-    RISCVMachine *s = (RISCVMachine *)m;
-    return riscv_repair_store(s->cpu_state, reg_num, funct3);
 }
 
 const char *virt_machine_get_name(void)

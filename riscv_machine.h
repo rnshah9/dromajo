@@ -26,7 +26,6 @@ typedef struct RISCVMachine {
     uint32_t plic_pending_irq, plic_served_irq;
     IRQSignal plic_irq[32]; /* IRQ 0 is not used */
     /* HTIF */
-    uint64_t htif_tohost, htif_fromhost;
     uint64_t htif_tohost_addr;
 
     VIRTIODevice *keyboard_dev;

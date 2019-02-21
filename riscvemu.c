@@ -541,7 +541,6 @@ BOOL virt_machine_run(VirtMachine *m)
     }
 
     return !riscv_terminated(s->cpu_state) &&
-        s->htif_tohost == 0 &&
         m->maxinsns > 0;
 }
 
