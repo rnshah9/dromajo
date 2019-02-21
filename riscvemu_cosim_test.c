@@ -83,14 +83,16 @@ int main(int argc, char *argv[])
             printf("%d %016lx %08x                           DASM(%08x)\n",
                    priv, insn_addr, insn, insn);
             break;
+
         case 5: printf("%d %016lx %08x [x%-2d <- %016lx] DASM(%08x)\n",
                        priv, insn_addr, insn, rd, wdata, insn);
             break;
 
         default:
-            fprintf(stderr, "%s:%d: couldn't parse (%d)\n",
-                    trace_name, lineno, got);
-            /* fall thru */
+            fprintf(stderr, "%s:%d: couldn't parse %s\n",
+                    trace_name, lineno, buf);
+            goto fail;
+
         case 0:
         case -1:
             continue;
@@ -101,7 +103,7 @@ int main(int argc, char *argv[])
                                         0, 0, 0, true);
             if (r) {
                 printf("Exited with %08x\n", r);
-                break;
+                goto fail;
             }
         }
     }
@@ -111,4 +113,10 @@ int main(int argc, char *argv[])
     printf("\nSUCCESS, PASSED, GOOD!\n");
 
     exit(EXIT_SUCCESS);
+
+fail:
+    free(s);
+    printf("\nFAIL!\n");
+
+    exit(EXIT_FAILURE);
 }
