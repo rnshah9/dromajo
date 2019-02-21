@@ -532,8 +532,17 @@ BOOL virt_machine_run(VirtMachine *m)
     RISCVMachine *s = (RISCVMachine *)m;
     riscv_cpu_interp64(s->cpu_state, 1);
 
+    if (s->htif_tohost_addr) {
+        uint32_t tohost;
+        bool fail = true;
+        tohost = riscv_phys_read_u32(s->cpu_state, s->htif_tohost_addr, &fail);
+        if (!fail && tohost & 1)
+            return false;
+    }
+
     return !riscv_terminated(s->cpu_state) &&
-        s->htif_tohost == 0 && m->maxinsns > 0;
+        s->htif_tohost == 0 &&
+        m->maxinsns > 0;
 }
 
 void help(void)
