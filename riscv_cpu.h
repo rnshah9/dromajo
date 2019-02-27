@@ -272,7 +272,6 @@ uint64_t riscv_get_fpreg(RISCVCPUState *s, int rn);
 void riscv_set_reg(RISCVCPUState *s, int rn, uint64_t val);
 void riscv_dump_regs(RISCVCPUState *s);
 int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr);
-int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr);
 void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num,
                       uint64_t csr_val);
 int riscv_repair_store(RISCVCPUState *s, uint32_t reg_num, uint32_t funct3);
@@ -299,5 +298,15 @@ void riscv_cpu_deserialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_n
 
 int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval, target_ulong addr, int size_log2);
 int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr, mem_uint_t val, int size_log2);
+
+#define PHYS_MEM_READ_WRITE(size, uint_type) \
+  void      riscv_phys_write_u ## size(RISCVCPUState *, target_ulong, uint_type, bool *); \
+  uint_type riscv_phys_read_u  ## size(RISCVCPUState *, target_ulong, bool *);
+
+PHYS_MEM_READ_WRITE(8, uint8_t)
+PHYS_MEM_READ_WRITE(32, uint32_t)
+PHYS_MEM_READ_WRITE(64, uint64_t)
+
+#undef PHYS_MEM_READ_WRITE
 
 #endif

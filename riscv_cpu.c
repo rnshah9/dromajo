@@ -203,8 +203,8 @@ get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t p
 
 /* addr must be aligned. Only RAM accesses are supported */
 #define PHYS_MEM_READ_WRITE(size, uint_type) \
-    static __maybe_unused inline void phys_write_u ## size(RISCVCPUState *s, target_ulong paddr, \
-                                                           uint_type val, bool *fail) \
+    void riscv_phys_write_u ## size(RISCVCPUState *s, target_ulong paddr, \
+                                    uint_type val, bool *fail)          \
     {                                                                   \
         PhysMemoryRange *pr = get_phys_mem_range_pmp(s, paddr, size/8, PMPCFG_W); \
         if (!pr || !pr->is_ram) {                                       \
@@ -216,10 +216,10 @@ get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t p
         *fail = false;                                                  \
     }                                                                   \
                                                                         \
-    static __maybe_unused inline uint_type phys_read_u ## size(RISCVCPUState *s, target_ulong paddr, \
-                                                               bool *fail) \
+    uint_type riscv_phys_read_u ## size(RISCVCPUState *s, target_ulong paddr, \
+                                        bool *fail)                     \
     {                                                                   \
-        PhysMemoryRange *pr = get_phys_mem_range_pmp(s, paddr, size/8, PMPCFG_R);   \
+        PhysMemoryRange *pr = get_phys_mem_range_pmp(s, paddr, size/8, PMPCFG_R); \
         if (!pr) {                                                      \
             *fail = true;                                               \
             return 0;                                                   \
@@ -348,9 +348,9 @@ static int get_phys_addr(RISCVCPUState *s,
         pte_idx = (vaddr >> vaddr_shift) & pte_mask;
         pte_addr += pte_idx << pte_size_log2;
         if (pte_size_log2 == 2)
-            pte = phys_read_u32(s, pte_addr, &fail);
+            pte = riscv_phys_read_u32(s, pte_addr, &fail);
         else
-            pte = phys_read_u64(s, pte_addr, &fail);
+            pte = riscv_phys_read_u64(s, pte_addr, &fail);
 
         if (fail)
             return -2;
@@ -405,9 +405,9 @@ static int get_phys_addr(RISCVCPUState *s,
                 if (need_write) {
                     bool fail;
                     if (pte_size_log2 == 2)
-                        phys_write_u32(s, pte_addr, pte, &fail);
+                        riscv_phys_write_u32(s, pte_addr, pte, &fail);
                     else
-                        phys_write_u64(s, pte_addr, pte, &fail);
+                        riscv_phys_write_u64(s, pte_addr, pte, &fail);
                     if (fail)
                         return -2;
                 }
@@ -2129,19 +2129,6 @@ int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr)
         return i;
 
     //*insn = *(uint32_t *)(mem_addend + addr);
-
-    return 0;
-}
-
-int riscv_read_u64(RISCVCPUState *s, uint64_t *data, uint64_t addr)
-{
-    bool fail;
-    *data = phys_read_u64(s, addr, &fail);
-    fprintf(stderr, "data:0x%" PRIx64 " addr:0x%08" PRIx64 "\n", *data, addr);
-    if (fail) {
-        fprintf(stderr, "Illegal read addr:%"  PRIx64 "\n", addr);
-        return 1;
-    }
 
     return 0;
 }

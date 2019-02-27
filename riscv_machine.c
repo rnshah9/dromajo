@@ -1199,30 +1199,6 @@ int virt_machine_read_insn(VirtMachine *m, uint32_t *pmem_addend, uint64_t addr)
     return riscv_read_insn(s->cpu_state, pmem_addend, addr);
 }
 
-int virt_machine_read_u64(VirtMachine *m, uint64_t *data, uint64_t addr)
-{
-    RISCVMachine *s = (RISCVMachine *)m;
-    return riscv_read_u64(s->cpu_state,data,addr);
-}
-
-uint64_t virt_machine_read_htif_tohost(VirtMachine *m)
-{
-    RISCVMachine *s = (RISCVMachine *)m;
-    return s->htif_tohost;
-}
-
-void virt_machine_write_htif_tohost(VirtMachine *m, uint64_t tohost_value)
-{
-    RISCVMachine *s = (RISCVMachine *)m;
-    s->htif_tohost = tohost_value;
-}
-
-uint64_t virt_machine_read_htif_tohost_addr(VirtMachine *m)
-{
-    RISCVMachine *s = (RISCVMachine *)m;
-    return s->htif_tohost_addr;
-}
-
 void virt_machine_repair_csr(VirtMachine *m, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val)
 {
     RISCVMachine *s = (RISCVMachine *)m;
