@@ -59,11 +59,6 @@
                                s->fp_reg[x] = (val);})
 #define read_fp_reg(x)       (s->fp_reg[x])
 
-static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
-                                      target_ulong addr, int size_log2);
-static no_inline int target_write_slow(RISCVCPUState *s, target_ulong addr,
-                                       mem_uint_t val, int size_log2);
-
 #ifdef USE_GLOBAL_STATE
 static RISCVCPUState riscv_cpu_global_state;
 #endif
@@ -257,7 +252,7 @@ static inline __exception int target_read_u ## size(RISCVCPUState *s, uint_type 
     } else {\
         mem_uint_t val;\
         int ret;\
-        ret = target_read_slow(s, &val, addr, size_log2);\
+        ret = riscv_cpu_read_memory(s, &val, addr, size_log2);\
         if (ret)\
             return ret;\
         *pval = val;\
@@ -280,7 +275,7 @@ static inline __exception int target_write_u ## size(RISCVCPUState *s, target_ul
         TRACK_MEM(addr,size,val);\
         return 0;\
     } else {\
-        int r = target_write_slow(s, addr, val, size_log2);\
+        int r = riscv_cpu_write_memory(s, addr, val, size_log2);\
         if (r) return r; \
         return 0; \
     }\
@@ -430,8 +425,8 @@ static int get_phys_addr(RISCVCPUState *s,
 }
 
 /* return 0 if OK, != 0 if exception */
-static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
-                                      target_ulong addr, int size_log2)
+no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
+                               target_ulong addr, int size_log2)
 {
     int size, tlb_idx, err, al;
     target_ulong paddr, offset;
@@ -518,7 +513,7 @@ static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
         pr = get_phys_mem_range_pmp(s, paddr, 1 << PG_SHIFT, PMPCFG_R);
         if (!pr) {
 #ifdef DUMP_INVALID_MEM_ACCESS
-            fprintf(stderr, "target_read_slow: invalid physical address 0x");
+            fprintf(stderr, "riscv_cpu_read_memory: invalid physical address 0x");
             print_target_ulong(paddr);
             fprintf(stderr, "\n");
 #endif
@@ -581,8 +576,8 @@ static no_inline int target_read_slow(RISCVCPUState *s, mem_uint_t *pval,
 }
 
 /* return 0 if OK, != 0 if exception */
-static no_inline int target_write_slow(RISCVCPUState *s, target_ulong addr,
-                                       mem_uint_t val, int size_log2)
+no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
+                                mem_uint_t val, int size_log2)
 {
     int size, i, tlb_idx, err;
     target_ulong paddr, offset;
@@ -614,7 +609,7 @@ static no_inline int target_write_slow(RISCVCPUState *s, target_ulong addr,
         pr = get_phys_mem_range_pmp(s, paddr, 1 << PG_SHIFT, PMPCFG_W);
         if (!pr) {
 #ifdef DUMP_INVALID_MEM_ACCESS
-            fprintf(stderr, "target_write_slow: invalid physical address 0x");
+            fprintf(stderr, "riscv_cpu_write_memory: invalid physical address 0x");
             print_target_ulong(paddr);
             fprintf(stderr, "\n");
 #endif
@@ -2056,7 +2051,7 @@ int riscv_repair_load(RISCVCPUState *s, uint32_t reg_num, uint64_t reg_val,
         *htif_fromhost = reg_val;
         repair_load = 1;
     } else if (*htif_tohost <= s->last_addr && s->last_addr < *htif_tohost + 32) {
-        target_write_slow(s, s->last_addr, reg_val, 3);
+        riscv_cpu_write_memory(s, s->last_addr, reg_val, 3);
         repair_load = 1;
     }
 
