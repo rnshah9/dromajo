@@ -1384,7 +1384,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     s->pending_exception = CAUSE_USER_ECALL + s->priv;
                     s->pending_tval = 0;
                     /* Intercept IGNORE_SBI_SHUTDOWN, that is, ecall with a7 == SBI_SHUTDOWN */
-                    if (!s->ignore_sbi_shutdown && read_reg(0x17) == SBI_SHUTDOWN)
+                    if (!s->ignore_sbi_shutdown && s->priv == PRV_M && read_reg(0x17) == SBI_SHUTDOWN)
                         s->terminate_simulation = 1;
                     goto exception;
                 case 0x001: /* ebreak */
