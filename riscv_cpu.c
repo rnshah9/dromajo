@@ -98,10 +98,10 @@ static void print_target_ulong(target_ulong a)
 }
 
 static char *reg_name[32] = {
-"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
-"s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
-"a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7",
-"s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"
+    "zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
+    "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
+    "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7",
+    "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"
 };
 
 static target_ulong get_mstatus(RISCVCPUState *s, target_ulong mask);
@@ -143,12 +143,12 @@ uint64_t checker_last_addr = 0;
 uint64_t checker_last_data = 0;
 int      checker_last_size = 0;
 
-#define TRACK_MEM(vaddr,size,val)  \
-do {  \
-    checker_last_addr = vaddr; \
-    checker_last_size = size; \
-    checker_last_data = val; \
-} while (0)
+#define TRACK_MEM(vaddr, size, val)             \
+    do {                                        \
+        checker_last_addr = vaddr;              \
+        checker_last_size = size;               \
+        checker_last_data = val;                \
+    } while (0)
 
 /* "PMP checks are applied to all accesses when the hart is running in
  * S or U modes, and for loads and stores when the MPRV bit is set in
@@ -202,7 +202,7 @@ get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t p
 }
 
 /* addr must be aligned. Only RAM accesses are supported */
-#define PHYS_MEM_READ_WRITE(size, uint_type) \
+#define PHYS_MEM_READ_WRITE(size, uint_type)                            \
     void riscv_phys_write_u ## size(RISCVCPUState *s, target_ulong paddr, \
                                     uint_type val, bool *fail)          \
     {                                                                   \
@@ -224,8 +224,8 @@ get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t p
             *fail = true;                                               \
             return 0;                                                   \
         }                                                               \
-        uint_type pval =  *(uint_type *)(pr->phys_mem +                 \
-                                         (uintptr_t)(paddr - pr->addr)); \
+        uint_type pval = *(uint_type *)(pr->phys_mem +                  \
+                                        (uintptr_t)(paddr - pr->addr)); \
         TRACK_MEM(paddr, size, pval);                                   \
         *fail = false;                                                  \
         return pval;                                                    \
@@ -237,49 +237,46 @@ PHYS_MEM_READ_WRITE(64, uint64_t)
 
 /* return 0 if OK, != 0 if exception */
 #define TARGET_READ_WRITE(size, uint_type, size_log2)                   \
-static inline __exception int target_read_u ## size(RISCVCPUState *s, uint_type *pval, target_ulong addr)                              \
-{\
-    uint32_t tlb_idx;\
-    if (!CONFIG_ALLOW_MISALIGNED_ACCESS && (addr & (size/8 - 1)) != 0) { \
-        s->pending_tval = addr;                                         \
-        s->pending_exception = CAUSE_MISALIGNED_LOAD;                   \
-        return -1;                                                      \
+    static inline __exception int target_read_u ## size(RISCVCPUState *s, uint_type *pval, target_ulong addr) \
+    {                                                                   \
+        uint32_t tlb_idx;                                               \
+        if (!CONFIG_ALLOW_MISALIGNED_ACCESS && (addr & (size/8 - 1)) != 0) { \
+            s->pending_tval = addr;                                     \
+            s->pending_exception = CAUSE_MISALIGNED_LOAD;               \
+            return -1;                                                  \
+        }                                                               \
+        tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);                  \
+        if (likely(s->tlb_read[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
+            *pval = *(uint_type *)(s->tlb_read[tlb_idx].mem_addend + (uintptr_t)addr); \
+            TRACK_MEM(addr, size, 0);                                   \
+            return 0;                                                   \
+        }                                                               \
+                                                                        \
+        mem_uint_t val;                                                 \
+        int ret = riscv_cpu_read_memory(s, &val, addr, size_log2);      \
+        if (ret)                                                        \
+            return ret;                                                 \
+        *pval = val;                                                    \
+        return 0;                                                       \
     }                                                                   \
-    tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);\
-    if (likely(s->tlb_read[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
-        *pval = *(uint_type *)(s->tlb_read[tlb_idx].mem_addend + (uintptr_t)addr);\
-        TRACK_MEM(addr,size,0);\
-    } else {\
-        mem_uint_t val;\
-        int ret;\
-        ret = riscv_cpu_read_memory(s, &val, addr, size_log2);\
-        if (ret)\
-            return ret;\
-        *pval = val;\
-    }\
-    return 0;\
-}\
-\
-static inline __exception int target_write_u ## size(RISCVCPUState *s, target_ulong addr,\
-                                          uint_type val)                \
-{\
-    uint32_t tlb_idx;\
-    if (!CONFIG_ALLOW_MISALIGNED_ACCESS && (addr & (size/8 - 1)) != 0) { \
-        s->pending_tval = addr;                                         \
-        s->pending_exception = CAUSE_MISALIGNED_STORE;                  \
-        return -1;                                                      \
-    }                                                                   \
-    tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);\
-    if (likely(s->tlb_write[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
-        *(uint_type *)(s->tlb_write[tlb_idx].mem_addend + (uintptr_t)addr) = val;\
-        TRACK_MEM(addr,size,val);\
-        return 0;\
-    } else {\
-        int r = riscv_cpu_write_memory(s, addr, val, size_log2);\
-        if (r) return r; \
-        return 0; \
-    }\
-}
+                                                                        \
+    static inline __exception int target_write_u ## size(RISCVCPUState *s, target_ulong addr, uint_type val) \
+    {                                                                   \
+        uint32_t tlb_idx;                                               \
+        if (!CONFIG_ALLOW_MISALIGNED_ACCESS && (addr & (size/8 - 1)) != 0) { \
+            s->pending_tval = addr;                                     \
+            s->pending_exception = CAUSE_MISALIGNED_STORE;              \
+            return -1;                                                  \
+        }                                                               \
+        tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);                  \
+        if (likely(s->tlb_write[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
+            *(uint_type *)(s->tlb_write[tlb_idx].mem_addend + (uintptr_t)addr) = val; \
+            TRACK_MEM(addr, size, val);                                 \
+            return 0;                                                   \
+        }                                                               \
+                                                                        \
+        return riscv_cpu_write_memory(s, addr, val, size_log2);         \
+    }
 
 TARGET_READ_WRITE(8, uint8_t, 0)
 TARGET_READ_WRITE(16, uint16_t, 1)
@@ -357,11 +354,13 @@ static int get_phys_addr(RISCVCPUState *s,
 
         if (!(pte & PTE_V_MASK))
             return -1; /* invalid PTE */
+
         paddr = (pte >> 10) << PG_SHIFT;
         xwr = (pte >> 1) & 7;
         if (xwr != 0) {
             if (xwr == 2 || xwr == 6)
                 return -1;
+
             /* priviledge check */
             if (priv == PRV_S) {
                 if ((pte & PTE_U_MASK) && !(s->mstatus & MSTATUS_SUM))
@@ -388,7 +387,7 @@ static int get_phys_addr(RISCVCPUState *s,
               RISC-V Priv. Spec 1.11 (draft) Section 4.3.1 offers two
               ways to handle the A and D TLB flags.  Spike uses the
               software managed approach whereas RISCVEMU used to manage
-              them (causing far fewer exceptios).
+              them (causing far fewer exceptions).
             */
             if (CONFIG_SW_MANAGED_A_AND_D) {
                 if (!(pte & PTE_A_MASK))
@@ -417,16 +416,17 @@ static int get_phys_addr(RISCVCPUState *s,
             // XXX Should we mask off bits based on physical_addr_len?
             *ppaddr = paddr & ~vaddr_mask | vaddr & vaddr_mask;
             return 0;
-        } else {
-            pte_addr = paddr;
         }
+
+        pte_addr = paddr;
     }
+
     return -1;
 }
 
 /* return 0 if OK, != 0 if exception */
 no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
-                               target_ulong addr, int size_log2)
+                                    target_ulong addr, int size_log2)
 {
     int size, tlb_idx, err, al;
     target_ulong paddr, offset;
@@ -441,7 +441,9 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
         s->pending_tval = addr;
         s->pending_exception = CAUSE_MISALIGNED_LOAD;
         return -1;
-    } else if (al != 0) {
+    }
+
+    if (al != 0) {
         switch (size_log2) {
         case 1:
             {
@@ -520,7 +522,9 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
             s->pending_tval = addr;
             s->pending_exception = CAUSE_FAULT_LOAD;
             return -1;
-        } else if (pr->is_ram) {
+        }
+
+        if (pr->is_ram) {
             tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
             ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
             s->tlb_read[tlb_idx].vaddr = addr & ~PG_MASK;
@@ -571,7 +575,7 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
         }
     }
     *pval = ret;
-    TRACK_MEM(addr,size,*pval);
+    TRACK_MEM(addr, size, *pval);
     return 0;
 }
 
@@ -668,7 +672,7 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
             }
         }
     }
-    TRACK_MEM(addr,size,val);
+    TRACK_MEM(addr, size, val);
     return 0;
 }
 
@@ -746,7 +750,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
         assert(0);
     }
 
-    TRACK_MEM(addr,32,*(insn));
+    TRACK_MEM(addr, 32, *insn);
 
     return 0;
 }
@@ -755,29 +759,26 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
 static inline __exception int target_read_insn_u16(RISCVCPUState *s, uint16_t *pinsn,
                                                    target_ulong addr)
 {
-    uint32_t tlb_idx;
     uintptr_t mem_addend;
+    uint32_t tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
 
-    tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
     if (likely(s->tlb_code[tlb_idx].vaddr == (addr & ~PG_MASK))) {
         mem_addend = s->tlb_code[tlb_idx].mem_addend;
-        TRACK_MEM(addr,16,*(uint16_t *)(mem_addend + (uintptr_t)addr));
+        TRACK_MEM(addr, 16, *(uint16_t *)(mem_addend + (uintptr_t)addr));
         *pinsn = *(uint16_t *)(mem_addend + (uintptr_t)addr);
         return 0;
-    } else {
-        uint32_t pinsn_temp;
-        if (target_read_insn_slow(s, &pinsn_temp, 16, addr))
-            return -1;
-        *pinsn = (pinsn_temp & 0xffff);
     }
+
+    uint32_t pinsn_temp;
+    if (target_read_insn_slow(s, &pinsn_temp, 16, addr))
+        return -1;
+    *pinsn = pinsn_temp;
     return 0;
 }
 
 static void tlb_init(RISCVCPUState *s)
 {
-    int i;
-
-    for (i = 0; i < TLB_SIZE; i++) {
+    for (int i = 0; i < TLB_SIZE; i++) {
         s->tlb_read[i].vaddr = -1;
         s->tlb_write[i].vaddr = -1;
         s->tlb_code[i].vaddr = -1;
