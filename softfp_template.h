@@ -10,7 +10,7 @@
 
 /*
  * SoftFP Library
- * 
+ *
  * Copyright (c) 2016 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -88,7 +88,7 @@ const F_UINT F_QNAN = (((F_UINT)EXP_MASK << MANT_SIZE) | ((F_UINT)1 << (MANT_SIZ
 static inline F_UINT pack_sf(uint32_t a_sign, uint32_t a_exp, F_UINT a_mant)
 {
     return ((F_UINT)a_sign << (F_SIZE - 1)) |
-        ((F_UINT)a_exp << MANT_SIZE) | 
+        ((F_UINT)a_exp << MANT_SIZE) |
         (a_mant & MANT_MASK);
 }
 
@@ -98,7 +98,7 @@ static inline F_UINT unpack_sf(uint32_t *pa_sign, int32_t *pa_exp,
     *pa_sign = a >> (F_SIZE - 1);
     *pa_exp = (a >> MANT_SIZE) & EXP_MASK;
     return a & MANT_MASK;
-} 
+}
 
 static F_UINT rshift_rnd(F_UINT a, int d)
 {
@@ -121,7 +121,7 @@ static F_UINT round_pack_sf(uint32_t a_sign, int a_exp, F_UINT a_mant,
     int diff;
     uint32_t addend, rnd_bits;
 
-    switch(rm) {
+    switch (rm) {
     case RM_RNE:
     case RM_RMM:
         addend = (1 << (RND_SIZE - 1));
@@ -145,7 +145,7 @@ static F_UINT round_pack_sf(uint32_t a_sign, int a_exp, F_UINT a_mant,
         BOOL is_subnormal;
         /* Note: we set the underflow flag if the rounded result
            is subnormal and inexact */
-        is_subnormal = (a_exp < 0 || 
+        is_subnormal = (a_exp < 0 ||
                         (a_mant + addend) < ((F_UINT)1 << (F_SIZE - 1)));
         diff = 1 - a_exp;
         a_mant = rshift_rnd(a_mant, diff);
@@ -340,7 +340,7 @@ static F_UINT mul_u(F_UINT *plow, F_UINT a, F_UINT b)
     r01 = (F_UINT)a0 * (F_UINT)b1;
     r10 = (F_UINT)a1 * (F_UINT)b0;
     r11 = (F_UINT)a1 * (F_UINT)b1;
-    
+
     r0 = r00;
     c = (r00 >> FH_SIZE) + (F_UHALF)r01 + (F_UHALF)r10;
     r1 = c;
@@ -402,7 +402,7 @@ F_UINT mul_sf(F_UINT a, F_UINT b, RoundingModeEnum rm,
         b_mant |= (F_UINT)1 << MANT_SIZE;
     }
     r_exp = a_exp + b_exp - (1 << (EXP_SIZE - 1)) + 2;
-    
+
     r_mant = mul_u(&r_mant_low,a_mant << RND_SIZE, b_mant << (RND_SIZE + 1));
     r_mant |= (r_mant_low != 0);
     return normalize_sf(r_sign, r_exp, r_mant, rm, pfflags);
@@ -471,7 +471,7 @@ F_UINT fma_sf(F_UINT a, F_UINT b, F_UINT c, RoundingModeEnum rm,
     }
     /* multiply */
     r_exp = a_exp + b_exp - (1 << (EXP_SIZE - 1)) + 3;
-    
+
     r_mant1 = mul_u(&r_mant0, a_mant << RND_SIZE, b_mant << RND_SIZE);
     /* normalize to F_SIZE - 3 */
     if (r_mant1 < ((F_UINT)1 << (F_SIZE - 3))) {
@@ -579,7 +579,7 @@ static F_UINT divrem_u(F_UINT *pr, F_UINT a1, F_UINT a0, F_UINT b)
     int i, qb, ab;
 
     assert(a1 < b);
-    for(i = 0; i < F_SIZE; i++) {
+    for (i = 0; i < F_SIZE; i++) {
         ab = a1 >> (F_SIZE - 1);
         a1 = (a1 << 1) | (a0 >> (F_SIZE - 1));
         if (ab || a1 >= b) {
@@ -634,7 +634,7 @@ F_UINT div_sf(F_UINT a, F_UINT b, RoundingModeEnum rm,
     }
 
     if (b_exp == 0) {
-        if (b_mant == 0) { 
+        if (b_mant == 0) {
             /* zero */
             if (a_exp == 0 && a_mant == 0) {
                 *pfflags |= FFLAG_INVALID_OP;
@@ -683,7 +683,7 @@ static int sqrtrem_u(F_UINT *pr, F_UINT ah, F_UINT al)
     }
     a = ((F_ULONG)ah << F_SIZE) | al;
     u = (F_ULONG)1 << ((l + 1) / 2);
-    for(;;) {
+    for (;;) {
         s = u;
         u = ((a / s) + s) / 2;
         if (u >= s)
@@ -712,7 +712,7 @@ static int sqrtrem_u(F_UINT *pr, F_UINT a1, F_UINT a0)
         l = F_SIZE - clz(a0 - 1);
     }
     u = (F_UINT)1 << ((l + 1) / 2);
-    for(;;) {
+    for (;;) {
         s = u;
         q = divrem_u(&r, a1, a0, s);
         u = (q + s) / 2;
@@ -828,7 +828,7 @@ F_UINT glue(max_sf, F_SIZE)(F_UINT a, F_UINT b, uint32_t *pfflags)
              */
         }
         if (isnan_sf(a)) {
-            if (isnan_sf(b)) 
+            if (isnan_sf(b))
                 return F_QNAN;
             else
                 return b;

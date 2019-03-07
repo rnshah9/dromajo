@@ -238,7 +238,7 @@ static int bf_read_async(BlockDevice *bs,
         return -1;
     if (bf->mode == BF_MODE_SNAPSHOT) {
         int i;
-        for(i = 0; i < n; i++) {
+        for (i = 0; i < n; i++) {
             if (!bf->sector_table[sector_num]) {
                 fseek(bf->f, sector_num * SECTOR_SIZE, SEEK_SET);
                 size_t got = fread(buf, 1, SECTOR_SIZE, bf->f);
@@ -265,7 +265,7 @@ static int bf_write_async(BlockDevice *bs,
     BlockDeviceFile *bf = bs->opaque;
     int ret;
 
-    switch(bf->mode) {
+    switch (bf->mode) {
     case BF_MODE_RO:
         ret = -1; /* error */
         break;
@@ -279,7 +279,7 @@ static int bf_write_async(BlockDevice *bs,
             int i;
             if ((sector_num + n) > bf->nb_sectors)
                 return -1;
-            for(i = 0; i < n; i++) {
+            for (i = 0; i < n; i++) {
                 if (!bf->sector_table[sector_num]) {
                     bf->sector_table[sector_num] = malloc(SECTOR_SIZE);
                 }

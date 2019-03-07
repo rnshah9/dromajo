@@ -290,7 +290,7 @@ static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
     uint32_t val, mask;
     int i;
     assert(size_log2 == 2);
-    switch(offset) {
+    switch (offset) {
     case PLIC_HART_BASE:
         val = 0;
         break;
@@ -322,7 +322,7 @@ static void plic_write(void *opaque, uint32_t offset, uint32_t val,
     RISCVMachine *s = opaque;
 
     assert(size_log2 == 2);
-    switch(offset) {
+    switch (offset) {
     case PLIC_HART_BASE + 4:
         val--;
         if (val < 32) {
@@ -494,7 +494,7 @@ static void fdt_prop_tab_u32(FDTState *s, const char *prop_name,
     fdt_put32(s, FDT_PROP);
     fdt_put32(s, tab_len * sizeof(uint32_t));
     fdt_put32(s, fdt_get_string_offset(s, prop_name));
-    for(i = 0; i < tab_len; i++)
+    for (i = 0; i < tab_len; i++)
         fdt_put32(s, tab[i]);
 }
 
@@ -530,7 +530,7 @@ static void fdt_prop_tab_str(FDTState *s, const char *prop_name,
 
     va_start(ap, prop_name);
     size = 0;
-    for(;;) {
+    for (;;) {
         ptr = va_arg(ap, char *);
         if (!ptr)
             break;
@@ -542,7 +542,7 @@ static void fdt_prop_tab_str(FDTState *s, const char *prop_name,
     tab = malloc(size);
     va_start(ap, prop_name);
     size = 0;
-    for(;;) {
+    for (;;) {
         ptr = va_arg(ap, char *);
         if (!ptr)
             break;
@@ -722,7 +722,7 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
 
     fdt_end_node(s); /* plic */
 
-    for(i = 0; i < m->virtio_count; i++) {
+    for (i = 0; i < m->virtio_count; i++) {
         fdt_begin_node_num(s, "virtio", VIRTIO_BASE_ADDR + i * VIRTIO_SIZE);
         fdt_prop_str(s, "compatible", "virtio,mmio");
         fdt_prop_tab_u64_2(s, "reg", VIRTIO_BASE_ADDR + i * VIRTIO_SIZE,
@@ -894,7 +894,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
                         clint_read, clint_write, DEVIO_SIZE32);
     cpu_register_device(s->mem_map, PLIC_BASE_ADDR, PLIC_SIZE, s,
                         plic_read, plic_write, DEVIO_SIZE32);
-    for(i = 1; i < 32; i++) {
+    for (i = 1; i < 32; i++) {
         irq_init(&s->plic_irq[i], plic_set_irq, s, i);
     }
     s->htif_tohost_addr = p->htif_base_addr;
@@ -916,7 +916,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     }
 
     /* virtio net device */
-    for(i = 0; i < p->eth_count; i++) {
+    for (i = 0; i < p->eth_count; i++) {
         vbus->irq = &s->plic_irq[irq_num];
         virtio_net_init(vbus, p->tab_eth[i].net);
         s->common.net = p->tab_eth[i].net;
@@ -926,7 +926,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     }
 
     /* virtio block device */
-    for(i = 0; i < p->drive_count; i++) {
+    for (i = 0; i < p->drive_count; i++) {
         vbus->irq = &s->plic_irq[irq_num];
         blk_dev = virtio_block_init(vbus, p->tab_drive[i].block_dev);
         (void)blk_dev;

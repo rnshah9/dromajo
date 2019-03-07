@@ -10,7 +10,7 @@
 
 /*
  * SoftFP Library
- * 
+ *
  * Copyright (c) 2016 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -83,7 +83,7 @@ static ICVT_INT glue(glue(glue(internal_cvt_sf, F_SIZE), _i), ICVT_SIZE)(F_UINT 
     } else {
         a_mant = rshift_rnd(a_mant, -a_exp);
 
-        switch(rm) {
+        switch (rm) {
         case RM_RNE:
         case RM_RMM:
             addend = (1 << (RND_SIZE - 1));
@@ -100,7 +100,7 @@ static ICVT_INT glue(glue(glue(internal_cvt_sf, F_SIZE), _i), ICVT_SIZE)(F_UINT 
                 addend = 0;
             break;
         }
-        
+
         rnd_bits = a_mant & ((1 << RND_SIZE ) - 1);
         a_mant = (a_mant + addend) >> RND_SIZE;
         /* half way: select even result */
@@ -120,19 +120,19 @@ static ICVT_INT glue(glue(glue(internal_cvt_sf, F_SIZE), _i), ICVT_SIZE)(F_UINT 
 ICVT_INT glue(glue(glue(cvt_sf, F_SIZE), _i), ICVT_SIZE)(F_UINT a, RoundingModeEnum rm,
                                                           uint32_t *pfflags)
 {
-    return glue(glue(glue(internal_cvt_sf, F_SIZE), _i), ICVT_SIZE)(a, rm, 
+    return glue(glue(glue(internal_cvt_sf, F_SIZE), _i), ICVT_SIZE)(a, rm,
                                                                     pfflags, FALSE);
 }
 
 ICVT_UINT glue(glue(glue(cvt_sf, F_SIZE), _u), ICVT_SIZE)(F_UINT a, RoundingModeEnum rm,
                                                           uint32_t *pfflags)
 {
-    return glue(glue(glue(internal_cvt_sf, F_SIZE), _i), ICVT_SIZE) (a, rm, 
+    return glue(glue(glue(internal_cvt_sf, F_SIZE), _i), ICVT_SIZE) (a, rm,
                                                                      pfflags, TRUE);
 }
 
 /* conversions between float and integers */
-static F_UINT glue(glue(glue(internal_cvt_i, ICVT_SIZE), _sf), F_SIZE)(ICVT_INT a, 
+static F_UINT glue(glue(glue(internal_cvt_i, ICVT_SIZE), _sf), F_SIZE)(ICVT_INT a,
                                                                        RoundingModeEnum rm,
                                                                        uint32_t *pfflags,
                                                                        BOOL is_unsigned)
@@ -162,14 +162,14 @@ static F_UINT glue(glue(glue(internal_cvt_i, ICVT_SIZE), _sf), F_SIZE)(ICVT_INT 
     return normalize_sf(a_sign, a_exp, a_mant, rm, pfflags);
 }
 
-F_UINT glue(glue(glue(cvt_i, ICVT_SIZE), _sf), F_SIZE)(ICVT_INT a, 
+F_UINT glue(glue(glue(cvt_i, ICVT_SIZE), _sf), F_SIZE)(ICVT_INT a,
                                                        RoundingModeEnum rm,
                                                        uint32_t *pfflags)
 {
     return glue(glue(glue(internal_cvt_i, ICVT_SIZE), _sf), F_SIZE)(a, rm, pfflags, FALSE);
 }
 
-F_UINT glue(glue(glue(cvt_u, ICVT_SIZE), _sf), F_SIZE)(ICVT_UINT a, 
+F_UINT glue(glue(glue(cvt_u, ICVT_SIZE), _sf), F_SIZE)(ICVT_UINT a,
                                                        RoundingModeEnum rm,
                                                        uint32_t *pfflags)
 {

@@ -148,7 +148,7 @@ do {  \
     checker_last_addr = vaddr; \
     checker_last_size = size; \
     checker_last_data = val; \
-} while(0)
+} while (0)
 
 /* "PMP checks are applied to all accesses when the hart is running in
  * S or U modes, and for loads and stores when the MPRV bit is set in
@@ -525,7 +525,7 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
             ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
             s->tlb_read[tlb_idx].vaddr = addr & ~PG_MASK;
             s->tlb_read[tlb_idx].mem_addend = (uintptr_t)ptr - addr;
-            switch(size_log2) {
+            switch (size_log2) {
             case 0:
                 ret = *(uint8_t *)ptr;
                 break;
@@ -622,7 +622,7 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
             ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
             s->tlb_write[tlb_idx].vaddr = addr & ~PG_MASK;
             s->tlb_write[tlb_idx].mem_addend = (uintptr_t)ptr - addr;
-            switch(size_log2) {
+            switch (size_log2) {
             case 0:
                 *(uint8_t *)ptr = val;
                 break;
@@ -1841,7 +1841,7 @@ static inline uint32_t get_pending_irq_mask(RISCVCPUState *s)
         return 0;
 
     enabled_ints = 0;
-    switch(s->priv) {
+    switch (s->priv) {
     case PRV_M:
         if (s->mstatus & MSTATUS_MIE)
             enabled_ints = ~s->mideleg;
@@ -2062,17 +2062,19 @@ void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint
 /* Sync up the shadow register state if there are no errors */
 void riscv_cpu_sync_regs(RISCVCPUState *s)
 {
-  for (int i = 1; i < 32; ++i) {
-     s->reg_prior[i] = s->reg[i];
-   }
+    for (int i = 1; i < 32; ++i) {
+        s->reg_prior[i] = s->reg[i];
+    }
 }
 
-uint64_t riscv_cpu_get_mstatus(RISCVCPUState* s){
-  return get_mstatus(s, MSTATUS_MASK);
+uint64_t riscv_cpu_get_mstatus(RISCVCPUState* s)
+{
+    return get_mstatus(s, MSTATUS_MASK);
 }
 
-uint64_t riscv_cpu_get_medeleg(RISCVCPUState* s){
-  return s->medeleg;
+uint64_t riscv_cpu_get_medeleg(RISCVCPUState* s)
+{
+    return s->medeleg;
 }
 
 uint64_t riscv_get_fpreg(RISCVCPUState *s, int rn)
@@ -2239,8 +2241,8 @@ static uint32_t create_fld(int rd, int rs1)
 
 static void create_csr12_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t csrn, uint16_t val)
 {
-  rom[(*code_pos)++] = create_seti(1,  val & 0xFFF);
-  rom[(*code_pos)++] = create_csrrw(1,  csrn);
+    rom[(*code_pos)++] = create_seti(1,  val & 0xFFF);
+    rom[(*code_pos)++] = create_csrrw(1,  csrn);
 }
 
 static void create_csr64_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t *data_pos, uint32_t csrn, uint64_t val)
@@ -2311,19 +2313,12 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     // dcsr.stopcount = 1
     // dcsr.stoptime  = 1
     // dcsr = 0x600 | (PrivLevel & 0x3)
-    int prv = 0;
-    if (s->priv == PRV_U)
-        prv = 0;
-    else if (s->priv == PRV_S)
-        prv = 1;
-    else if (s->priv == PRV_M)
-        prv = 3;
-    else {
+    if (s->priv == 2) {
         fprintf(stderr, "UNSUPORTED Priv mode (no hyper)\n");
         exit(-4);
     }
 
-    create_csr12_recovery(rom, &code_pos, 0x7b0, 0x600|prv);
+    create_csr12_recovery(rom, &code_pos, 0x7b0, 0x600 | s->priv);
 
     // NOTE: mstatus & misa should be one of the first because risvemu breaks down this
     // register for performance reasons. E.g: restoring the fflags also changes
@@ -2333,31 +2328,30 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
 
     // All the remaining CSRs
     if (s->fs) { // If the FPU is down, you can not recover flags
-      create_csr12_recovery(rom, &code_pos, 0x001, s->fflags);
-      // Only if fflags, otherwise it would raise an illegal instruction
-      create_csr12_recovery(rom, &code_pos, 0x002, s->frm);
-      create_csr12_recovery(rom, &code_pos, 0x003, s->fflags | (s->frm<<5));
+        create_csr12_recovery(rom, &code_pos, 0x001, s->fflags);
+        // Only if fflags, otherwise it would raise an illegal instruction
+        create_csr12_recovery(rom, &code_pos, 0x002, s->frm);
+        create_csr12_recovery(rom, &code_pos, 0x003, s->fflags | (s->frm<<5));
 
-      // do the FP registers, iff fs is set
-      for (int i = 0; i < 32; i++) {
-        uint32_t data_off = sizeof(uint32_t) * (data_pos - code_pos);
-        rom[code_pos++] = create_auipc(1, data_off);
-        rom[code_pos++] = create_addi(1, data_off);
-        rom[code_pos++] = create_fld(i, 1);
+        // do the FP registers, iff fs is set
+        for (int i = 0; i < 32; i++) {
+            uint32_t data_off = sizeof(uint32_t) * (data_pos - code_pos);
+            rom[code_pos++] = create_auipc(1, data_off);
+            rom[code_pos++] = create_addi(1, data_off);
+            rom[code_pos++] = create_fld(i, 1);
 
-        rom[data_pos++] = (uint32_t)s->fp_reg[i];
-        rom[data_pos++] = (uint64_t)s->reg[i] >> 32;
-      }
+            rom[data_pos++] = (uint32_t)s->fp_reg[i];
+            rom[data_pos++] = (uint64_t)s->reg[i] >> 32;
+        }
     }
 
-
-  // Recover CPU CSRs
+    // Recover CPU CSRs
 
     // Cycle and instruction are alias across modes. Just write to m-mode counter
     // Already done before CLINT. create_csr64_recovery(rom, &code_pos, &data_pos, 0xb00, s->insn_counter); // mcycle
     //create_csr64_recovery(rom, &code_pos, &data_pos, 0xb02, s->insn_counter); // instret
 
-    for(int i = 3; i < 32 ; i++ ) {
+    for (int i = 3; i < 32 ; ++i) {
       create_csr12_recovery(rom, &code_pos, 0xb00 + i, 0); // reset mhpmcounter3..31
       create_csr64_recovery(rom, &code_pos, &data_pos, 0x320 + i, s->mhpmevent[i]); // mhpmevent3..31
     }

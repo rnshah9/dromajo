@@ -111,7 +111,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 s->fs = 3;
                 break;
             case (0x04 << 2) | OPID:
-                switch(rm) {
+                switch (rm) {
                 case 0: /* fsgnj */
                     write_fp_reg(rd,
                                  (unbox(read_fp_reg(rs1)) & ~FSIGN_MASK) |
@@ -133,7 +133,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 s->fs = 3;
                 break;
             case (0x05 << 2) | OPID:
-                switch(rm) {
+                switch (rm) {
                 case 0: /* fmin */
                     write_fp_reg(rd, glue(min_sf, F_SIZE)(unbox(read_fp_reg(rs1)),
                                                           unbox(read_fp_reg(rs2)),
@@ -153,7 +153,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 rm = get_insn_rm(s, rm);
                 if (rm < 0)
                     goto illegal_insn;
-                switch(rs2) {
+                switch (rs2) {
                 case 0: /* fcvt.w.[sdq] */
                     val = (int32_t)glue(glue(cvt_sf, F_SIZE), _i32)(unbox(read_fp_reg(rs1)), rm,
                                                                     &s->fflags);
@@ -178,7 +178,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     write_reg(rd, val);
                 break;
             case (0x14 << 2) | OPID:
-                switch(rm) {
+                switch (rm) {
                 case 0: /* fle */
                     val = glue(le_sf, F_SIZE)(unbox(read_fp_reg(rs1)),
                                               unbox(read_fp_reg(rs2)),
@@ -204,7 +204,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 rm = get_insn_rm(s, rm);
                 if (rm < 0)
                     goto illegal_insn;
-                switch(rs2) {
+                switch (rs2) {
                 case 0: /* fcvt.[sdq].w */
                     write_fp_reg(rd, glue(cvt_i32_sf, F_SIZE)(read_reg(rs1), rm,
                                                               &s->fflags) | F_HIGH);
@@ -243,7 +243,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 rm = get_insn_rm(s, rm);
                 if (rm < 0)
                     goto illegal_insn;
-                switch(rs2) {
+                switch (rs2) {
 #if F_SIZE == 32 && FLEN >= 64
                 case 1: /* cvt.s.d */
                     write_fp_reg(rd, cvt_sf64_sf32(read_fp_reg(rs1), rm, &s->fflags) | F32_HIGH);
@@ -289,7 +289,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
             case (0x1c << 2) | OPID:
                 if (rs2 != 0)
                     goto illegal_insn;
-                switch(rm) {
+                switch (rm) {
 #if F_SIZE <= XLEN
                 case 0: /* fmv.x.w */
 #if F_SIZE == 32

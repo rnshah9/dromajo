@@ -10,7 +10,7 @@
 
 /*
  * IO memory handling
- * 
+ *
  * Copyright (c) 2016-2017 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -64,7 +64,7 @@ void phys_mem_map_end(PhysMemoryMap *s)
     int i;
     PhysMemoryRange *pr;
 
-    for(i = 0; i < s->n_phys_mem_range; i++) {
+    for (i = 0; i < s->n_phys_mem_range; i++) {
         pr = &s->phys_mem_range[i];
         if (pr->is_ram) {
             s->free_ram(s, pr);
@@ -128,7 +128,7 @@ static PhysMemoryRange *default_register_ram(PhysMemoryMap *s, uint64_t addr,
         nb_pages = size >> DEVRAM_PAGE_SIZE_LOG2;
         pr->dirty_bits_size = ((nb_pages + 31) / 32) * sizeof(uint32_t);
         pr->dirty_bits_index = 0;
-        for(i = 0; i < 2; i++) {
+        for (i = 0; i < 2; i++) {
             pr->dirty_bits_tab[i] = mallocz(pr->dirty_bits_size);
         }
         pr->dirty_bits = pr->dirty_bits_tab[pr->dirty_bits_index];
@@ -143,12 +143,12 @@ static const uint32_t *default_get_dirty_bits(PhysMemoryMap *map,
     uint32_t *dirty_bits;
     BOOL has_dirty_bits;
     size_t n, i;
-    
+
     dirty_bits = pr->dirty_bits;
 
     has_dirty_bits = FALSE;
     n = pr->dirty_bits_size / sizeof(uint32_t);
-    for(i = 0; i < n; i++) {
+    for (i = 0; i < n; i++) {
         if (dirty_bits[i] != 0) {
             has_dirty_bits = TRUE;
             break;
@@ -158,7 +158,7 @@ static const uint32_t *default_get_dirty_bits(PhysMemoryMap *map,
         /* invalidate the corresponding CPU write TLBs */
         map->flush_tlb_write_range(map->opaque, pr->phys_mem, pr->org_size);
     }
-    
+
     pr->dirty_bits_index ^= 1;
     pr->dirty_bits = pr->dirty_bits_tab[pr->dirty_bits_index];
     memset(pr->dirty_bits, 0, pr->dirty_bits_size);

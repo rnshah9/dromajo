@@ -10,7 +10,7 @@
 
 /*
  * Filesystem utilities
- * 
+ *
  * Copyright (c) 2016 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -60,9 +60,9 @@ FSFile *fs_walk_path1(FSDevice *fs, FSFile *f, const char *path,
 
     if (path[0] == '/')
         path++;
-    
+
     is_first = TRUE;
-    for(;;) {
+    for (;;) {
         p = strchr(path, '/');
         if (!p) {
             name = (char *)path;

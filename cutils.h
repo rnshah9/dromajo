@@ -10,7 +10,7 @@
 
 /*
  * C utilities
- * 
+ *
  * Copyright (c) 2016 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -176,7 +176,7 @@ static inline int ctz32(uint32_t a)
     int i;
     if (a == 0)
         return 32;
-    for(i = 0; i < 32; i++) {
+    for (i = 0; i < 32; i++) {
         if ((a >> i) & 1)
             return i;
     }

@@ -343,11 +343,11 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
         rd = (insn >> 7) & 0x1f;
         rs1 = (insn >> 15) & 0x1f;
         rs2 = (insn >> 20) & 0x1f;
-        switch(opcode) {
+        switch (opcode) {
         C_QUADRANT(0)
             funct3 = (insn >> 13) & 7;
             rd = ((insn >> 2) & 7) | 8;
-            switch(funct3) {
+            switch (funct3) {
             case 0: /* c.addi4spn */
                 imm = get_field1(insn, 11, 4, 5) |
                     get_field1(insn, 7, 6, 9) |
@@ -496,7 +496,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             C_NEXT_INSN;
         C_QUADRANT(1)
             funct3 = (insn >> 13) & 7;
-            switch(funct3) {
+            switch (funct3) {
             case 0: /* c.addi/c.nop */
                 if (rd != 0) {
                     imm = sext(get_field1(insn, 12, 5, 5) |
@@ -556,7 +556,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             case 4:
                 funct3 = (insn >> 10) & 3;
                 rd = ((insn >> 7) & 7) | 8;
-                switch(funct3) {
+                switch (funct3) {
                 case 0: /* c.srli */
                 case 1: /* c.srai */
                     imm = get_field1(insn, 12, 5, 5) |
@@ -584,7 +584,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 case 3:
                     rs2 = ((insn >> 2) & 7) | 8;
                     funct3 = ((insn >> 5) & 3) | ((insn >> (12 - 2)) & 4);
-                    switch(funct3) {
+                    switch (funct3) {
                     case 0: /* c.sub */
                         write_reg(rd, (intx_t)(read_reg(rd) - read_reg(rs2)));
                         break;
@@ -653,7 +653,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
         C_QUADRANT(2)
             funct3 = (insn >> 13) & 7;
             rs2 = (insn >> 2) & 0x1f;
-            switch(funct3) {
+            switch (funct3) {
             case 0: /* c.slli */
                 imm = get_field1(insn, 12, 5, 5) | rs2;
 #if XLEN == 32
@@ -876,7 +876,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             JUMP_INSN(ctf_compute_hint(rd, rs1));
         case 0x63:
             funct3 = (insn >> 12) & 7;
-            switch(funct3 >> 1) {
+            switch (funct3 >> 1) {
             case 0: /* beq/bne */
                 cond = (read_reg(rs1) == read_reg(rs2));
                 break;
@@ -994,7 +994,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             imm = (imm << 20) >> 20;
             addr = read_reg(rs1) + imm;
             val = read_reg(rs2);
-            switch(funct3) {
+            switch (funct3) {
             case 0: /* sb */
                 if (target_write_u8(s, addr, val))
                     goto mmu_exception;
@@ -1026,7 +1026,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
         case 0x13:
             funct3 = (insn >> 12) & 7;
             imm = (int32_t)insn >> 20;
-            switch(funct3) {
+            switch (funct3) {
             case 0: /* addi */
                 val = (intx_t)(read_reg(rs1) + imm);
                 break;
@@ -1068,7 +1068,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             funct3 = (insn >> 12) & 7;
             imm = (int32_t)insn >> 20;
             val = read_reg(rs1);
-            switch(funct3) {
+            switch (funct3) {
             case 0: /* addiw */
                 val = (int32_t)(val + imm);
                 break;
@@ -1097,7 +1097,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             funct3 = (insn >> 12) & 7;
             imm = (int32_t)insn >> 20;
             val = read_reg(rs1);
-            switch(funct3) {
+            switch (funct3) {
             case 0: /* addid */
                 val = (int64_t)(val + imm);
                 break;
@@ -1127,7 +1127,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             val2 = read_reg(rs2);
             if (imm == 1) {
                 funct3 = (insn >> 12) & 7;
-                switch(funct3) {
+                switch (funct3) {
                 case 0: /* mul */
                     val = (intx_t)((intx_t)val * (intx_t)val2);
                     break;
@@ -1159,7 +1159,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 if (imm & ~0x20)
                     goto illegal_insn;
                 funct3 = ((insn >> 12) & 7) | ((insn >> (30 - 3)) & (1 << 3));
-                switch(funct3) {
+                switch (funct3) {
                 case 0: /* add */
                     val = (intx_t)(val + val2);
                     break;
@@ -1204,7 +1204,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             val2 = read_reg(rs2);
             if (imm == 1) {
                 funct3 = (insn >> 12) & 7;
-                switch(funct3) {
+                switch (funct3) {
                 case 0: /* mulw */
                     val = (int32_t)((int32_t)val * (int32_t)val2);
                     break;
@@ -1227,7 +1227,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 if (imm & ~0x20)
                     goto illegal_insn;
                 funct3 = ((insn >> 12) & 7) | ((insn >> (30 - 3)) & (1 << 3));
-                switch(funct3) {
+                switch (funct3) {
                 case 0: /* addw */
                     val = (int32_t)(val + val2);
                     break;
@@ -1258,7 +1258,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             val2 = read_reg(rs2);
             if (imm == 1) {
                 funct3 = (insn >> 12) & 7;
-                switch(funct3) {
+                switch (funct3) {
                 case 0: /* muld */
                     val = (int64_t)((int64_t)val * (int64_t)val2);
                     break;
@@ -1281,7 +1281,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 if (imm & ~0x20)
                     goto illegal_insn;
                 funct3 = ((insn >> 12) & 7) | ((insn >> (30 - 3)) & (1 << 3));
-                switch(funct3) {
+                switch (funct3) {
                 case 0: /* addd */
                     val = (int64_t)(val + val2);
                     break;
@@ -1313,7 +1313,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             else
                 val = read_reg(rs1);
             funct3 &= 3;
-            switch(funct3) {
+            switch (funct3) {
             case 1: /* csrrw */
                 s->insn_counter = GET_INSN_COUNTER();
                 if (!s->stop_the_counter) {
@@ -1377,7 +1377,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 }
                 break;
             case 0:
-                switch(imm) {
+                switch (imm) {
                 case 0x000: /* ecall */
                     if (insn & 0x000fff80)
                         goto illegal_insn;
@@ -1478,7 +1478,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             NEXT_INSN;
         case 0x0f: /* misc-mem */
             funct3 = (insn >> 12) & 7;
-            switch(funct3) {
+            switch (funct3) {
             case 0: /* fence */
                 if (insn & 0xf00fff80)
                     goto illegal_insn;
@@ -1557,7 +1557,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     }                                                   \
                     val = (int## size ## _t)rval;                       \
                     val2 = read_reg(rs2);                               \
-                    switch(funct3) {                                    \
+                    switch (funct3) {                                    \
                     case 1: /* amiswap.w */                             \
                         break;                                          \
                     case 0: /* amoadd.w */                              \
@@ -1599,7 +1599,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 }                                                       \
             }
 
-            switch(funct3) {
+            switch (funct3) {
             case 2:
                 OP_A(32);
                 break;
@@ -1628,7 +1628,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             imm = (int32_t)insn >> 20;
             addr = read_reg(rs1) + imm;
             s->last_addr = addr;
-            switch(funct3) {
+            switch (funct3) {
             case 2: /* flw */
                 {
                     uint32_t rval;
@@ -1669,7 +1669,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             imm = rd | ((insn >> (25 - 5)) & 0xfe0);
             imm = (imm << 20) >> 20;
             addr = read_reg(rs1) + imm;
-            switch(funct3) {
+            switch (funct3) {
             case 2: /* fsw */
                 if (target_write_u32(s, addr, read_fp_reg(rs2)))
                     goto mmu_exception;
@@ -1698,7 +1698,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             rm = get_insn_rm(s, (insn >> 12) & 7);
             if (rm < 0)
                 goto illegal_insn;
-            switch(funct3) {
+            switch (funct3) {
             case 0:
                 write_fp_reg(rd, fma_sf32(chkfp32(read_fp_reg(rs1)),
                                           chkfp32(read_fp_reg(rs2)),
@@ -1733,7 +1733,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             rm = get_insn_rm(s, (insn >> 12) & 7);
             if (rm < 0)
                 goto illegal_insn;
-            switch(funct3) {
+            switch (funct3) {
             case 0:
                 write_fp_reg(rd, fma_sf32(chkfp32(read_fp_reg(rs1)),
                                           chkfp32(read_fp_reg(rs2)),
@@ -1769,7 +1769,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             rm = get_insn_rm(s, (insn >> 12) & 7);
             if (rm < 0)
                 goto illegal_insn;
-            switch(funct3) {
+            switch (funct3) {
             case 0:
                 write_fp_reg(rd, fma_sf32(chkfp32(read_fp_reg(rs1)) ^ FSIGN_MASK32,
                                           chkfp32(read_fp_reg(rs2)),
@@ -1805,7 +1805,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             rm = get_insn_rm(s, (insn >> 12) & 7);
             if (rm < 0)
                 goto illegal_insn;
-            switch(funct3) {
+            switch (funct3) {
             case 0:
                 write_fp_reg(rd, fma_sf32(chkfp32(read_fp_reg(rs1)) ^ FSIGN_MASK32,
                                           chkfp32(read_fp_reg(rs2)),
@@ -1838,7 +1838,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 goto illegal_insn;
             imm = insn >> 25;
             rm = (insn >> 12) & 7;
-            switch(imm) {
+            switch (imm) {
 
 #define F_SIZE 32
 #include "riscvemu_fp_template.h"

@@ -56,7 +56,7 @@ static JSONValue parse_string(const char **pp)
     q = buf;
     p = *pp;
     p++;
-    for(;;) {
+    for (;;) {
         c = *p++;
         if (c == '\0' || c == '\n') {
             return json_error_new("unterminated string");
@@ -64,7 +64,7 @@ static JSONValue parse_string(const char **pp)
             break;
             } else if (c == '\\') {
                 c = *p++;
-                switch(c) {
+                switch (c) {
                 case '\'':
                 case '\"':
                 case '\\':
@@ -107,7 +107,7 @@ static JSONProperty *json_object_get2(JSONObject *obj, const char *name)
 {
     JSONProperty *f;
     int i;
-    for(i = 0; i < obj->len; i++) {
+    for (i = 0; i < obj->len; i++) {
         f = &obj->props[i];
         if (!strcmp(f->name.u.str->data, name))
             return f;
@@ -230,7 +230,7 @@ JSONValue __attribute__((format(printf, 1, 2))) json_error_new(const char *fmt, 
     JSONValue val;
     va_list ap;
     char buf[256];
-    
+
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
@@ -261,7 +261,7 @@ JSONValue json_array_new(void)
 
 void json_free(JSONValue val)
 {
-    switch(val.type) {
+    switch (val.type) {
     case JSON_STR:
     case JSON_EXCEPTION:
         free(val.u.str);
@@ -275,8 +275,8 @@ void json_free(JSONValue val)
         {
             JSONArray *array = val.u.array;
             int i;
-            
-            for(i = 0; i < array->len; i++) {
+
+            for (i = 0; i < array->len; i++) {
                 json_free(array->tab[i]);
             }
             free(array);
@@ -287,8 +287,8 @@ void json_free(JSONValue val)
             JSONObject *obj = val.u.obj;
             JSONProperty *f;
             int i;
-            
-            for(i = 0; i < obj->len; i++) {
+
+            for (i = 0; i < obj->len; i++) {
                 f = &obj->props[i];
                 json_free(f->name);
                 json_free(f->value);
@@ -305,7 +305,7 @@ static void skip_spaces(const char **pp)
 {
     const char *p;
     p = *pp;
-    for(;;) {
+    for (;;) {
         if (isspace(*p)) {
             p++;
         } else if (p[0] == '/' && p[1] == '/') {
@@ -370,7 +370,7 @@ JSONValue json_parse_value2(const char **pp)
     } else if (*p == '{') {
         p++;
         val = json_object_new();
-        for(;;) {
+        for (;;) {
             skip_spaces(&p);
             if (*p == '}') {
                 p++;
@@ -414,7 +414,7 @@ JSONValue json_parse_value2(const char **pp)
         p++;
         val = json_array_new();
         idx = 0;
-        for(;;) {
+        for (;;) {
             skip_spaces(&p);
             if (*p == ']') {
                 p++;
@@ -453,7 +453,7 @@ JSONValue json_parse_value2(const char **pp)
 JSONValue json_parse_value(const char *p)
 {
     JSONValue val;
-    val = json_parse_value2(&p); 
+    val = json_parse_value2(&p);
     if (json_is_error(val))
         return val;
     skip_spaces(&p);

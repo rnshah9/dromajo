@@ -10,7 +10,7 @@
 
 /*
  * IO memory handling
- * 
+ *
  * Copyright (c) 2016-2017 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -42,7 +42,7 @@ typedef uint32_t DeviceReadFunc(void *opaque, uint32_t offset, int size_log2);
 #define DEVIO_SIZE16 (1 << 1)
 #define DEVIO_SIZE32 (1 << 2)
 /* not supported, could add specific 64 bit callbacks when needed */
-//#define DEVIO_SIZE64 (1 << 3) 
+//#define DEVIO_SIZE64 (1 << 3)
 #define DEVIO_DISABLED (1 << 4)
 
 #define DEVRAM_FLAG_ROM        (1 << 0) /* not writable */

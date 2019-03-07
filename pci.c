@@ -10,7 +10,7 @@
 
 /*
  * Simple PCI bus driver
- * 
+ *
  * Copyright (c) 2017 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -83,7 +83,7 @@ static void pci_device_set_irq(void *opaque, int irq_num, int level)
     PCIBus *b = d->bus;
     uint32_t mask;
     int i, irq_level;
-    
+
     //    printf("%s: pci_device_seq_irq: %d %d\n", d->name, irq_num, level);
     irq_num = bus_map_irq(d, irq_num);
     mask = 1 << (d->devfn & 0x1f);
@@ -94,7 +94,7 @@ static void pci_device_set_irq(void *opaque, int irq_num, int level)
 
     /* compute the IRQ state */
     mask = 0;
-    for(i = 0; i < 8; i++)
+    for (i = 0; i < 8; i++)
         mask |= b->irq_state[irq_num][i];
     irq_level = (mask != 0);
     set_irq(&b->irq[irq_num], irq_level);
@@ -103,7 +103,7 @@ static void pci_device_set_irq(void *opaque, int irq_num, int level)
 static int devfn_alloc(PCIBus *b)
 {
     int devfn;
-    for(devfn = 0; devfn < 256; devfn += 8) {
+    for (devfn = 0; devfn < 256; devfn += 8) {
         if (!b->device[devfn])
             return devfn;
     }
@@ -117,7 +117,7 @@ PCIDevice *pci_register_device(PCIBus *b, const char *name, int devfn,
 {
     PCIDevice *d;
     int i;
-    
+
     if (devfn < 0) {
         devfn = devfn_alloc(b);
         if (devfn < 0)
@@ -137,8 +137,8 @@ PCIDevice *pci_register_device(PCIBus *b, const char *name, int devfn,
     put_le16(d->config + 0x0a, class_id);
     d->config[0x0e] = 0x00; /* header type */
     d->next_cap_offset = 0x40;
-    
-    for(i = 0; i < 4; i++)
+
+    for (i = 0; i < 4; i++)
         irq_init(&d->irq[i], pci_device_set_irq, d, i);
     b->device[devfn] = d;
 
@@ -155,7 +155,7 @@ static uint32_t pci_device_config_read(PCIDevice *d, uint32_t addr,
                                        int size_log2)
 {
     uint32_t val;
-    switch(size_log2) {
+    switch (size_log2) {
     case 0:
         val = *(uint8_t *)(d->config + addr);
         break;
@@ -196,7 +196,7 @@ void pci_register_bar(PCIDevice *d, unsigned int bar_num,
 {
     PCIIORegion *r;
     uint32_t val, config_addr;
-    
+
     assert(bar_num < PCI_NUM_REGIONS);
     assert((size & (size - 1)) == 0); /* power of two */
     assert(size >= 4);
@@ -224,10 +224,10 @@ static void pci_update_mappings(PCIDevice *d)
     uint32_t new_addr;
     BOOL new_enabled;
     PCIIORegion *r;
-    
+
     cmd = get_le16(&d->config[PCI_COMMAND]);
 
-    for(i = 0; i < PCI_NUM_REGIONS; i++) {
+    for (i = 0; i < PCI_NUM_REGIONS; i++) {
         r = &d->io_regions[i];
         if (i == PCI_ROM_SLOT) {
             offset = 0x30;
@@ -268,7 +268,7 @@ static int pci_write_bar(PCIDevice *d, uint32_t addr,
 {
     PCIIORegion *r;
     int reg;
-    
+
     if (addr == 0x30)
         reg = PCI_ROM_SLOT;
     else
@@ -297,11 +297,11 @@ static void pci_device_config_write8(PCIDevice *d, uint32_t addr,
         d->config[addr] &= ~data;
         return;
     }
-    
-    switch(d->config[0x0e]) {
+
+    switch (d->config[0x0e]) {
     case 0x00:
     case 0x80:
-        switch(addr) {
+        switch (addr) {
         case 0x00:
         case 0x01:
         case 0x02:
@@ -323,7 +323,7 @@ static void pci_device_config_write8(PCIDevice *d, uint32_t addr,
         break;
     default:
     case 0x01:
-        switch(addr) {
+        switch (addr) {
         case 0x00:
         case 0x01:
         case 0x02:
@@ -346,14 +346,14 @@ static void pci_device_config_write8(PCIDevice *d, uint32_t addr,
     if (can_write)
         d->config[addr] = data;
 }
-                                  
+
 
 static void pci_device_config_write(PCIDevice *d, uint32_t addr,
                                     uint32_t data, int size_log2)
 {
     int size, i;
     uint32_t addr1;
-    
+
 #ifdef DEBUG_CONFIG
     printf("pci_config_write: dev=%s addr=0x%02x val=0x%x s=%d\n",
            d->name, addr, data, 1 << size_log2);
@@ -365,7 +365,7 @@ static void pci_device_config_write(PCIDevice *d, uint32_t addr,
             return;
     }
     size = 1 << size_log2;
-    for(i = 0; i < size; i++) {
+    for (i = 0; i < size; i++) {
         addr1 = addr + i;
         if (addr1 <= 0xff) {
             pci_device_config_write8(d, addr1, (data >> (i * 8)) & 0xff);
@@ -382,7 +382,7 @@ static void pci_data_write(PCIBus *s, uint32_t addr,
 {
     PCIDevice *d;
     int bus_num, devfn, config_addr;
-    
+
     bus_num = (addr >> 16) & 0xff;
     if (bus_num != s->bus_num)
         return;
@@ -400,7 +400,7 @@ static uint32_t pci_data_read(PCIBus *s, uint32_t addr, int size_log2)
 {
     PCIDevice *d;
     int bus_num, devfn, config_addr;
-    
+
     bus_num = (addr >> 16) & 0xff;
     if (bus_num != s->bus_num)
         return val_ones[size_log2];
@@ -442,7 +442,7 @@ int pci_device_get_devfn(PCIDevice *d)
 int pci_add_capability(PCIDevice *d, const uint8_t *buf, int size)
 {
     int offset;
-    
+
     offset = d->next_cap_offset;
     if ((offset + size) > 256)
         return -1;
@@ -512,7 +512,7 @@ static void i440fx_set_irq(void *opaque, int irq_num, int irq_level)
     I440FXState *s = opaque;
     PCIDevice *hd = s->piix3_dev;
     int pic_irq;
-    
+
     /* map to the PIC irq (different IRQs can be mapped to the same
        PIC irq) */
     hd->config[0x60 + irq_num] &= ~0x80;
@@ -534,27 +534,27 @@ I440FXState *i440fx_init(PCIBus **pbus, int *ppiix3_devfn,
     PCIBus *b;
     PCIDevice *d;
     int i;
-    
+
     s = mallocz(sizeof(*s));
-    
+
     b = mallocz(sizeof(PCIBus));
     b->bus_num = 0;
     b->mem_map = mem_map;
     b->port_map = port_map;
 
     s->pic_irqs = pic_irqs;
-    for(i = 0; i < 4; i++) {
+    for (i = 0; i < 4; i++) {
         irq_init(&b->irq[i], i440fx_set_irq, s, i);
     }
-    
-    cpu_register_device(port_map, 0xcf8, 1, s, i440fx_read_addr, i440fx_write_addr, 
+
+    cpu_register_device(port_map, 0xcf8, 1, s, i440fx_read_addr, i440fx_write_addr,
                         DEVIO_SIZE32);
-    cpu_register_device(port_map, 0xcfc, 4, s, i440fx_read_data, i440fx_write_data, 
+    cpu_register_device(port_map, 0xcfc, 4, s, i440fx_read_data, i440fx_write_data,
                         DEVIO_SIZE8 | DEVIO_SIZE16 | DEVIO_SIZE32);
     d = pci_register_device(b, "i440FX", 0, 0x8086, 0x1237, 0x02, 0x0600);
     put_le16(&d->config[PCI_SUBSYSTEM_VENDOR_ID], 0x1af4); /* Red Hat, Inc. */
     put_le16(&d->config[PCI_SUBSYSTEM_ID], 0x1100); /* QEMU virtual machine */
-    
+
     s->pci_dev = d;
     s->pci_bus = b;
 
@@ -574,19 +574,19 @@ void i440fx_map_interrupts(I440FXState *s, uint8_t *elcr,
     PCIBus *b = s->pci_bus;
     PCIDevice *d, *hd;
     int irq_num, pic_irq, devfn, i;
-    
+
     /* set a default PCI IRQ mapping to PIC IRQs */
     hd = s->piix3_dev;
 
     elcr[0] = 0;
     elcr[1] = 0;
-    for(i = 0; i < 4; i++) {
+    for (i = 0; i < 4; i++) {
         irq_num = pci_irqs[i];
         hd->config[0x60 + i] = irq_num;
         elcr[irq_num >> 3] |= (1 << (irq_num & 7));
     }
 
-    for(devfn = 0; devfn < 256; devfn++) {
+    for (devfn = 0; devfn < 256; devfn++) {
         d = b->device[devfn];
         if (!d)
             continue;
