@@ -165,6 +165,7 @@ typedef struct RISCVCPUState {
     uint64_t insn_counter; // Simulator internal
     uint64_t minstret; // RISCV CSR (updated when insn_counter increases)
     uint64_t mcycle;   // RISCV CSR (updated when insn_counter increases)
+    BOOL     debug_mode;
     BOOL     stop_the_counter; // Set in debug mode only (cleared after ending Debug)
 
     BOOL power_down_flag; /* True when the core is idle awaiting
@@ -285,6 +286,7 @@ void riscv_get_ctf_target(RISCVCPUState *s, uint64_t *target);
 
 int riscv_cpu_interp64(RISCVCPUState *s, int n_cycles);
 BOOL riscv_terminated(RISCVCPUState *s);
+void riscv_set_debug_mode(RISCVCPUState *s, bool on);
 
 int riscv_benchmark_exit_code(RISCVCPUState *s);
 

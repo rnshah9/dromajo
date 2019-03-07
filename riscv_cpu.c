@@ -980,25 +980,35 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0x344:
         val = s->mip;
         break;
+
     case 0x7a0: // tselect
         val = s->tselect;
         break;
+
     case 0x7a1: // tdata1
         val = s->tdata1[s->tselect];
         break;
+
     case 0x7a2: // tdata2
         val = s->tdata2[s->tselect];
         break;
+
     case 0x7a3: // tdata3
         val = s->tdata3[s->tselect];
         break;
+
     case 0x7b0:
+        if (!s->debug_mode) goto invalid_csr;
         val = s->dcsr;
         break;
+
     case 0x7b1:
+        if (!s->debug_mode) goto invalid_csr;
         val = s->dpc;
         break;
+
     case 0x7b2:
+        if (!s->debug_mode) goto invalid_csr;
         val = s->dscratch;
         break;
 
@@ -1440,9 +1450,11 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         mask = /* MEIP | */ MIP_SEIP | /*MIP_UEIP | MTIP | */ MIP_STIP | /*MIP_UTIP | MSIP | */ MIP_SSIP /*| MIP_USIP*/;
         s->mip = s->mip & ~mask | val & mask;
         break;
+
     case 0x7a0: // tselect
         s->tselect = val % MAX_TRIGGERS;
         break;
+
     case 0x7a1: // tdata1
         // Only support No Trigger and MControl
         {
@@ -1454,11 +1466,34 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
             s->tdata1[s->tselect] = s->tdata1[s->tselect] & ~mask | val & mask;
         }
         break;
+
     case 0x7a2: // tdata2
         s->tdata2[s->tselect] = val;
         break;
+
     case 0x7a3: // tdata3
         s->tdata3[s->tselect] = val;
+        break;
+
+    case 0x7b0:
+        if (!s->debug_mode) goto invalid_csr;
+        /* XXX We have a very incomplete implementation of debug mode, only just enough
+           to restore a snapshot and stop counters */
+        mask = 0x603; // stopcount and stoptime && also the priv level to return
+        s->dcsr = s->dcsr & ~mask | val & mask;
+        s->stop_the_counter = s->dcsr & 0x600 != 0;
+        break;
+
+    case 0x7b1:
+        if (!s->debug_mode) goto invalid_csr;
+        s->dpc = val & (s->misa & MCPUID_C ? ~1 : ~3);
+        break;
+
+    case 0x7b2:
+        if (!s->debug_mode) goto invalid_csr;
+        s->dscratch = val;
+        break;
+
     case 0x323:
     case 0x324:
     case 0x325:
@@ -1539,22 +1574,6 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         // but we just recalculate all of them
         s->csr_pmpaddr[csr - CSR_PMPADDR(0)] = val;
         unpack_pmpaddrs(s);
-        break;
-
-    case 0x7b0:
-        /* XXX We have a very incomplete implementation of debug mode, only just enough
-           to restore a snapshot and stop counters */
-        mask = 0x603; // stopcount and stoptime && also the priv level to return
-        s->dcsr = s->dcsr & ~mask | val & mask;
-        s->stop_the_counter = s->dcsr & 0x600 != 0;
-        break;
-
-    case 0x7b1:
-        s->dpc = val & (s->misa & MCPUID_C ? ~1 : ~3);
-        break;
-
-    case 0x7b2:
-        s->dscratch = val;
         break;
 
     case CSR_ET_PREFETCH:
@@ -1665,6 +1684,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
 
     default:
+    invalid_csr:
 #ifdef DUMP_INVALID_CSR
         fprintf(stderr, "csr_write: invalid CSR=0x%x\n", csr);
 #endif
@@ -1807,6 +1827,7 @@ static void handle_mret(RISCVCPUState *s)
 static void handle_dret(RISCVCPUState *s)
 {
     s->stop_the_counter = FALSE; // Enable counters again
+    s->debug_mode = FALSE;
     set_priv(s, s->dcsr & 3);
     s->pc = s->dpc;
 }
@@ -1966,8 +1987,8 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
     s->store_repair_addr = ~0;
     s->tselect = 0;
     for (int i = 0; i < MAX_TRIGGERS; ++i) {
-      s->tdata1[i] = ~(target_ulong)0;
-      s->tdata2[i] = ~(target_ulong)0;
+        s->tdata1[i] = 2l << 60;
+        s->tdata2[i] = ~(target_ulong)0;
     }
 
     s->mce_enable_mask          = ET_MCE_ENABLE_MASK_RESET;
@@ -2132,6 +2153,11 @@ void riscv_get_ctf_target(RISCVCPUState *s, uint64_t *target)
 BOOL riscv_terminated(RISCVCPUState *s)
 {
     return s->terminate_simulation;
+}
+
+void riscv_set_debug_mode(RISCVCPUState *s, bool on)
+{
+    s->debug_mode = on;
 }
 
 static void serialize_memory(const void *base, size_t size, const char *file)

@@ -1418,6 +1418,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     }
                     break;
                 case 0x7b2: /* dret */
+                    if (!s->debug_mode) goto illegal_insn;
                     {
                         if (insn & 0x000fff80)
                             goto illegal_insn;

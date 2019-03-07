@@ -840,6 +840,8 @@ static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
     q[7] = 0x7b041073; // csrw    dcsr, s0
     q[8] = 0x7b200073; // dret
 
+    riscv_set_debug_mode(s->cpu_state, TRUE);
+
     return 0;
 }
 
