@@ -76,6 +76,25 @@ static inline bool is_amo(uint32_t insn)
 }
 
 /*
+ * is_mmio_load() --
+ * calculated the effective address and check if the physical backing
+ * is MMIO space.  NB: get_phys_addr() is the identity if the CPU is
+ * running without virtual memory enabled.
+ */
+static inline bool is_mmio_load(RISCVCPUState *s,
+                                int            reg,
+                                int            offset,
+                                uint64_t       mmio_start,
+                                uint64_t       mmio_end)
+{
+    uint64_t pa;
+    uint64_t va = riscv_get_reg_previous(s, reg) + offset;
+    return
+        !riscv_cpu_get_phys_addr(s, va, ACCESS_READ, &pa) &&
+        mmio_start <= pa && pa < mmio_end;
+}
+
+/*
  * handle_dut_overrides --
  *
  * Certain sequences cannot be simulated faithfully so this function
@@ -97,6 +116,7 @@ static inline void handle_dut_overrides(RISCVCPUState *s,
     int csrno  = insn >> 20;
     int rd     = (insn >> 7) & 0x1f;
     int rdc    = ((insn >> 2) & 7) + 8;
+    int reg, offset;
 
     /* Catch reads from CSR mcycle, ucycle, instret, hpmcounters,
      * If the destination register is x0 then it is actually a csr-write
@@ -107,44 +127,27 @@ static inline void handle_dut_overrides(RISCVCPUState *s,
         riscv_set_reg(s, rd, dut_wdata);
 
     /* Catch loads and amo from MMIO space */
-    if ((opcode == 3 || is_amo(insn)) && rd != 0 && priv == 3) {
+    if ((opcode == 3 || is_amo(insn)) && rd != 0) {
+        reg = (insn >> 15) & 0x1f;
+        offset = opcode == 3 ? (int32_t) insn >> 20 : 0;
+    } else if ((insn & 0xE003) == 0x6000 && rdc != 0) {
+        // c.ld  011  uimm[5:3] rs1'[2:0]       uimm[7:6] rd'[2:0] 00
+        reg = ((insn >> 7) & 7) + 8;
+        offset = get_field1(insn, 10, 3, 5) | get_field1(insn, 5, 6, 7);
+        rd = rdc;
+    } else if ((insn & 0xE003) == 0x4000 && rdc != 0) {
+        // c.lw  010  uimm[5:3] rs1'[2:0] uimm[2] uimm[6] rd'[2:0] 00
+        reg = ((insn >> 7) & 7) + 8;
+        offset = (get_field1(insn, 10, 3, 5) |
+                  get_field1(insn,  6, 2, 2) |
+                  get_field1(insn,  5, 6, 6));
+        rd = rdc;
+    } else
+        return;
 
-        int      rs1    = (insn >> 15) & 0x1f;
-        int      offset = opcode == 3 ? (int32_t) insn >> 20 : 0;
-        uint64_t addr   = riscv_get_reg_previous(s, rs1) + offset;
-
-        if (mmio_start <= addr && addr < mmio_end) {
-            //fprintf(stderr, "Overriding mmio ld/amo (%lx)\n", addr);
-            riscv_set_reg(s, rd, dut_wdata);
-        }
-    }
-
-    // c.ld  011  uimm[5:3] rs1'[2:0]       uimm[7:6] rd'[2:0] 00
-    if ((insn & 0xE003) == 0x6000 && rdc != 0 && priv == 3) {
-
-        int      rs1c  = ((insn >> 7) & 7) + 8;
-        int      imm   = get_field1(insn, 10, 3, 5) | get_field1(insn, 5, 6, 7);
-        uint64_t addr  = riscv_get_reg_previous(s, rs1c) + imm;
-
-        if (mmio_start <= addr && addr < mmio_end) {
-            //fprintf(stderr, "Overriding mmio c.ld (%lx)\n", addr);
-            riscv_set_reg(s, rdc, dut_wdata);
-        }
-    }
-
-    // c.lw  010  uimm[5:3] rs1'[2:0] uimm[2] uimm[6] rd'[2:0] 00
-    if ((insn & 0xE003) == 0x4000 && rdc != 0 && priv == 3) {
-
-        int      rs1c  = ((insn >> 7) & 7) + 8;
-        int      imm   = (get_field1(insn, 10, 3, 5) |
-                          get_field1(insn,  6, 2, 2) |
-                          get_field1(insn,  5, 6, 6));
-        uint64_t addr  = riscv_get_reg_previous(s, rs1c) + imm;
-
-        if (mmio_start <= addr && addr < mmio_end) {
-            //fprintf(stderr, "Overriding mmio c.lw (%lx)\n", addr);
-            riscv_set_reg(s, rdc, dut_wdata);
-        }
+    if (is_mmio_load(s, reg, offset, mmio_start, mmio_end)) {
+        //fprintf(stderr, "Overriding mmio c.lw (%lx)\n", addr);
+        riscv_set_reg(s, rd, dut_wdata);
     }
 }
 

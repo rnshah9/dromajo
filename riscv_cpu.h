@@ -307,4 +307,14 @@ PHYS_MEM_READ_WRITE(64, uint64_t)
 
 #undef PHYS_MEM_READ_WRITE
 
+typedef enum {
+    ACCESS_READ,
+    ACCESS_WRITE,
+    ACCESS_CODE,
+} riscv_memory_access_t;
+
+int riscv_cpu_get_phys_addr(RISCVCPUState *s,
+                            target_ulong vaddr,
+                            riscv_memory_access_t access,
+                            target_ulong *ppaddr);
 #endif

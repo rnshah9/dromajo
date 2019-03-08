@@ -293,18 +293,13 @@ TARGET_READ_WRITE(128, uint128_t, 4)
 #define PTE_A_MASK (1 << 6)
 #define PTE_D_MASK (1 << 7)
 
-typedef enum {
-    ACCESS_READ,
-    ACCESS_WRITE,
-    ACCESS_CODE,
-} access_t;
-
 /* access = 0: read, 1 = write, 2 = code. Set the exception_pending
    field if necessary. return 0 if OK, -1 if translation error, -2 if
    the physical address is illegal. */
-static int get_phys_addr(RISCVCPUState *s,
-                         target_ulong *ppaddr, target_ulong vaddr,
-                         access_t access)
+int riscv_cpu_get_phys_addr(RISCVCPUState *s,
+                            target_ulong vaddr,
+                            riscv_memory_access_t access,
+                            target_ulong *ppaddr)
 {
     int mode, levels, pte_bits, pte_idx, pte_mask, pte_size_log2, xwr, priv;
     int need_write, vaddr_shift, i, pte_addr_bits;
@@ -504,7 +499,7 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
             abort();
         }
     } else {
-        int err = get_phys_addr(s, &paddr, addr, ACCESS_READ);
+        int err = riscv_cpu_get_phys_addr(s, addr, ACCESS_READ, &paddr);
 
         if (err) {
             s->pending_tval = addr;
@@ -602,7 +597,7 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
                 return err;
         }
     } else {
-        int err = get_phys_addr(s, &paddr, addr, ACCESS_WRITE);
+        int err = riscv_cpu_get_phys_addr(s, addr, ACCESS_WRITE, &paddr);
 
         if (err) {
             s->pending_tval = addr;
@@ -697,7 +692,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
     uint8_t *ptr;
     PhysMemoryRange *pr;
 
-    int err = get_phys_addr(s, &paddr, addr, ACCESS_CODE);
+    int err = riscv_cpu_get_phys_addr(s, addr, ACCESS_CODE, &paddr);
     if (err) {
         s->pending_tval = addr;
         s->pending_exception = err == -1 ?
@@ -720,7 +715,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
     int tlb_idx_cross = ((addr+2) >> PG_SHIFT) & (TLB_SIZE - 1);
     if ((tlb_idx != tlb_idx_cross) && (size == 32)) {
         target_ulong paddr_cross;
-        int err = get_phys_addr(s, &paddr_cross, addr+2, ACCESS_CODE);
+        int err = riscv_cpu_get_phys_addr(s, addr+2, ACCESS_CODE, &paddr_cross);
         if (err) {
             s->pending_tval = addr;
             s->pending_exception = err == -1 ?
@@ -1584,7 +1579,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
 
     case CSR_ET_FLUSHVAR: {
         target_ulong paddr;
-        int err = get_phys_addr(s, &paddr, val, ACCESS_READ);
+        int err = riscv_cpu_get_phys_addr(s, val, ACCESS_READ, &paddr);
         if (err || !pmp_access_ok(s, paddr, 1, PMPCFG_R)) {
             s->pending_tval = val;
             s->pending_exception = err == -1
@@ -1596,7 +1591,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
 
     case CSR_ET_FLUSHVAW: {
         target_ulong paddr;
-        int err = get_phys_addr(s, &paddr, val, ACCESS_WRITE);
+        int err = riscv_cpu_get_phys_addr(s, val, ACCESS_WRITE, &paddr);
         if (err || !pmp_access_ok(s, paddr, 1, PMPCFG_W)) {
             s->pending_tval = val;
             s->pending_exception = err == -1
