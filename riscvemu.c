@@ -121,7 +121,7 @@ static void console_write(void *opaque, const uint8_t *buf, int len)
 
 static int console_read(void *opaque, uint8_t *buf, int len)
 {
-    STDIODevice *s = opaque;
+    STDIODevice *s = (STDIODevice *)opaque;
 
     if (len <= 0)
         return 0;
@@ -171,14 +171,10 @@ static void term_resize_handler(int sig)
 
 CharacterDevice *console_init(BOOL allow_ctrlc, FILE *stdin, FILE *out)
 {
-    CharacterDevice *dev;
-    STDIODevice *s;
-    struct sigaction sig;
-
     term_init(allow_ctrlc);
 
-    dev = mallocz(sizeof *dev);
-    s = mallocz(sizeof *s);
+    CharacterDevice *dev = (CharacterDevice *)mallocz(sizeof(*dev));
+    STDIODevice *s = (STDIODevice *)mallocz(sizeof(*s));
     s->stdin = stdin;
     s->out = out;
     /* Note: the glibc does not properly tests the return value of
@@ -189,6 +185,7 @@ CharacterDevice *console_init(BOOL allow_ctrlc, FILE *stdin, FILE *out)
     global_stdio_device = s;
 
     /* use a signal to get the host terminal resize events */
+    struct sigaction sig;
     sig.sa_handler = term_resize_handler;
     sigemptyset(&sig.sa_mask);
     sig.sa_flags = 0;
@@ -206,7 +203,7 @@ typedef enum {
     BF_MODE_SNAPSHOT,
 } BlockDeviceModeEnum;
 
-#define SECTOR_SIZE 512
+#define SECTOR_SIZE 512UL
 
 typedef struct BlockDeviceFile {
     FILE *f;
@@ -217,7 +214,7 @@ typedef struct BlockDeviceFile {
 
 static int64_t bf_get_sector_count(BlockDevice *bs)
 {
-    BlockDeviceFile *bf = bs->opaque;
+    BlockDeviceFile *bf = (BlockDeviceFile *)bs->opaque;
     return bf->nb_sectors;
 }
 
@@ -227,7 +224,7 @@ static int bf_read_async(BlockDevice *bs,
                          uint64_t sector_num, uint8_t *buf, int n,
                          BlockDeviceCompletionFunc *cb, void *opaque)
 {
-    BlockDeviceFile *bf = bs->opaque;
+    BlockDeviceFile *bf = (BlockDeviceFile *)bs->opaque;
     //    fprintf(riscvemu_stderr,"bf_read_async: sector_num=%" PRId64 " n=%d\n", sector_num, n);
 #ifdef DUMP_BLOCK_READ
     {
@@ -265,7 +262,7 @@ static int bf_write_async(BlockDevice *bs,
                           uint64_t sector_num, const uint8_t *buf, int n,
                           BlockDeviceCompletionFunc *cb, void *opaque)
 {
-    BlockDeviceFile *bf = bs->opaque;
+    BlockDeviceFile *bf = (BlockDeviceFile *)bs->opaque;
     int ret;
 
     switch (bf->mode) {
@@ -279,12 +276,11 @@ static int bf_write_async(BlockDevice *bs,
         break;
     case BF_MODE_SNAPSHOT:
         {
-            int i;
-            if ((sector_num + n) > bf->nb_sectors)
+            if ((unsigned int)(sector_num + n) > bf->nb_sectors)
                 return -1;
-            for (i = 0; i < n; i++) {
+            for (int i = 0; i < n; i++) {
                 if (!bf->sector_table[sector_num]) {
-                    bf->sector_table[sector_num] = malloc(SECTOR_SIZE);
+                    bf->sector_table[sector_num] = (uint8_t *)malloc(SECTOR_SIZE);
                 }
                 memcpy(bf->sector_table[sector_num], buf, SECTOR_SIZE);
                 sector_num++;
@@ -303,10 +299,6 @@ static int bf_write_async(BlockDevice *bs,
 static BlockDevice *block_device_init(const char *filename,
                                       BlockDeviceModeEnum mode)
 {
-    BlockDevice *bs;
-    BlockDeviceFile *bf;
-    int64_t file_size;
-    FILE *f;
     const char *mode_str;
 
     if (mode == BF_MODE_RW) {
@@ -315,23 +307,23 @@ static BlockDevice *block_device_init(const char *filename,
         mode_str = "rb";
     }
 
-    f = fopen(filename, mode_str);
+    FILE *f = fopen(filename, mode_str);
     if (!f) {
         perror(filename);
         exit(1);
     }
     fseek(f, 0, SEEK_END);
-    file_size = ftello(f);
+    int64_t file_size = ftello(f);
 
-    bs = mallocz(sizeof(*bs));
-    bf = mallocz(sizeof(*bf));
+    BlockDevice *bs = (BlockDevice *)mallocz(sizeof(*bs));
+    BlockDeviceFile *bf = (BlockDeviceFile *)mallocz(sizeof(*bf));
 
     bf->mode = mode;
     bf->nb_sectors = file_size / 512;
     bf->f = f;
 
     if (mode == BF_MODE_SNAPSHOT) {
-        bf->sector_table = mallocz(sizeof(bf->sector_table[0]) *
+        bf->sector_table = (uint8_t **)mallocz(sizeof(bf->sector_table[0]) *
                                    bf->nb_sectors);
     }
 
@@ -354,7 +346,7 @@ typedef struct {
 static void tun_write_packet(EthernetDevice *net,
                              const uint8_t *buf, int len)
 {
-    TunState *s = net->opaque;
+    TunState *s = (TunState *)net->opaque;
     ssize_t got = write(s->fd, buf, len);
     assert(got == len);
 }
@@ -363,7 +355,7 @@ static void tun_select_fill(EthernetDevice *net, int *pfd_max,
                             fd_set *rfds, fd_set *wfds, fd_set *efds,
                             int *pdelay)
 {
-    TunState *s = net->opaque;
+    TunState *s = (TunState *)net->opaque;
     int net_fd = s->fd;
 
     s->select_filled = net->device_can_write_packet(net);
@@ -377,7 +369,7 @@ static void tun_select_poll(EthernetDevice *net,
                             fd_set *rfds, fd_set *wfds, fd_set *efds,
                             int select_ret)
 {
-    TunState *s = net->opaque;
+    TunState *s = (TunState *)net->opaque;
     int net_fd = s->fd;
     uint8_t buf[2048];
     int ret;
@@ -414,8 +406,6 @@ static EthernetDevice *tun_open(const char *ifname)
 {
     struct ifreq ifr;
     int fd, ret;
-    EthernetDevice *net;
-    TunState *s;
 
     fd = open("/dev/net/tun", O_RDWR);
     if (fd < 0) {
@@ -433,14 +423,15 @@ static EthernetDevice *tun_open(const char *ifname)
     }
     fcntl(fd, F_SETFL, O_NONBLOCK);
 
-    net = mallocz(sizeof(*net));
+    EthernetDevice *net = (EthernetDevice *)mallocz(sizeof(*net));
     net->mac_addr[0] = 0x02;
     net->mac_addr[1] = 0x00;
     net->mac_addr[2] = 0x00;
     net->mac_addr[3] = 0x00;
     net->mac_addr[4] = 0x00;
     net->mac_addr[5] = 0x01;
-    s = mallocz(sizeof(*s));
+
+    TunState *s = (TunState *)mallocz(sizeof(*s));
     s->fd = fd;
     net->opaque = s;
     net->write_packet = tun_write_packet;
@@ -702,7 +693,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
                 if (terminate_event) {
                     usage(prog, "already had a terminate event");
                 }
-                for (int i = 0; i < countof(validation_events); ++i) {
+                for (unsigned int i = 0; i < countof(validation_events); ++i) {
                     if (validation_events[i].terminate
                         && strcmp(validation_events[i].name, optarg) != 0)
                     {
@@ -713,7 +704,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
                 if (unknown_event) {
                     fprintf(riscvemu_stderr, "Unknown terminate event \"%s\" \n", optarg);
                     fprintf(riscvemu_stderr, "Valid termination events: \n");
-                    for (int j = 0; j < countof(validation_events); ++j) {
+                    for (unsigned int j = 0; j < countof(validation_events); ++j) {
                         if (validation_events[j].terminate) {
                             fprintf(riscvemu_stderr, "\t\"%s\"\n",
                                     validation_events[j].name);

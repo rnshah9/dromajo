@@ -113,7 +113,7 @@ static void print_target_ulong(target_ulong a)
     fprint_target_ulong(riscvemu_stderr, a);
 }
 
-static char *reg_name[32] = {
+static const char *reg_name[32] = {
     "zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
     "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
     "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7",
@@ -124,7 +124,7 @@ static target_ulong get_mstatus(RISCVCPUState *s, target_ulong mask);
 static void dump_regs(RISCVCPUState *s)
 {
     int i, cols;
-    const char priv_str[4] = "USHM";
+    const char *priv_str = "USHM";
     cols = 256 / 64;
     fprintf(riscvemu_stderr, "pc =");
     print_target_ulong(s->pc);
@@ -159,13 +159,13 @@ static inline void track_write(uint64_t vaddr, uint64_t paddr, uint64_t data, in
   // fprintf(stderr,"track_write vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
 }
 
-inline uint64_t track_dread(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+static inline uint64_t track_dread(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
   // fprintf(stderr,"track_dread vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
 
   return data;
 }
 
-inline uint64_t track_iread(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+static inline uint64_t track_iread(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
   assert(size==16 || size==32);
   // fprintf(stderr,"track_iread vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
 
@@ -347,7 +347,7 @@ int riscv_cpu_get_phys_addr(RISCVCPUState *s,
         levels = mode - 8 + 3;
         pte_size_log2 = 3;
         vaddr_shift = 64 - (PG_SHIFT + levels * 9);
-        if ((((target_long)vaddr << vaddr_shift) >> vaddr_shift) != vaddr)
+        if ((((target_long)vaddr << vaddr_shift) >> vaddr_shift) != (target_long)vaddr)
             return -1;
         pte_addr_bits = 44;
     }
@@ -832,7 +832,7 @@ void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
 {
     uint8_t *ram_end = ram_ptr + ram_size;
     for (int i = 0; i < TLB_SIZE; i++)
-        if (s->tlb_write[i].vaddr != -1) {
+        if (s->tlb_write[i].vaddr != (target_ulong)-1) {
             uint8_t *ptr = (uint8_t *)
                 (s->tlb_write[i].mem_addend + (uintptr_t)s->tlb_write[i].vaddr);
             if (ram_ptr <= ptr && ptr < ram_end)
@@ -1292,7 +1292,7 @@ static void handle_write_validation1(RISCVCPUState *s, target_ulong val)
         fprintf(riscvemu_stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)val);
     }
 
-    for (int i = 0; i < countof(validation_events); ++i) {
+    for (unsigned int i = 0; i < countof(validation_events); ++i) {
         if (val == validation_events[i].value
             && validation_events[i].terminate
             && s->terminating_event != NULL
@@ -1591,17 +1591,17 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
             break;
 
         uint64_t orig = s->csr_pmpcfg[c];
-        uint64_t new  = 0;
+        uint64_t new_val  = 0;
 
         for (int i = 0; i < 8; ++i) {
             uint64_t cfg = (orig >> (i * 8)) & 255;
             if ((cfg & PMPCFG_L) == 0)
                 cfg = (val >> (i * 8)) & 255;
             cfg &= ~PMPCFG_RES;
-            new |= cfg << (i * 8);
+            new_val |= cfg << (i * 8);
         }
 
-        s->csr_pmpcfg[c] = new;
+        s->csr_pmpcfg[c] = new_val;
 
         unpack_pmpaddrs(s);
         break;
@@ -1953,7 +1953,7 @@ static inline RISCVCTFInfo ctf_compute_hint(int rd, int rs1)
 {
     int rd_link  = rd  == 1 || rd  == 5;
     int rs1_link = rs1 == 1 || rs1 == 5;
-    RISCVCTFInfo k = rd_link*2 + rs1_link + ctf_taken_jalr;
+    RISCVCTFInfo k = (RISCVCTFInfo)(rd_link*2 + rs1_link + (int)ctf_taken_jalr);
 
     if (k == ctf_taken_jalr_pop_push && rs1 == rd)
         return ctf_taken_jalr_push;
@@ -2523,9 +2523,9 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
     fprintf(conf_fd, "frm:%c\n", s->frm);
 #endif
 
-    const char priv_str[4] = "USHM";
+    const char *priv_str = "USHM";
     fprintf(conf_fd, "priv:%c\n", priv_str[s->priv]);
-    fprintf(conf_fd, "insn_counter:%"PRIu64"\n", s->insn_counter);
+    fprintf(conf_fd, "insn_counter:%" PRIu64 "\n", s->insn_counter);
 
     fprintf(conf_fd, "pending_exception:%d\n", s->pending_exception);
 

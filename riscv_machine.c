@@ -130,7 +130,7 @@ static void uart_update_irq(SiFiveUARTState *s)
 
 static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
 {
-    SiFiveUARTState *s = opaque;
+    SiFiveUARTState *s = (SiFiveUARTState *)opaque;
 
 #ifdef DUMP_UART
     fprintf(riscvemu_stderr, "uart_read: offset=%x size_log2=%d\n", offset, size_log2);
@@ -169,7 +169,7 @@ static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
 
 static void uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log2)
 {
-    SiFiveUARTState *s = opaque;
+    SiFiveUARTState *s = (SiFiveUARTState *)opaque;
     CharacterDevice *cs = s->cs;
     unsigned char ch = val;
 
@@ -201,7 +201,7 @@ static void uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log
 
 static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
 {
-    RISCVMachine *m = opaque;
+    RISCVMachine *m = (RISCVMachine *)opaque;
     uint32_t val;
     uint64_t mtime = m->cpu_state->mcycle / RTC_FREQ_DIV;
 
@@ -237,7 +237,7 @@ static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
 static void clint_write(void *opaque, uint32_t offset, uint32_t val,
                         int size_log2)
 {
-    RISCVMachine *m = opaque;
+    RISCVMachine *m = (RISCVMachine *)opaque;
     uint64_t mtime = m->cpu_state->mcycle / RTC_FREQ_DIV;
 
     assert(size_log2 == 2);
@@ -288,7 +288,7 @@ static void plic_update_mip(RISCVMachine *s)
 
 static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
 {
-    RISCVMachine *s = opaque;
+    RISCVMachine *s = (RISCVMachine *)opaque;
     uint32_t val, mask;
     int i;
     assert(size_log2 == 2);
@@ -321,7 +321,7 @@ static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
 static void plic_write(void *opaque, uint32_t offset, uint32_t val,
                        int size_log2)
 {
-    RISCVMachine *s = opaque;
+    RISCVMachine *s = (RISCVMachine *)opaque;
 
     assert(size_log2 == 2);
     switch (offset) {
@@ -342,10 +342,10 @@ static void plic_write(void *opaque, uint32_t offset, uint32_t val,
 
 static void plic_set_irq(void *opaque, int irq_num, int state)
 {
-    RISCVMachine *s = opaque;
-    uint32_t mask;
+    RISCVMachine *s = (RISCVMachine *)opaque;
 
-    mask = 1 << (irq_num - 1);
+    uint32_t mask = 1 << (irq_num - 1);
+
     if (state)
         s->plic_pending_irq |= mask;
     else
@@ -403,17 +403,15 @@ typedef struct {
 
 static FDTState *fdt_init(void)
 {
-    FDTState *s;
-    s = mallocz(sizeof(*s));
+    FDTState *s = (FDTState *)mallocz(sizeof(*s));
     return s;
 }
 
 static void fdt_alloc_len(FDTState *s, int len)
 {
-    int new_size;
     if (unlikely(len > s->tab_size)) {
-        new_size = max_int(len, s->tab_size * 3 / 2);
-        s->tab = realloc(s->tab, new_size * sizeof(uint32_t));
+        int new_size = max_int(len, s->tab_size * 3 / 2);
+        s->tab = (uint32_t *)realloc(s->tab, new_size * sizeof(uint32_t));
         s->tab_size = new_size;
     }
 }
@@ -439,7 +437,7 @@ static void fdt_put_data(FDTState *s, const uint8_t *data, int len)
 static void fdt_begin_node(FDTState *s, const char *name)
 {
     fdt_put32(s, FDT_BEGIN_NODE);
-    fdt_put_data(s, (uint8_t *)name, strlen(name) + 1);
+    fdt_put_data(s, (const uint8_t *)name, strlen(name) + 1);
     s->open_node_count++;
 }
 
@@ -471,7 +469,7 @@ static int fdt_get_string_offset(FDTState *s, const char *name)
     new_len = s->string_table_len + name_size;
     if (new_len > s->string_table_size) {
         new_size = max_int(new_len, s->string_table_size * 3 / 2);
-        s->string_table = realloc(s->string_table, new_size);
+        s->string_table = (char *)realloc(s->string_table, new_size);
         s->string_table_size = new_size;
     }
     pos = s->string_table_len;
@@ -481,12 +479,12 @@ static int fdt_get_string_offset(FDTState *s, const char *name)
 }
 
 static void fdt_prop(FDTState *s, const char *prop_name,
-                     const void *data, int data_len)
+                     const char *data, int data_len)
 {
     fdt_put32(s, FDT_PROP);
     fdt_put32(s, data_len);
     fdt_put32(s, fdt_get_string_offset(s, prop_name));
-    fdt_put_data(s, data, data_len);
+    fdt_put_data(s, (const uint8_t *)data, data_len);
 }
 
 static void fdt_prop_tab_u32(FDTState *s, const char *prop_name,
@@ -527,28 +525,27 @@ static void fdt_prop_tab_str(FDTState *s, const char *prop_name,
                              ...)
 {
     va_list ap;
-    int size, str_size;
-    char *ptr, *tab;
+    int size;
 
     va_start(ap, prop_name);
     size = 0;
     for (;;) {
-        ptr = va_arg(ap, char *);
+        char *ptr = va_arg(ap, char *);
         if (!ptr)
             break;
-        str_size = strlen(ptr) + 1;
+        int str_size = strlen(ptr) + 1;
         size += str_size;
     }
     va_end(ap);
 
-    tab = malloc(size);
+    char *tab = (char *)malloc(size);
     va_start(ap, prop_name);
     size = 0;
     for (;;) {
-        ptr = va_arg(ap, char *);
+        char *ptr = va_arg(ap, char *);
         if (!ptr)
             break;
-        str_size = strlen(ptr) + 1;
+        int str_size = strlen(ptr) + 1;
         memcpy(tab + size, ptr, str_size);
         size += str_size;
     }
@@ -784,11 +781,11 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
     return size;
 }
 
-static void load_elf_image(RISCVMachine *s, const void *image, size_t image_len,
+static void load_elf_image(RISCVMachine *s, const uint8_t *image, size_t image_len,
                            uint64_t *entry_point)
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)image;
-    const Elf64_Phdr *ph = image + ehdr->e_phoff;
+    const Elf64_Phdr *ph = (Elf64_Phdr *)(image + ehdr->e_phoff);
 
     *entry_point = ehdr->e_entry;
 
@@ -802,8 +799,8 @@ static void load_elf_image(RISCVMachine *s, const void *image, size_t image_len,
 }
 
 /* Return non-zero on failure */
-static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
-                       const char *cmd_line, bool is_elf)
+static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len,
+                        const char *cmd_line, bool is_elf)
 {
     if (buf_len > s->ram_size) {
         vm_error("Kernel too big\n");
@@ -858,7 +855,7 @@ static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
 static void riscv_flush_tlb_write_range(void *opaque, uint8_t *ram_addr,
                                         size_t ram_size)
 {
-    RISCVMachine *s = opaque;
+    RISCVMachine *s = (RISCVMachine *)opaque;
     riscv_cpu_flush_tlb_write_range_ram(s->cpu_state, ram_addr, ram_size);
 }
 
@@ -874,7 +871,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     VIRTIODevice *blk_dev;
     int irq_num, i;
     VIRTIOBusDef vbus_s, *vbus = &vbus_s;
-    RISCVMachine *s = mallocz(sizeof(*s));
+    RISCVMachine *s = (RISCVMachine *)mallocz(sizeof(*s));
 
     s->ram_size = p->ram_size;
     s->ram_base_addr = p->ram_base_addr;
@@ -988,7 +985,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
 
     int failure = 0;
     if (p->elf_image)
-        failure = copy_kernel(s, p->elf_image, p->elf_image_size, p->cmdline, true);
+        failure = copy_kernel(s, (const uint8_t *)p->elf_image, p->elf_image_size, p->cmdline, true);
     else if (!p->files[VM_FILE_BIOS].buf) {
         vm_error("No bios found");
         return NULL;

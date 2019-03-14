@@ -150,7 +150,7 @@ static char *cmdline_subst(const char *cmdline)
             p += 2;
             q = var_name;
             while (*p != '\0' && *p != '}') {
-                if ((q - var_name) < sizeof(var_name) - 1)
+                if ((q - var_name) < (int)sizeof(var_name) - 1)
                     *q++ = *p;
                 p++;
             }
@@ -399,23 +399,20 @@ static void config_additional_file_load_cb(void *opaque,
 
 char *get_file_path(const char *base_filename, const char *filename)
 {
-    int len, len1;
-    char *fname, *p;
-
     if (!base_filename)
-        goto done;
-    if (strchr(filename, ':'))
-        goto done; /* full URL */
-    if (filename[0] == '/')
-        goto done;
-    p = strrchr(base_filename, '/');
-    if (!p) {
-    done:
         return strdup(filename);
-    }
-    len = p + 1 - base_filename;
-    len1 = strlen(filename);
-    fname = malloc(len + len1 + 1);
+    if (strchr(filename, ':'))
+        return strdup(filename);
+    if (filename[0] == '/')
+        return strdup(filename);
+
+    const char *p = strrchr(base_filename, '/');
+    if (!p)
+        return strdup(filename);
+
+    int len = p + 1 - base_filename;
+    int len1 = strlen(filename);
+    char *fname = (char *)malloc(len + len1 + 1);
     memcpy(fname, base_filename, len);
     memcpy(fname + len, filename, len1 + 1);
     return fname;
@@ -425,19 +422,15 @@ char *get_file_path(const char *base_filename, const char *filename)
 /* return -1 if error. */
 static int load_file(uint8_t **pbuf, const char *filename)
 {
-    FILE *f;
-    int size;
-    uint8_t *buf;
-
-    f = fopen(filename, "rb");
+    FILE *f = fopen(filename, "rb");
     if (!f) {
         perror(filename);
         exit(1);
     }
     fseek(f, 0, SEEK_END);
-    size = ftell(f);
+    size_t size = ftell(f);
     fseek(f, 0, SEEK_SET);
-    buf = malloc(size);
+    uint8_t *buf = (uint8_t *)malloc(size);
     if (fread(buf, 1, size, f) != size) {
         fprintf(riscvemu_stderr, "%s: read error\n", filename);
         exit(1);
@@ -486,9 +479,7 @@ void virt_machine_load_config_file(VirtMachineParams *p,
                                    void (*start_cb)(void *opaque),
                                    void *opaque)
 {
-    VMConfigLoadState *s;
-
-    s = mallocz(sizeof(*s));
+    VMConfigLoadState *s = (VMConfigLoadState *)mallocz(sizeof(*s));
     s->vm_params = p;
     s->start_cb = start_cb;
     s->opaque = opaque;
@@ -499,7 +490,7 @@ void virt_machine_load_config_file(VirtMachineParams *p,
 
 static void config_file_loaded(void *opaque, uint8_t *buf, int buf_len)
 {
-    VMConfigLoadState *s = opaque;
+    VMConfigLoadState *s = (VMConfigLoadState *)opaque;
     VirtMachineParams *p = s->vm_params;
 
     if (elf64_is_riscv64((const char *)buf, buf_len)) {
@@ -509,7 +500,7 @@ static void config_file_loaded(void *opaque, uint8_t *buf, int buf_len)
         p->elf_image_size = buf_len;
         p->elf_image = malloc(buf_len);
         memcpy(p->elf_image, buf, buf_len);
-        elf64_find_global(p->elf_image, p->elf_image_size, "tohost", &p->htif_base_addr);
+        elf64_find_global((const char *)p->elf_image, p->elf_image_size, "tohost", &p->htif_base_addr);
     } else if (virt_machine_parse_config(p, (char *)buf, buf_len) < 0)
         exit(1);
 
@@ -543,10 +534,10 @@ static void config_additional_file_load(VMConfigLoadState *s)
 static void config_additional_file_load_cb(void *opaque,
                                            uint8_t *buf, int buf_len)
 {
-    VMConfigLoadState *s = opaque;
+    VMConfigLoadState *s = (VMConfigLoadState *)opaque;
     VirtMachineParams *p = s->vm_params;
 
-    p->files[s->file_index].buf = malloc(buf_len);
+    p->files[s->file_index].buf = (uint8_t *)malloc(buf_len);
     memcpy(p->files[s->file_index].buf, buf, buf_len);
     p->files[s->file_index].len = buf_len;
 
@@ -557,14 +548,14 @@ static void config_additional_file_load_cb(void *opaque,
 
 void vm_add_cmdline(VirtMachineParams *p, const char *cmdline)
 {
-    char *new_cmdline, *old_cmdline;
+    char *new_cmdline;
     if (cmdline[0] == '!') {
         new_cmdline = strdup(cmdline + 1);
     } else {
-        old_cmdline = p->cmdline;
+        const char *old_cmdline = p->cmdline;
         if (!old_cmdline)
             old_cmdline = "";
-        new_cmdline = malloc(strlen(old_cmdline) + 1 + strlen(cmdline) + 1);
+        new_cmdline = (char *)malloc(strlen(old_cmdline) + 1 + strlen(cmdline) + 1);
         strcpy(new_cmdline, old_cmdline);
         strcat(new_cmdline, " ");
         strcat(new_cmdline, cmdline);

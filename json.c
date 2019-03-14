@@ -145,7 +145,7 @@ int json_object_set(JSONValue val, const char *name, JSONValue prop_val)
     } else {
         if (obj->len >= obj->size) {
             new_size = max_int(obj->len + 1, obj->size * 3 / 2);
-            obj->props = realloc(obj->props, new_size * sizeof(JSONProperty));
+            obj->props = (JSONProperty *)realloc(obj->props, new_size * sizeof(JSONProperty));
             obj->size = new_size;
         }
         f = &obj->props[obj->len++];
@@ -155,7 +155,7 @@ int json_object_set(JSONValue val, const char *name, JSONValue prop_val)
     return 0;
 }
 
-JSONValue json_array_get(JSONValue val, unsigned int idx)
+JSONValue json_array_get(JSONValue val, int idx)
 {
     JSONArray *array;
 
@@ -169,7 +169,7 @@ JSONValue json_array_get(JSONValue val, unsigned int idx)
     }
 }
 
-int json_array_set(JSONValue val, unsigned int idx, JSONValue prop_val)
+int json_array_set(JSONValue val, int idx, JSONValue prop_val)
 {
     JSONArray *array;
     int new_size;
@@ -183,7 +183,7 @@ int json_array_set(JSONValue val, unsigned int idx, JSONValue prop_val)
     } else if (idx == array->len) {
         if (array->len >= array->size) {
             new_size = max_int(array->len + 1, array->size * 3 / 2);
-            array->tab = realloc(array->tab, new_size * sizeof(JSONValue));
+            array->tab = (JSONValue *)realloc(array->tab, new_size * sizeof(JSONValue));
             array->size = new_size;
         }
         array->tab[array->len++] = prop_val;
@@ -209,12 +209,12 @@ const char *json_get_error(JSONValue val)
 
 JSONValue json_string_new2(const char *str, int len)
 {
-    JSONValue val;
-    JSONString *str1;
+    JSONString *str1 = (JSONString *)malloc(sizeof(JSONString) + len + 1);
 
-    str1 = malloc(sizeof(JSONString) + len + 1);
     str1->len = len;
     memcpy(str1->data, str, len + 1);
+
+    JSONValue val;
     val.type = JSON_STR;
     val.u.str = str1;
     return val;
@@ -241,9 +241,9 @@ JSONValue __attribute__((format(printf, 1, 2))) json_error_new(const char *fmt, 
 
 JSONValue json_object_new(void)
 {
+    JSONObject *obj = (JSONObject *)mallocz(sizeof(JSONObject));
+
     JSONValue val;
-    JSONObject *obj;
-    obj = mallocz(sizeof(JSONObject));
     val.type = JSON_OBJ;
     val.u.obj = obj;
     return val;
@@ -251,9 +251,9 @@ JSONValue json_object_new(void)
 
 JSONValue json_array_new(void)
 {
+    JSONArray *array = (JSONArray *)mallocz(sizeof(JSONArray));
+
     JSONValue val;
-    JSONArray *array;
-    array = mallocz(sizeof(JSONArray));
     val.type = JSON_ARRAY;
     val.u.array = array;
     return val;
@@ -466,12 +466,12 @@ JSONValue json_parse_value(const char *p)
 
 JSONValue json_parse_value_len(const char *p, int len)
 {
-    char *str;
-    JSONValue val;
-    str = malloc(len + 1);
+    char *str = (char *)malloc(len + 1);
     memcpy(str, p, len);
     str[len] = '\0';
-    val = json_parse_value(str);
+
+    JSONValue val = json_parse_value(str);
     free(str);
+
     return val;
 }

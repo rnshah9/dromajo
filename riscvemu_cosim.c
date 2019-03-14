@@ -225,7 +225,7 @@ static void cosim_history(RISCVCPUState *s,
     //fprintf(riscvemu_stderr, "   [dut] GHR %016"PRIx64"%016"PRIx64"\n", dut_ghr1, dut_ghr0);
 
     if (dut_ghr0 != emu_ghr0 || dut_ghr1 != emu_ghr1) {
-        fprintf(riscvemu_stderr, "[error] EMU GHR %016"PRIx64"%016"PRIx64" != DUT GHR %016"PRIx64"%016"PRIx64"\n",
+        fprintf(riscvemu_stderr, "[error] EMU GHR %016" PRIx64 "%016" PRIx64 " != DUT GHR %016" PRIx64 "%016" PRIx64 "\n",
                 emu_ghr1, emu_ghr0, dut_ghr1, dut_ghr0);
         *exit_code = 0x1FFF;
     }
@@ -416,7 +416,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                              emu_priv, emu_pc, emu_insn, emu_wdata, dut_wdata);
 
     if (verbose)
-        fprintf(riscvemu_stderr, "%d 0x%016"PRIx64" ", emu_priv, emu_pc);
+        fprintf(riscvemu_stderr, "%d 0x%016" PRIx64 " ", emu_priv, emu_pc);
 
     if (verbose)
         if ((emu_insn & 3) == 3)
@@ -428,12 +428,12 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
         emu_wdata = riscv_get_reg(s, iregno);
         emu_wrote_data = 1;
         if (verbose)
-            fprintf(riscvemu_stderr, "x%-2d 0x%016"PRIx64, iregno, emu_wdata);
+            fprintf(riscvemu_stderr, "x%-2d 0x%016" PRIx64, iregno, emu_wdata);
     } else if (fregno >= 0) {
         emu_wdata = riscv_get_fpreg(s, fregno);
         emu_wrote_data = 1;
         if (verbose)
-            fprintf(riscvemu_stderr, "f%-2d 0x%016"PRIx64, fregno, emu_wdata);
+            fprintf(riscvemu_stderr, "f%-2d 0x%016" PRIx64, fregno, emu_wdata);
     } else
         fprintf(riscvemu_stderr, "                      ");
 
@@ -448,7 +448,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
 
 
     if (dut_pc != emu_pc) {
-        fprintf(riscvemu_stderr, "[error] EMU PC %016"PRIx64" != DUT PC %016"PRIx64"\n",
+        fprintf(riscvemu_stderr, "[error] EMU PC %016" PRIx64 " != DUT PC %016" PRIx64 "\n",
                 emu_pc, dut_pc);
         exit_code =  0x1FFF;
     }
@@ -460,7 +460,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     }
 
     if (dut_wdata != emu_wdata && emu_wrote_data) {
-        fprintf(riscvemu_stderr, "[error] EMU WDATA %016"PRIx64" != DUT WDATA %016"PRIx64"\n",
+        fprintf(riscvemu_stderr, "[error] EMU WDATA %016" PRIx64 " != DUT WDATA %016" PRIx64 "\n",
                 emu_wdata, dut_wdata);
         exit_code = 0x1FFF;
     }

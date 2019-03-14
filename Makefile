@@ -33,10 +33,10 @@
 # THE SOFTWARE.
 #
 
-CC=gcc
+CXX=gcc
 CFLAGS_OPT=-O2
-CFLAGS=$(CFLAGS_OPT) -Wall -std=gnu99 -g -Werror -Wno-parentheses -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -MMD
-CFLAGS+=-D_GNU_SOURCE -DCONFIG_VERSION=\"$(shell cat VERSION)\"
+CXXFLAGS=$(CFLAGS_OPT) -Wall -std=c11 -g -Werror -Wno-parentheses -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -MMD
+CXXFLAGS+=-D_GNU_SOURCE -DCONFIG_VERSION=\"$(shell cat VERSION)\"
 LDFLAGS=
 
 bindir=/usr/local/bin
@@ -57,10 +57,10 @@ EMU_OBJS+=fs_disk.o
 EMU_LIBS=-lrt
 
 riscvemu: vharness.o libriscvemu_cosim.a
-	$(CC) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
 
 riscvemu_cosim_test: riscvemu_cosim_test.o libriscvemu_cosim.a
-	$(CC) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
 
 # Deprecated
 libvharness.a: vharness.o riscv_cpu64.o riscvemu.o \
@@ -68,29 +68,29 @@ libvharness.a: vharness.o riscv_cpu64.o riscvemu.o \
 	ar rvs $@ $^
 
 vharness.o: vharness.c
-	$(CC) $(CFLAGS) -DMAX_XLEN=64 -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DMAX_XLEN=64 -c -o $@ $<
 
 libriscvemu_cosim.a: riscvemu_cosim.o riscv_cpu64.o riscvemu.o \
 	riscv_machine.o softfp.o $(EMU_OBJS)
 	ar rvs $@ $^
 
 riscvemu_cosim_test.o: riscvemu_cosim_test.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 riscvemu_cosim.o: riscvemu_cosim.c
-	$(CC) $(CFLAGS) -DMAX_XLEN=64 -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DMAX_XLEN=64 -c -o $@ $<
 
 riscvemu.o: riscvemu.c
-	$(CC) $(CFLAGS) -DCONFIG_CPU_RISCV -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DCONFIG_CPU_RISCV -c -o $@ $<
 
 riscv_cpu64.o: riscv_cpu.c
-	$(CC) $(CFLAGS) -DMAX_XLEN=64 -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DMAX_XLEN=64 -c -o $@ $<
 
 install: $(PROGS)
 	$(INSTALL) -m755 $(PROGS) "$(DESTDIR)$(bindir)"
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 debug:
 	$(MAKE) CFLAGS_OPT=
