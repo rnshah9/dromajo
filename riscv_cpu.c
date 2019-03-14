@@ -155,16 +155,22 @@ static void dump_regs(RISCVCPUState *s)
 #endif
 }
 
-uint64_t checker_last_addr = 0;
-uint64_t checker_last_data = 0;
-int      checker_last_size = 0;
+static inline void track_write(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+  // fprintf(stderr,"track_write vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
+}
 
-#define TRACK_MEM(vaddr, size, val)             \
-    do {                                        \
-        checker_last_addr = vaddr;              \
-        checker_last_size = size;               \
-        checker_last_data = val;                \
-    } while (0)
+inline uint64_t track_dread(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+  // fprintf(stderr,"track_dread vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
+
+  return data;
+}
+
+inline uint64_t track_iread(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+  assert(size==16 || size==32);
+  // fprintf(stderr,"track_iread vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
+
+  return data;
+}
 
 /* "PMP checks are applied to all accesses when the hart is running in
  * S or U modes, and for loads and stores when the MPRV bit is set in
@@ -224,7 +230,7 @@ get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t p
             *fail = true;                                               \
             return;                                                     \
         }                                                               \
-        TRACK_MEM(paddr, size, val);                                    \
+        track_write(paddr, paddr, val, size);                           \
         *(uint_type *)(pr->phys_mem + (uintptr_t)(paddr - pr->addr)) = val; \
         *fail = false;                                                  \
     }                                                                   \
@@ -239,7 +245,7 @@ get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t p
         }                                                               \
         uint_type pval = *(uint_type *)(pr->phys_mem +                  \
                                         (uintptr_t)(paddr - pr->addr)); \
-        TRACK_MEM(paddr, size, pval);                                   \
+        pval = track_dread(paddr, paddr, pval, size);                   \
         *fail = false;                                                  \
         return pval;                                                    \
     }
@@ -260,8 +266,9 @@ PHYS_MEM_READ_WRITE(64, uint64_t)
         }                                                               \
         tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);                  \
         if (likely(s->tlb_read[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
-            *pval = *(uint_type *)(s->tlb_read[tlb_idx].mem_addend + (uintptr_t)addr); \
-            TRACK_MEM(addr, size, 0);                                   \
+            uint64_t data = *(uint_type *)(s->tlb_read[tlb_idx].mem_addend + (uintptr_t)addr); \
+            uint64_t paddr = s->tlb_read[tlb_idx].paddr_addend + addr;  \
+            *pval = track_dread(addr, paddr, data, size);               \
             return 0;                                                   \
         }                                                               \
                                                                         \
@@ -284,7 +291,8 @@ PHYS_MEM_READ_WRITE(64, uint64_t)
         tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);                  \
         if (likely(s->tlb_write[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
             *(uint_type *)(s->tlb_write[tlb_idx].mem_addend + (uintptr_t)addr) = val; \
-            TRACK_MEM(addr, size, val);                                 \
+            uint64_t paddr = s->tlb_write[tlb_idx].paddr_addend + addr;  \
+            track_write(addr, paddr, val, size);                        \
             return 0;                                                   \
         }                                                               \
                                                                         \
@@ -510,6 +518,7 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
         default:
             abort();
         }
+        paddr = addr; // No translation for this request
     } else {
         int err = riscv_cpu_get_phys_addr(s, addr, ACCESS_READ, &paddr);
 
@@ -534,8 +543,9 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
         if (pr->is_ram) {
             tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
             ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
-            s->tlb_read[tlb_idx].vaddr = addr & ~PG_MASK;
-            s->tlb_read[tlb_idx].mem_addend = (uintptr_t)ptr - addr;
+            s->tlb_read[tlb_idx].vaddr        = addr & ~PG_MASK;
+            s->tlb_read[tlb_idx].paddr_addend = paddr - addr;
+            s->tlb_read[tlb_idx].mem_addend   = (uintptr_t)ptr - addr;
             switch (size_log2) {
             case 0:
                 ret = *(uint8_t *)ptr;
@@ -581,8 +591,7 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
             }
         }
     }
-    *pval = ret;
-    TRACK_MEM(addr, size, *pval);
+    *pval = track_dread(addr,paddr, ret, size);
     return 0;
 }
 
@@ -607,6 +616,7 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
             if (err)
                 return err;
         }
+        paddr = addr;
     } else {
         int err = riscv_cpu_get_phys_addr(s, addr, ACCESS_WRITE, &paddr);
 
@@ -630,8 +640,9 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
             phys_mem_set_dirty_bit(pr, paddr - pr->addr);
             tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
             ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
-            s->tlb_write[tlb_idx].vaddr = addr & ~PG_MASK;
-            s->tlb_write[tlb_idx].mem_addend = (uintptr_t)ptr - addr;
+            s->tlb_write[tlb_idx].vaddr        = addr & ~PG_MASK;
+            s->tlb_write[tlb_idx].paddr_addend = paddr - addr;
+            s->tlb_write[tlb_idx].mem_addend   = (uintptr_t)ptr - addr;
             switch (size_log2) {
             case 0:
                 *(uint8_t *)ptr = val;
@@ -678,7 +689,7 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
             }
         }
     }
-    TRACK_MEM(addr, size, val);
+    track_write(addr,paddr,val,size);
     return 0;
 }
 
@@ -722,8 +733,9 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
     if (pmp_access_ok(s, addr & ~PG_MASK, PG_MASK + 1, PMPCFG_X)) {
         /* All of this page has full execute access so we can bypass
          * the slow PMP checks. */
-        s->tlb_code[tlb_idx].vaddr = addr & ~PG_MASK;
-        s->tlb_code[tlb_idx].mem_addend = (uintptr_t)ptr - addr;
+        s->tlb_code[tlb_idx].vaddr        = addr & ~PG_MASK;
+        s->tlb_code[tlb_idx].paddr_addend = paddr - addr;
+        s->tlb_code[tlb_idx].mem_addend   = (uintptr_t)ptr - addr;
     }
 
     /* check for page crossing */
@@ -747,8 +759,17 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
         }
         uint8_t *ptr_cross = pr_cross->phys_mem + (uintptr_t)(paddr_cross - pr_cross->addr);
 
-        *insn = (uint32_t)*((uint16_t*)ptr);
-        *insn |= ((uint32_t)*((uint16_t*)ptr_cross) << 16);
+        uint32_t data1 = (uint32_t)*((uint16_t*)ptr);
+        uint32_t data2 = (uint32_t)*((uint16_t*)ptr_cross);
+
+        //*insn = (uint32_t)*((uint16_t*)ptr);
+        //*insn |= ((uint32_t)*((uint16_t*)ptr_cross) << 16);
+
+        data1 = track_iread(addr,paddr      ,data1,16);
+        data2 = track_iread(addr,paddr_cross,data2,16);
+
+        *insn = data1 | (data2<<16);
+
         return 0;
     }
 
@@ -760,7 +781,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
         assert(0);
     }
 
-    TRACK_MEM(addr, 32, *insn);
+    *insn = track_iread(addr,paddr,*insn,size);
 
     return 0;
 }
@@ -774,8 +795,8 @@ static inline __exception int target_read_insn_u16(RISCVCPUState *s, uint16_t *p
 
     if (likely(s->tlb_code[tlb_idx].vaddr == (addr & ~PG_MASK))) {
         mem_addend = s->tlb_code[tlb_idx].mem_addend;
-        TRACK_MEM(addr, 16, *(uint16_t *)(mem_addend + (uintptr_t)addr));
-        *pinsn = *(uint16_t *)(mem_addend + (uintptr_t)addr);
+        uint32_t data = *(uint16_t *)(mem_addend + (uintptr_t)addr);
+        *pinsn = track_iread(addr,s->tlb_code[tlb_idx].paddr_addend + addr,data,16);
         return 0;
     }
 
