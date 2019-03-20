@@ -267,7 +267,7 @@ PHYS_MEM_READ_WRITE(64, uint64_t)
         tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);                  \
         if (likely(s->tlb_read[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
             uint64_t data = *(uint_type *)(s->tlb_read[tlb_idx].mem_addend + (uintptr_t)addr); \
-            uint64_t paddr = s->tlb_read[tlb_idx].paddr_addend + addr;  \
+            uint64_t paddr = s->tlb_read_paddr_addend[tlb_idx] + addr;  \
             *pval = track_dread(addr, paddr, data, size);               \
             return 0;                                                   \
         }                                                               \
@@ -291,7 +291,7 @@ PHYS_MEM_READ_WRITE(64, uint64_t)
         tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);                  \
         if (likely(s->tlb_write[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
             *(uint_type *)(s->tlb_write[tlb_idx].mem_addend + (uintptr_t)addr) = val; \
-            uint64_t paddr = s->tlb_write[tlb_idx].paddr_addend + addr;  \
+            uint64_t paddr = s->tlb_write_paddr_addend[tlb_idx] + addr;  \
             track_write(addr, paddr, val, size);                        \
             return 0;                                                   \
         }                                                               \
@@ -544,7 +544,11 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
             tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
             ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
             s->tlb_read[tlb_idx].vaddr        = addr & ~PG_MASK;
+#ifdef PADDR_INLINE
             s->tlb_read[tlb_idx].paddr_addend = paddr - addr;
+#else
+            s->tlb_read_paddr_addend[tlb_idx] = paddr - addr;
+#endif
             s->tlb_read[tlb_idx].mem_addend   = (uintptr_t)ptr - addr;
             switch (size_log2) {
             case 0:
@@ -641,7 +645,11 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
             tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
             ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
             s->tlb_write[tlb_idx].vaddr        = addr & ~PG_MASK;
+#ifdef PADDR_INLINE
             s->tlb_write[tlb_idx].paddr_addend = paddr - addr;
+#else
+            s->tlb_write_paddr_addend[tlb_idx] = paddr - addr;
+#endif
             s->tlb_write[tlb_idx].mem_addend   = (uintptr_t)ptr - addr;
             switch (size_log2) {
             case 0:
@@ -796,7 +804,11 @@ static inline __exception int target_read_insn_u16(RISCVCPUState *s, uint16_t *p
     if (likely(s->tlb_code[tlb_idx].vaddr == (addr & ~PG_MASK))) {
         mem_addend = s->tlb_code[tlb_idx].mem_addend;
         uint32_t data = *(uint16_t *)(mem_addend + (uintptr_t)addr);
+#ifdef PADDR_INLINE
         *pinsn = track_iread(addr,s->tlb_code[tlb_idx].paddr_addend + addr,data,16);
+#else
+        *pinsn = track_iread(addr,s->tlb_code_paddr_addend[tlb_idx] + addr,data,16);
+#endif
         return 0;
     }
 
@@ -2012,7 +2024,7 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
 #ifdef USE_GLOBAL_STATE
     s = &riscv_cpu_global_state;
 #else
-    s = mallocz(sizeof(*s));
+    s = (RISCVCPUState *)mallocz(sizeof(*s));
 #endif
     s->mem_map = mem_map;
     s->pc = BOOT_BASE_ADDR;
@@ -2245,7 +2257,7 @@ static void deserialize_memory(void *base, size_t size, const char *file)
     if (f_fd < 0)
         err(-3, "trying to read %s", file);
 
-    ssize_t sz = read(f_fd, base, size);
+    size_t sz = read(f_fd, base, size);
 
     if (sz != size)
         err(-3, "%s %zd size does not match memory size %zd", file, sz, size);
@@ -2500,7 +2512,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
 {
     FILE *conf_fd = 0;
     size_t n = strlen(dump_name) + 64;
-    char *conf_name = alloca(n);
+    char *conf_name = (char *)alloca(n);
     snprintf(conf_name, n, "%s.re_regs", dump_name);
 
     conf_fd = fopen(conf_name, "w");
@@ -2577,7 +2589,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
             assert(!main_ram_found);
             main_ram_found = 1;
 
-            char *f_name = alloca(strlen(dump_name)+64);
+            char *f_name = (char *)alloca(strlen(dump_name)+64);
             sprintf(f_name, "%s.mainram", dump_name);
 
             serialize_memory(pr->phys_mem, pr->size, f_name);
@@ -2590,7 +2602,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
     }
 
     n = strlen(dump_name) + 64;
-    char *f_name = alloca(n);
+    char *f_name = (char *)alloca(n);
     snprintf(f_name, n, "%s.bootram", dump_name);
 
     if (s->priv != 3 || ROM_BASE_ADDR + ROM_SIZE < s->pc) {
@@ -2616,7 +2628,7 @@ void riscv_cpu_deserialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_n
         if (pr->is_ram && pr->addr == ROM_BASE_ADDR) {
 
             size_t n = strlen(dump_name) + 64;
-            char *boot_name = alloca(n);
+            char *boot_name = (char *)alloca(n);
             snprintf(boot_name, n, "%s.bootram", dump_name);
 
             deserialize_memory(pr->phys_mem, pr->size, boot_name);
@@ -2624,10 +2636,11 @@ void riscv_cpu_deserialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_n
         } else if (pr->is_ram && pr->addr == m->ram_base_addr) {
 
             size_t n = strlen(dump_name) + 64;
-            char *main_name = alloca(n);
+            char *main_name = (char *)alloca(n);
             snprintf(main_name, n, "%s.mainram", dump_name);
 
             deserialize_memory(pr->phys_mem, pr->size, main_name);
         }
     }
 }
+

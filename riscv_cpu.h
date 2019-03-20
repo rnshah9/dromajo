@@ -138,7 +138,9 @@ typedef uint128_t mem_uint_t;
 
 typedef struct {
     target_ulong vaddr;
+#ifdef PADDR_INLINE
     target_ulong paddr_addend;
+#endif
     uintptr_t mem_addend;
 } TLBEntry;
 
@@ -257,6 +259,11 @@ typedef struct RISCVCPUState {
     TLBEntry tlb_read[TLB_SIZE];
     TLBEntry tlb_write[TLB_SIZE];
     TLBEntry tlb_code[TLB_SIZE];
+#ifndef PADDR_INLINE
+    target_ulong tlb_read_paddr_addend[TLB_SIZE];
+    target_ulong tlb_write_paddr_addend[TLB_SIZE];
+    target_ulong tlb_code_paddr_addend[TLB_SIZE];
+#endif
 
     // User specified, command line argument terminating event
     const char *terminating_event;

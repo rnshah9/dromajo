@@ -63,7 +63,8 @@
 #define isboxed(r) (((r) & F_HIGH) == F_HIGH)
 #define unbox(r) (isboxed(r) ? (r) : F_QNAN)
 #define F_QNAN glue(F_QNAN, F_SIZE)
-extern glue(sfloat, F_SIZE) F_QNAN;
+static glue(sfloat, F_SIZE) F_QNAN;
+
 
 #define FSIGN_MASK glue(FSIGN_MASK, F_SIZE)
 
@@ -73,7 +74,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     goto illegal_insn;
                 write_fp_reg(rd, glue(add_sf, F_SIZE)(unbox(read_fp_reg(rs1)),
                                                       unbox(read_fp_reg(rs2)),
-                                                      rm, &s->fflags) | F_HIGH);
+                                                      (RoundingModeEnum)rm, &s->fflags) | F_HIGH);
                 s->fs = 3;
                 break;
             case (0x01 << 2) | OPID:
@@ -82,7 +83,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     goto illegal_insn;
                 write_fp_reg(rd, glue(sub_sf, F_SIZE)(unbox(read_fp_reg(rs1)),
                                                       unbox(read_fp_reg(rs2)),
-                                                      rm, &s->fflags) | F_HIGH);
+                                                      (RoundingModeEnum)rm, &s->fflags) | F_HIGH);
                 s->fs = 3;
                 break;
             case (0x02 << 2) | OPID:
@@ -91,7 +92,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     goto illegal_insn;
                 write_fp_reg(rd, glue(mul_sf, F_SIZE)(unbox(read_fp_reg(rs1)),
                                                       unbox(read_fp_reg(rs2)),
-                                                      rm, &s->fflags) | F_HIGH);
+                                                      (RoundingModeEnum)rm, &s->fflags) | F_HIGH);
                 s->fs = 3;
                 break;
             case (0x03 << 2) | OPID:
@@ -100,7 +101,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     goto illegal_insn;
                 write_fp_reg(rd, glue(div_sf, F_SIZE)(unbox(read_fp_reg(rs1)),
                                                       unbox(read_fp_reg(rs2)),
-                                                      rm, &s->fflags) | F_HIGH);
+                                                      (RoundingModeEnum)rm, &s->fflags) | F_HIGH);
                 s->fs = 3;
                 break;
             case (0x0b << 2) | OPID:
@@ -108,7 +109,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 if (rm < 0 || rs2 != 0)
                     goto illegal_insn;
                 write_fp_reg(rd, glue(sqrt_sf, F_SIZE)(unbox(read_fp_reg(rs1)),
-                                                       rm, &s->fflags) | F_HIGH);
+                                                       (RoundingModeEnum)rm, &s->fflags) | F_HIGH);
                 s->fs = 3;
                 break;
             case (0x04 << 2) | OPID:
@@ -156,20 +157,20 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     goto illegal_insn;
                 switch (rs2) {
                 case 0: /* fcvt.w.[sdq] */
-                    val = (int32_t)glue(glue(cvt_sf, F_SIZE), _i32)(unbox(read_fp_reg(rs1)), rm,
+                    val = (int32_t)glue(glue(cvt_sf, F_SIZE), _i32)(unbox(read_fp_reg(rs1)), (RoundingModeEnum)rm,
                                                                     &s->fflags);
                     break;
                 case 1: /* fcvt.wu.[sdq] */
-                    val = (int32_t)glue(glue(cvt_sf, F_SIZE), _u32)(unbox(read_fp_reg(rs1)), rm,
+                    val = (int32_t)glue(glue(cvt_sf, F_SIZE), _u32)(unbox(read_fp_reg(rs1)), (RoundingModeEnum)rm,
                                                                     &s->fflags);
                     break;
 #if XLEN >= 64
                 case 2: /* fcvt.l.[sdq] */
-                    val = (int64_t)glue(glue(cvt_sf, F_SIZE), _i64)(unbox(read_fp_reg(rs1)), rm,
+                    val = (int64_t)glue(glue(cvt_sf, F_SIZE), _i64)(unbox(read_fp_reg(rs1)), (RoundingModeEnum)rm,
                                                                     &s->fflags);
                     break;
                 case 3: /* fcvt.lu.[sdq] */
-                    val = (int64_t)glue(glue(cvt_sf, F_SIZE), _u64)(unbox(read_fp_reg(rs1)), rm,
+                    val = (int64_t)glue(glue(cvt_sf, F_SIZE), _u64)(unbox(read_fp_reg(rs1)), (RoundingModeEnum)rm,
                                                                     &s->fflags);
                     break;
                 default:
@@ -207,19 +208,19 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     goto illegal_insn;
                 switch (rs2) {
                 case 0: /* fcvt.[sdq].w */
-                    write_fp_reg(rd, glue(cvt_i32_sf, F_SIZE)(read_reg(rs1), rm,
+                    write_fp_reg(rd, glue(cvt_i32_sf, F_SIZE)(read_reg(rs1), (RoundingModeEnum)rm,
                                                               &s->fflags) | F_HIGH);
                     break;
                 case 1: /* fcvt.[sdq].wu */
-                    write_fp_reg(rd, glue(cvt_u32_sf, F_SIZE)(read_reg(rs1), rm,
+                    write_fp_reg(rd, glue(cvt_u32_sf, F_SIZE)(read_reg(rs1), (RoundingModeEnum)rm,
                                                               &s->fflags) | F_HIGH);
                     break;
                 case 2: /* fcvt.[sdq].l */
-                    write_fp_reg(rd, glue(cvt_i64_sf, F_SIZE)(read_reg(rs1), rm,
+                    write_fp_reg(rd, glue(cvt_i64_sf, F_SIZE)(read_reg(rs1), (RoundingModeEnum)rm,
                                                               &s->fflags) | F_HIGH);
                     break;
                 case 3: /* fcvt.[sdq].lu */
-                    write_fp_reg(rd, glue(cvt_u64_sf, F_SIZE)(read_reg(rs1), rm,
+                    write_fp_reg(rd, glue(cvt_u64_sf, F_SIZE)(read_reg(rs1), (RoundingModeEnum)rm,
                                                               &s->fflags) | F_HIGH);
                     break;
 #endif
@@ -236,11 +237,11 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                 switch (rs2) {
 #if F_SIZE == 32 && FLEN >= 64
                 case 1: /* cvt.s.d */
-                    write_fp_reg(rd, cvt_sf64_sf32(read_fp_reg(rs1), rm, &s->fflags) | F32_HIGH);
+                    write_fp_reg(rd, cvt_sf64_sf32(read_fp_reg(rs1), (RoundingModeEnum)rm, &s->fflags) | F32_HIGH);
                     break;
 #if FLEN >= 128
                 case 3: /* cvt.s.q */
-                    write_fp_reg(rd, cvt_sf128_sf32(read_fp_reg(rs1), rm, &s->fflags) | F32_HIGH);
+                    write_fp_reg(rd, cvt_sf128_sf32(read_fp_reg(rs1), (RoundingModeEnum)rm, &s->fflags) | F32_HIGH);
                     break;
 #endif
 #endif /* F_SIZE == 32 */
@@ -257,7 +258,7 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                     break;
 #if FLEN >= 128
                 case 1: /* cvt.d.q */
-                    write_fp_reg(rd, cvt_sf128_sf64(read_fp_reg(rs1), rm, &s->fflags) | F64_HIGH);
+                    write_fp_reg(rd, cvt_sf128_sf64(read_fp_reg(rs1), (RoundingModeEnum)rm, &s->fflags) | F64_HIGH);
                     break;
 #endif
 #endif /* F_SIZE == 64 */
@@ -323,3 +324,5 @@ extern glue(sfloat, F_SIZE) F_QNAN;
 #undef isboxed
 #undef unbox
 #undef F_QNAN
+#undef F_QNAN32
+
