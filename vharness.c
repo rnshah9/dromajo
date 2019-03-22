@@ -46,8 +46,12 @@ int iterate_core(VirtMachine *m)
      * the trace of retired instructions.  Breaking this caused
      * ARCHSIM-74.
      */
+    RISCVMachine  *rvm  = (RISCVMachine *)m;
+    RISCVCPUState *cpu  = rvm->cpu_state;
     uint64_t last_pc    = virt_machine_get_pc(m);
     int      priv       = virt_machine_get_priv_level(m);
+    uint32_t insn_raw   = -1;
+    (void) riscv_read_insn(cpu, &insn_raw, last_pc);
     int      keep_going = virt_machine_run(m);
 
     if (last_pc == virt_machine_get_pc(m))
@@ -58,9 +62,6 @@ int iterate_core(VirtMachine *m)
         return keep_going;
     }
 
-    uint32_t insn_raw = 0;
-    virt_machine_read_insn(m, &insn_raw, last_pc);
-
     fprintf(stderr, "%d 0x%016"PRIx64" (0x%08x)", priv, last_pc,
             (insn_raw & 3) == 3 ? insn_raw : (uint16_t) insn_raw);
 
@@ -68,7 +69,6 @@ int iterate_core(VirtMachine *m)
     int iregno = virt_machine_get_most_recently_written_reg(m, &dummy1);
     int fregno = virt_machine_get_most_recently_written_fp_reg(m, &dummy2);
 
-    RISCVCPUState *cpu = ((RISCVMachine *)m)->cpu_state;
     if (cpu->pending_exception != -1)
         fprintf(stderr, " exception %d, tval %016lx", cpu->pending_exception,
                 virt_machine_get_priv_level(m) == PRV_M ? cpu->mtval : cpu->stval);

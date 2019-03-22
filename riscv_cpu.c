@@ -713,7 +713,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
 
     /* check for page crossing */
     int tlb_idx_cross = ((addr+2) >> PG_SHIFT) & (TLB_SIZE - 1);
-    if ((tlb_idx != tlb_idx_cross) && (size == 32)) {
+    if (tlb_idx != tlb_idx_cross && size == 32) {
         target_ulong paddr_cross;
         int err = riscv_cpu_get_phys_addr(s, addr+2, ACCESS_CODE, &paddr_cross);
         if (err) {
@@ -2092,15 +2092,18 @@ void riscv_dump_regs(RISCVCPUState *s)
 
 int riscv_read_insn(RISCVCPUState *s, uint32_t *insn, uint64_t addr)
 {
-    //uintptr_t mem_addend;
+    /* target_read_insn_slow() wasn't designed for being used outside
+       execution and will potentially raise exceptions.  Unfortunately
+       fixing this correctly is invasive so we just protect the
+       affected state. */
 
-    int i = target_read_insn_slow(s, insn, 32, addr);
-    if (i)
-        return i;
+    int          saved_pending_exception = s->pending_exception;
+    target_ulong saved_pending_tval      = s->pending_tval;
+    int          res                     = target_read_insn_slow(s, insn, 32, addr);
+    s->pending_exception                 = saved_pending_exception;
+    s->pending_tval                      = saved_pending_tval;
 
-    //*insn = *(uint32_t *)(mem_addend + addr);
-
-    return 0;
+    return res;
 }
 
 uint32_t riscv_cpu_get_misa(RISCVCPUState *s)
