@@ -580,7 +580,6 @@ static int fs_lock(FSDevice *fs, FSFile *f, const FSLock *lock)
     int ret;
     struct flock fl;
 
-    /* XXX: lock directories too */
     if (!f->is_opened || f->is_dir)
         return -P9_EPROTO;
 
@@ -605,7 +604,6 @@ static int fs_getlock(FSDevice *fs, FSFile *f, FSLock *lock)
     int ret;
     struct flock fl;
 
-    /* XXX: lock directories too */
     if (!f->is_opened || f->is_dir)
         return -P9_EPROTO;
 

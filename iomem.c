@@ -50,8 +50,7 @@ static void default_set_addr(PhysMemoryMap *map,
 
 PhysMemoryMap *phys_mem_map_init(void)
 {
-    PhysMemoryMap *s;
-    s = mallocz(sizeof(*s));
+    PhysMemoryMap *s = mallocz(sizeof *s);
     s->register_ram = default_register_ram;
     s->free_ram = default_free_ram;
     s->get_dirty_bits = default_get_dirty_bits;
@@ -61,15 +60,13 @@ PhysMemoryMap *phys_mem_map_init(void)
 
 void phys_mem_map_end(PhysMemoryMap *s)
 {
-    int i;
-    PhysMemoryRange *pr;
-
-    for (i = 0; i < s->n_phys_mem_range; i++) {
-        pr = &s->phys_mem_range[i];
+    for (int i = 0; i < s->n_phys_mem_range; i++) {
+        PhysMemoryRange *pr = &s->phys_mem_range[i];
         if (pr->is_ram) {
             s->free_ram(s, pr);
         }
     }
+
     free(s);
 }
 
@@ -77,13 +74,12 @@ void phys_mem_map_end(PhysMemoryMap *s)
 /* XXX: optimize */
 PhysMemoryRange *get_phys_mem_range(PhysMemoryMap *s, uint64_t paddr)
 {
-    PhysMemoryRange *pr;
-    int i;
-    for (i = s->n_phys_mem_range-1; i >= 0; --i) {
-        pr = &s->phys_mem_range[i];
+    for (int i = s->n_phys_mem_range-1; i >= 0; --i) {
+        PhysMemoryRange *pr = &s->phys_mem_range[i];
         if (paddr >= pr->addr && paddr < pr->addr + pr->size)
             return pr;
     }
+
     return NULL;
 }
 

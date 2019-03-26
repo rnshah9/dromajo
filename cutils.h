@@ -170,7 +170,6 @@ static inline uint32_t cpu_to_be32(uint32_t v)
 }
 #endif
 
-/* XXX: optimize */
 static inline int ctz32(uint32_t a)
 {
     int i;

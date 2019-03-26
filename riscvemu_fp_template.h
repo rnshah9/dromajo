@@ -222,17 +222,6 @@ extern glue(sfloat, F_SIZE) F_QNAN;
                                                               &s->fflags) | F_HIGH);
                     break;
 #endif
-#if XLEN >= 128
-                /* XXX: the index is not defined in the spec */
-                case 4: /* fcvt.[sdq].t */
-                    write_fp_reg(rd, glue(cvt_i128_sf, F_SIZE)(read_reg(rs1), rm,
-                                                               &s->fflags) | F_HIGH);
-                    break;
-                case 5: /* fcvt.[sdq].tu */
-                    write_fp_reg(rd, glue(cvt_u128_sf, F_SIZE)(read_reg(rs1), rm,
-                                                               &s->fflags) | F_HIGH);
-                    break;
-#endif
                 default:
                     goto illegal_insn;
                 }

@@ -573,7 +573,6 @@ static F_UINT divrem_u(F_UINT *pr, F_UINT ah, F_UINT al, F_UINT b)
 
 #else
 
-/* XXX: optimize */
 static F_UINT divrem_u(F_UINT *pr, F_UINT a1, F_UINT a0, F_UINT b)
 {
     int i, qb, ab;

@@ -176,8 +176,8 @@ pmp_access_ok(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t perm)
     }
 
     // Check for _any_ bytes from the range overlapping with a PMP
-    // region XXX We don't support the cases where the PMP region is
-    // smaller than the access
+    // region (we don't support the cases where the PMP region is
+    // smaller than the access).
     for (int i = 0; i < s->pmp_n; ++i)
         // [lo;hi)  `intersect` [paddr;paddr+size) is non-empty
         // Alas, doing this properly is expensive due to the risk of
@@ -319,7 +319,7 @@ int riscv_cpu_get_phys_addr(RISCVCPUState *s,
     mode = (s->satp >> 60) & 0xf;
     if (mode == 0) {
         /* bare: no translation */
-        *ppaddr = vaddr; // XXX Mask based on physical_addr_len?
+        *ppaddr = vaddr;
         return 0;
     } else {
         /* sv39/sv48 */
@@ -408,7 +408,6 @@ int riscv_cpu_get_phys_addr(RISCVCPUState *s,
             }
 
             vaddr_mask = ((target_ulong)1 << vaddr_shift) - 1;
-            // XXX Should we mask off bits based on physical_addr_len?
             *ppaddr = paddr & ~vaddr_mask | vaddr & vaddr_mask;
             return 0;
         }
@@ -590,7 +589,6 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
         s->pending_exception = CAUSE_MISALIGNED_STORE;
         return -1;
     } else if ((addr & (size - 1)) != 0) {
-        /* XXX: should avoid modifying the memory in case of exception */
         for (i = 0; i < size; i++) {
             err = target_write_u8(s, addr + i, (val >> (8 * i)) & 0xff);
             if (err)
@@ -701,7 +699,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
     }
     pr = get_phys_mem_range_pmp(s, paddr, size/8, PMPCFG_X);
     if (!pr || !pr->is_ram) {
-        /* XXX: we only access to execute code from RAM */
+        /* We only allow execution from RAM */
         s->pending_tval = addr;
         s->pending_exception = CAUSE_FAULT_FETCH;
         return -1;
@@ -725,7 +723,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
 
         PhysMemoryRange *pr_cross = get_phys_mem_range_pmp(s, paddr_cross, 2, PMPCFG_X);
         if (!pr_cross || !pr_cross->is_ram) {
-            /* XXX: we only access to execute code from RAM */
+            /* We only allow execution from RAM */
             s->pending_tval = addr;
             s->pending_exception = CAUSE_FAULT_FETCH;
             return -1;
@@ -790,23 +788,18 @@ static void tlb_flush_vaddr(RISCVCPUState *s, target_ulong vaddr)
     tlb_flush_all(s);
 }
 
-/* XXX: inefficient but not critical as long as it is seldom used */
 void riscv_cpu_flush_tlb_write_range_ram(RISCVCPUState *s,
-                                         uint8_t *ram_ptr, size_t ram_size)
+                                         uint8_t *ram_ptr,
+                                         size_t ram_size)
 {
-    uint8_t *ptr, *ram_end;
-    int i;
-
-    ram_end = ram_ptr + ram_size;
-    for (i = 0; i < TLB_SIZE; i++) {
+    uint8_t *ram_end = ram_ptr + ram_size;
+    for (int i = 0; i < TLB_SIZE; i++)
         if (s->tlb_write[i].vaddr != -1) {
-            ptr = (uint8_t *)(s->tlb_write[i].mem_addend +
-                              (uintptr_t)s->tlb_write[i].vaddr);
-            if (ptr >= ram_ptr && ptr < ram_end) {
+            uint8_t *ptr = (uint8_t *)
+                (s->tlb_write[i].mem_addend + (uintptr_t)s->tlb_write[i].vaddr);
+            if (ram_ptr <= ptr && ptr < ram_end)
                 s->tlb_write[i].vaddr = -1;
-            }
         }
-    }
 }
 
 

@@ -997,7 +997,6 @@ void virt_machine_end(VirtMachine *s1)
     if (s1->snapshot_save_name)
         virt_machine_serialize(s1, s1->snapshot_save_name);
 
-    /* XXX: stop all */
     riscv_cpu_end(s->cpu_state);
     phys_mem_map_end(s->mem_map);
     free(s);
