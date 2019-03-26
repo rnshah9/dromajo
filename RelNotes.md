@@ -14,8 +14,7 @@ End-user visible Changes since 20190121
 
    * Support for ET CSRs PREFETCH, FLUSHVAR, and FLUSHVAW were added
 
-     The latter two can raise MMU exceptions, violating RISC-V spec
-     which we had to support as well.
+     The latter two can raise MMU exceptions
 
    * MCE stubs CSRs (0xBA0 - BA4) were added
 
@@ -30,7 +29,7 @@ End-user visible Changes since 20190121
      parameter which defaults to 40.
 
    * Intersepts SBI SHUTDOWN ecall and terminate simulation, unless
-     --ignore_sbi_shutdown is given or XXX config parameter is used.
+     --ignore_sbi_shutdown is given.
 
    * mtime can now be set
 
@@ -90,7 +89,7 @@ End-user visible Changes since v0.1
    * A some hpmcounter could be written from user mode
 
    * mvendor CSR now fixed to Esperanto JEDEC number 101 in bank 11, that
-     is 0x5e5
+     is 0x5e5.  marchid is 0x800...002 now.
 
 
 RISCVEMU v0.1 Release Notes
