@@ -33,11 +33,12 @@
 # THE SOFTWARE.
 #
 
+LTO=-O2 -flto
 CC=gcc
-CFLAGS_OPT=-O2
+CFLAGS_OPT=$(LTO)
 CFLAGS=$(CFLAGS_OPT) -Wall -std=gnu99 -g -Werror -Wno-parentheses -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -MMD
 CFLAGS+=-D_GNU_SOURCE -DCONFIG_VERSION=\"$(shell cat VERSION)\"
-LDFLAGS=
+LDFLAGS=$(LTO)
 
 bindir=/usr/local/bin
 INSTALL=install
