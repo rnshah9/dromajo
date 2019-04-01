@@ -961,6 +961,9 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0x306:
         val = s->mcounteren;
         break;
+    case 0x320:
+        val = s->mcountinhibit;
+        break;
     case 0x340:
         val = s->mscratch;
         break;
@@ -1429,6 +1432,9 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
     case 0x306:
         s->mcounteren = val;
+        break;
+    case 0x320:
+        s->mcountinhibit = val & ~2;
         break;
     case 0x340:
         s->mscratch = val;
@@ -2364,6 +2370,7 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     create_csr64_recovery(rom, &code_pos, &data_pos, 0x304, s->mie);  // mie & sie
     create_csr64_recovery(rom, &code_pos, &data_pos, 0x305, s->mtvec);
     create_csr64_recovery(rom, &code_pos, &data_pos, 0x105, s->stvec);
+    create_csr12_recovery(rom, &code_pos, 0x320, s->mcountinhibit);
     create_csr12_recovery(rom, &code_pos, 0x306, s->mcounteren);
     create_csr12_recovery(rom, &code_pos, 0x106, s->scounteren);
 
@@ -2468,6 +2475,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
     fprintf(conf_fd, "medeleg:%" PRIu32 "\n", s->medeleg);
     fprintf(conf_fd, "mideleg:%" PRIu32 "\n", s->mideleg);
     fprintf(conf_fd, "mcounteren:%" PRIu32 "\n", s->mcounteren);
+    fprintf(conf_fd, "mcountinhibit:%" PRIu32 "\n", s->mcountinhibit);
     fprintf(conf_fd, "tselect:%" PRIu32 "\n", s->tselect);
 
     fprintf(conf_fd, "stvec:%llx\n", (unsigned long long)s->stvec);

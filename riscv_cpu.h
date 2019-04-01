@@ -192,6 +192,7 @@ typedef struct RISCVCPUState {
     uint32_t medeleg;
     uint32_t mideleg;
     uint32_t mcounteren;
+    uint32_t mcountinhibit;
     uint32_t tselect;
     target_ulong tdata1[MAX_TRIGGERS];
     target_ulong tdata2[MAX_TRIGGERS];
