@@ -27,6 +27,10 @@
 #define MIP_SEIP (1 << 9)
 //#define MIP_HEIP (1 << 10)  Removed in Priv 1.11 (draft)
 #define MIP_MEIP (1 << 11)
+// ET-specific, non-standard counter overflow interrupts.
+//#define MIP_UCIP (1 << 16) probably not necessary.
+//#define MIP_SCIP (1 << 17) probably not necessary.
+#define MIP_MCIP (1 << 18)
 
 #define MIE_USIE MIP_USIP
 #define MIE_SSIE MIP_SSIP
@@ -37,6 +41,7 @@
 #define MIE_UEIE MIP_UEIP
 #define MIE_SEIE MIP_SEIP
 #define MIE_MEIE MIP_MEIP
+#define MIE_MCIP MIP_MCIP
 
 
 #define CAUSE_MISALIGNED_FETCH    0x0
@@ -115,6 +120,10 @@
 
 #define CSR_ET_VALIDATION0                      0x8D0
 #define CSR_ET_VALIDATION1                      0x8D1
+
+#define CSR_ET_MCIP                             0xbd5
+#define CSR_ET_SCIP                             0x9d5
+#define CSR_ET_UCIP                             0x845
 
 // These magic values are extracted from Maxion RTL
 #define ET_MCE_MASK_SZ                             25

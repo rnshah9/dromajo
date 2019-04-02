@@ -1092,6 +1092,15 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0xf11:
         val = s->mvendorid;
         break;
+    case CSR_ET_MCIP:
+        val = 0x0; // perf counter overflows. DUT will override.
+        break;
+    case CSR_ET_SCIP:
+        val = 0x0; // perf counter overflows. DUT will override.
+        break;
+    case CSR_ET_UCIP:
+        val = 0x0; // perf counter overflows. DUT will override.
+        break;
     case 0x323:
     case 0x324:
     case 0x325:
@@ -1415,7 +1424,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mideleg = s->mideleg & ~mask | val & mask;
         break;
     case 0x304:
-        mask = MIE_MEIE | MIE_SEIE /*| MIE_UEIE*/ | MIE_MTIE | MIE_STIE | /*MIE_UTIE | */ MIE_MSIE | MIE_SSIE /*| MIE_USIE */;
+        mask = MIE_MCIP /*| MIE_SCIP | MIE_UCIP*/ | MIE_MEIE | MIE_SEIE /*| MIE_UEIE*/ | MIE_MTIE | MIE_STIE | /*MIE_UTIE | */ MIE_MSIE | MIE_SSIE /*| MIE_USIE */;
         s->mie = s->mie & ~mask | val & mask;
         break;
     case 0x305:
@@ -1520,6 +1529,13 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case 0x33f:
         s->mhpmevent[csr & 0x1F] = val;
         break;
+
+    case CSR_ET_MCIP:
+    case CSR_ET_SCIP:
+    case CSR_ET_UCIP:
+        // Do nothing: perf counter overflow cosim relies on DUT overrides.
+        break;
+
 
     case CSR_PMPCFG(0): // NB: 1 and 3 are _illegal_ in RV64
     case CSR_PMPCFG(2): {

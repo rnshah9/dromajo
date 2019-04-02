@@ -124,11 +124,13 @@ static inline void handle_dut_overrides(RISCVCPUState *s,
     int reg, offset;
 
     /* Catch reads from CSR mcycle, ucycle, instret, hpmcounters,
+     * or hpmoverflows.
      * If the destination register is x0 then it is actually a csr-write
      */
     if (opcode == 0x73 && rd != 0 &&
         (0xB00 <= csrno && csrno < 0xB20 ||
-         0xC00 <= csrno && csrno < 0xC20))
+         0xC00 <= csrno && csrno < 0xC20 ||
+         (CSR_ET_MCIP == csrno || CSR_ET_SCIP == csrno || CSR_ET_UCIP == csrno)))
         riscv_set_reg(s, rd, dut_wdata);
 
     /* Catch loads and amo from MMIO space */
@@ -412,10 +414,11 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     if (verbose)
         fprintf(stderr, "%d 0x%016"PRIx64" ", emu_priv, emu_pc);
 
-    if ((emu_insn & 3) == 3)
-        fprintf(stderr, "(0x%08x) ", emu_insn);
-    else
-        fprintf(stderr, "(0x%08x) ", (uint16_t)emu_insn);
+    if (verbose)
+        if ((emu_insn & 3) == 3)
+            fprintf(stderr, "(0x%08x) ", emu_insn);
+        else
+            fprintf(stderr, "(0x%08x) ", (uint16_t)emu_insn);
 
     if (iregno > 0) {
         emu_wdata = riscv_get_reg(s, iregno);
