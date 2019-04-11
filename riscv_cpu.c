@@ -47,6 +47,7 @@
 #include "cutils.h"
 #include "iomem.h"
 #include "riscv_cpu.h"
+#include "LiveCacheCore.h"
 
 // NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
 #define write_reg(x, val) ({s->most_recently_written_reg = (x); \
@@ -155,17 +156,30 @@ static void dump_regs(RISCVCPUState *s)
 #endif
 }
 
+#ifdef LIVECACHE
+LiveCache *llc=0;
+#endif
+
 static inline void track_write(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+#ifdef LIVECACHE
+  llc->write(paddr);
+#endif
   // fprintf(stderr,"track_write vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
 }
 
 static inline uint64_t track_dread(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+#ifdef LIVECACHE
+  llc->read(paddr);
+#endif
   // fprintf(stderr,"track_dread vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
 
   return data;
 }
 
 static inline uint64_t track_iread(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+#ifdef LIVECACHE
+  llc->read(paddr);
+#endif
   assert(size==16 || size==32);
   // fprintf(stderr,"track_iread vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
 
@@ -2316,6 +2330,19 @@ static void create_csr12_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t cs
     rom[(*code_pos)++] = create_csrrw(1,  csrn);
 }
 
+static void create_read_warmup(uint32_t *rom, uint32_t *code_pos, uint32_t *data_pos, uint64_t val)
+{
+    uint32_t data_off = sizeof(uint32_t) * (*data_pos - *code_pos);
+
+    rom[(*code_pos)++] = create_auipc(1, data_off);
+    rom[(*code_pos)++] = create_addi(1, data_off);
+    rom[(*code_pos)++] = create_ld(1, 1);
+    rom[(*code_pos)++] = create_ld(1, 1);
+
+    rom[(*data_pos)++] = val & 0xFFFFFFFF;
+    rom[(*data_pos)++] = val >> 32;
+}
+
 static void create_csr64_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t *data_pos, uint32_t csrn, uint64_t val)
 {
     uint32_t data_off = sizeof(uint32_t) * (*data_pos - *code_pos);
@@ -2403,6 +2430,22 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     }
 
     create_csr12_recovery(rom, &code_pos, 0x7b0, 0x600 | s->priv);
+
+#ifdef LIVECACHE
+    int addr_size;
+    uint64_t *addr = llc->traverse(addr_size);
+
+    if (addr_size>(ROM_SIZE/4)) {
+      fprintf(stderr,"LiveCache: truncating boot rom from %d to %d\n",addr_size,ROM_SIZE/4);
+      addr_size = ROM_SIZE/4;
+    }
+
+    for(int i=0;i<addr_size;i++) {
+      uint64_t a = addr[i] & ~0x1ULL;
+      printf("addr:%llx %s\n", (unsigned long long)a, (addr[i]&1)?"ST":"LD");
+      create_read_warmup(rom, &code_pos, &data_pos, a); // treat write like reads for the moment
+    }
+#endif
 
     // NOTE: mstatus & misa should be one of the first because risvemu breaks down this
     // register for performance reasons. E.g: restoring the fflags also changes

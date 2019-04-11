@@ -29,6 +29,7 @@
 #include "iomem.h"
 #include "virtio.h"
 #include "riscv_cpu.h"
+#include "LiveCacheCore.h"
 
 //#define REGRESS_RISCV_COSIM 1
 #ifdef REGRESS_RISCV_COSIM
@@ -50,8 +51,6 @@ int iterate_core(VirtMachine *m)
     RISCVCPUState *cpu  = rvm->cpu_state;
     uint64_t last_pc    = virt_machine_get_pc(m);
     int      priv       = virt_machine_get_priv_level(m);
-    uint32_t insn_raw   = -1;
-    (void) riscv_read_insn(cpu, &insn_raw, last_pc);
     int      keep_going = virt_machine_run(m);
 
     if (last_pc == virt_machine_get_pc(m))
@@ -82,8 +81,16 @@ int iterate_core(VirtMachine *m)
     return keep_going;
 }
 
+#ifdef LIVECACHE
+extern LiveCache *llc;
+#endif
+
 int main(int argc, char **argv)
 {
+#ifdef LIVECACHE
+  llc = new LiveCache("LLC", 1024*1024*32); // 32MB LLC (should be ~2x larger than real)
+#endif
+
 #ifdef REGRESS_RISCV_COSIM
     riscvemu_cosim_state_t *costate = 0;
     costate = riscvemu_cosim_init(argc, argv);
@@ -112,6 +119,19 @@ int main(int argc, char **argv)
     fprintf(riscvemu_stderr,"\nPower off.\n");
 
     virt_machine_end(m);
+#endif
+
+#ifdef LIVECACHE
+#if 0
+    // LiveCache Dump
+    int addr_size;
+    uint64_t *addr = llc->traverse(addr_size);
+
+    for(int i=0;i<addr_size;i++) {
+      printf("addr:%llx %s\n", (unsigned long long)addr[i], (addr[i]&1)?"ST":"LD");
+    }
+#endif
+    delete llc;
 #endif
 
     return 0;

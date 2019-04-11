@@ -33,10 +33,11 @@
 # THE SOFTWARE.
 #
 
-CXX=gcc
+CXX=g++
 CFLAGS_OPT=-Ofast -flto
-CXXFLAGS=$(CFLAGS_OPT) -Wall -std=c11 -g -Werror -Wno-parentheses -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -MMD
+CXXFLAGS=$(CFLAGS_OPT) -Wall -std=c++11 -g -Werror -Wno-parentheses -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -MMD
 CXXFLAGS+=-D_GNU_SOURCE -DCONFIG_VERSION=\"$(shell cat VERSION)\"
+CXXFLAGS+=-DLIVECACHE
 LDFLAGS=
 
 bindir=/usr/local/bin
@@ -49,7 +50,7 @@ BENCH_WORKLOAD=../../from-ccelio/bbl-vmlinux-initramfs
 all: $(PROGS)
 
 EMU_OBJS:=virtio.o pci.o fs.o cutils.o iomem.o dw_apb_uart.o \
-    json.o machine.o elf64.o
+    json.o machine.o elf64.o LiveCache.o
 
 RISCVEMU_OBJS:=$(EMU_OBJS) riscvemu.o riscv_machine.o softfp.o riscvemu_main.o
 
@@ -90,6 +91,9 @@ install: $(PROGS)
 	$(INSTALL) -m755 $(PROGS) "$(DESTDIR)$(bindir)"
 
 %.o: %.c
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 debug:
