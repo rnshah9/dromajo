@@ -174,6 +174,22 @@ void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state,
  * against.
  *
  */
+
+// get a bit from the number: num[idx]
+inline uint64_t get_bit(uint64_t num, int idx) {
+    return (num >> idx) & 0x1;
+}
+
+// generate a bit mask
+inline uint64_t get_mask(int size) {
+    return (1 << size) - 1;
+}
+
+// get a bit-slice from the number: num[hi,lo]
+inline uint64_t get_range(uint64_t num, int hi, int lo) {
+    return (num >> lo) & get_mask(hi-lo+1);
+}
+
 static void cosim_history(RISCVCPUState *s,
                           uint64_t       dut_pc,
                           uint64_t       dut_ghr0,  // ghistory[63: 0]
@@ -193,6 +209,8 @@ static void cosim_history(RISCVCPUState *s,
                 emu_ghr1, emu_ghr0, dut_ghr1, dut_ghr0);
         *exit_code = 0x1FFF;
     }
+
+    uint64_t emu_ghr0_old = emu_ghr0;
 
     /* Step 2: Compute GHR for the *next* instruction. */
 
@@ -218,25 +236,32 @@ static void cosim_history(RISCVCPUState *s,
         int histlen = 90; // must be < 128 for cosim reasons.
         int sz0 = 6; // must be even.
         int szh = sz0/2;
+        int min = (2*sz0 + szh + 13);
 
         int pc = target_pc >> 1; // Remove lsb (always zero).
         int foldpc = (pc >> 17) ^ pc;
-        int o0 = emu_ghr0 & ((1 << sz0) - 1); // old(sz0-1,0)
-        int o1 = (emu_ghr0 >> sz0) & ((1 << sz0) - 1); // old(2*sz0-1,sz0)
+        int o0 = get_range(emu_ghr0, sz0-1, 0); // old(sz0-1,0)
+        int o1 = get_range(emu_ghr0, 2*sz0-1, sz0) ; // old(2*sz0-1,sz0)
+        int o2 = get_range(emu_ghr0, 2*sz0+szh, 2*sz0); // old(2*sz0+szh,2*sz0)
 
-        int h0 = foldpc & ((1 << sz0) - 1); // foldpc(sz0-1,0)
-        int h1 = o0;
-        int h2 = (o1 ^ (o1 >> szh)) & ((1 << szh) - 1); // (o1 ^ (o1 >> (sz0/2).U))(sz0/2-1,0)
+        int h0  = foldpc & get_mask(sz0); // foldpc(sz0-1,0)
+        int h1  = o0;
+        int h2  = (o1 ^ (o1 >> szh)) & get_mask(szh+1); // (o1 ^ (o1 >> (sz0/2).U))(sz0/2-1,0)
+        int h3  = (o2 ^ (o2 >> 2)) & get_mask(2); // (o2 ^ (o2 >> 2))(1,0)
+        int h10 = get_bit(emu_ghr0, 27) ^ get_bit(emu_ghr0, 26); // fold o9's 2-bits down to 1-bit
 
-        emu_ghr1 <<= szh;
-        emu_ghr1 |= emu_ghr0 >> (64-szh);
+        emu_ghr1 <<= 1;
+        emu_ghr1 |= get_bit(emu_ghr0, 63);
 #endif
 
-        //min = h0.getWidth + h1.getWidth
-        // ret := Cat(old(history_length-1, min), h2, h1, h0)
-        emu_ghr0 &= ~((1 << 2*sz0) - 1);
-        emu_ghr0 =
-            (emu_ghr0 << szh) |
+        // min = h0.getWidth + h1.getWidth + h2.getWidth + h3.getWidth + 10
+        // ret := Cat(old(history_length-1, min), h10, old(25,16), h3, h2, h1, h0)
+        emu_ghr0 &= ~((1 << min) - 1);
+        emu_ghr0 = \
+            (emu_ghr0 << 1) |
+            (h10 << (2*sz0 + szh + 13)) |
+            (get_range(emu_ghr0_old, 25, 16) << (2*sz0 + szh + 3)) |
+            (h3 << (2*sz0 + szh + 1)) |
             (h2 << 2*sz0) |
             (h1 << sz0) |
             (h0);
