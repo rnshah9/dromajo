@@ -30,7 +30,12 @@
  */
 riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[])
 {
-    return (riscvemu_cosim_state_t *)virt_machine_main(argc, argv);
+    VirtMachine *m = virt_machine_main(argc, argv);
+
+    m->pending_interrupt = -1;
+    m->pending_exception = -1;
+
+    return (riscvemu_cosim_state_t *)m;
 }
 
 static bool is_store_conditional(uint32_t insn)
@@ -152,19 +157,30 @@ static inline void handle_dut_overrides(RISCVCPUState *s,
 }
 
 /*
- * riscvemu_cosim_raise_interrupt --
+ * riscvemu_cosim_raise_trap --
  *
- * DUT asynchronously raises interrupt and provides the cause
- *
+ * DUT raises a trap (exception or interrupt) and provides the cause.
+ * MSB indicates an asynchronous interrupt, synchronous exception
+ * otherwise.
  */
-void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state,
-                                    int cause)
+void riscvemu_cosim_raise_trap(riscvemu_cosim_state_t *state, int64_t cause)
 {
-    VirtMachine   *m = (VirtMachine  *)state;
-    RISCVMachine  *r = (RISCVMachine *)m;
-    RISCVCPUState *s = r->cpu_state;
+    VirtMachine *m = (VirtMachine  *)state;
 
-    riscv_cpu_set_mip(s, riscv_cpu_get_mip(s) | 1 << cause);
+    if (cause < 0) {
+        assert(m->pending_interrupt == -1);
+        m->pending_interrupt = cause & 63;
+        fprintf(stderr, "DUT raised interrupt %d\n", m->pending_interrupt);
+    } else {
+        assert(m->pending_exception == -1);
+        m->pending_exception = cause;
+    }
+}
+
+/* Deprecated, will go away once boom is updated */
+void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state, int64_t cause)
+{
+    riscvemu_cosim_raise_trap(state, (1ll << 63) + cause);
 }
 
 /* cosim_history --
@@ -176,18 +192,22 @@ void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state,
  */
 
 // get a bit from the number: num[idx]
-inline uint64_t get_bit(uint64_t num, int idx) {
-    return (num >> idx) & 0x1;
+static inline uint64_t get_bit(uint64_t num, int idx)
+{
+    return (num >> idx) & 1;
 }
 
 // generate a bit mask
-inline uint64_t get_mask(int size) {
+static inline uint64_t get_mask(int size)
+{
+    assert(size != 64);
     return (1 << size) - 1;
 }
 
 // get a bit-slice from the number: num[hi,lo]
-inline uint64_t get_range(uint64_t num, int hi, int lo) {
-    return (num >> lo) & get_mask(hi-lo+1);
+static inline uint64_t get_range(uint64_t num, int hi, int lo)
+{
+    return (num >> lo) & get_mask(hi - lo + 1);
 }
 
 static void cosim_history(RISCVCPUState *s,
@@ -349,6 +369,40 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
             riscv_set_pc(s, emu_pc + 4);
             break;
         }
+
+        if (m->pending_interrupt != -1 && m->pending_exception != -1) {
+            /* ARCHSIM-301: On the DUT, the interrupt can race the exception.
+               Let's try to match that behavior */
+
+            fprintf(stderr, "DUT also raised exception %d\n", m->pending_exception);
+            riscv_cpu_interp64(s, 1); // Advance into the exception
+
+            int cause = s->priv == PRV_S ? s->scause : s->mcause;
+
+            if (m->pending_exception != cause) {
+                char priv = s->priv["US?M"];
+
+                /* Unfortunately, handling the error case is awkward,
+                 * so we just exit from here */
+
+                fprintf(stderr, "%d 0x%016"PRIx64" ", emu_priv, emu_pc);
+                if ((emu_insn & 3) == 3)
+                    fprintf(stderr, "(0x%08x) ", emu_insn);
+                else
+                    fprintf(stderr, "(0x%08x) ", (uint16_t)emu_insn);
+                fprintf(stderr,
+                        "[error] EMU %cCAUSE %d != DUT %cCAUSE %d\n",
+                        priv, cause, priv, m->pending_exception);
+
+                return 0x1FFF;
+            }
+        }
+
+        if (m->pending_interrupt != -1)
+            riscv_cpu_set_mip(s, riscv_cpu_get_mip(s) | 1 << m->pending_interrupt);
+
+        m->pending_interrupt = -1;
+        m->pending_exception = -1;
 
         if (riscv_cpu_interp64(s, 1) != 0) {
             iregno = riscv_get_most_recently_written_reg(s, &dummy1);

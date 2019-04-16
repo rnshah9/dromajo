@@ -59,13 +59,19 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                         bool                    check);
 
 /*
- * riscvemu_cosim_raise_interrupt --
+ * riscvemu_cosim_raise_trap --
  *
- * DUT asynchronously raises interrupt and provides the cause
+ * DUT raises a trap (exception or interrupt) and provides the cause.
+ * MSB indicates an asynchronous interrupt, synchronous exception
+ * otherwise.
  *
  */
-void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state,
-                                    int cause);
+void riscvemu_cosim_raise_trap(riscvemu_cosim_state_t *state, int64_t cause);
+
+
+/* Deprecated, will go away soon */
+void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state, int64_t cause);
+
 
 #ifdef __cplusplus
 } // extern C

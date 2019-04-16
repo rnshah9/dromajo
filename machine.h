@@ -155,6 +155,10 @@ typedef struct VirtMachine {
     const char *terminate_event;
     uint64_t    maxinsns;
     uint64_t    trace;
+
+    /* For co-simulation only, they are -1 if nothing is pending. */
+    int         pending_interrupt;
+    int         pending_exception;
 } VirtMachine;
 
 void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...);
