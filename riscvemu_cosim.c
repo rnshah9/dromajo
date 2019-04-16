@@ -177,12 +177,6 @@ void riscvemu_cosim_raise_trap(riscvemu_cosim_state_t *state, int64_t cause)
     }
 }
 
-/* Deprecated, will go away once boom is updated */
-void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state, int64_t cause)
-{
-    riscvemu_cosim_raise_trap(state, (1ll << 63) + cause);
-}
-
 /* cosim_history --
  *
  * Simulate up to 128 bits of global history. Currently requires

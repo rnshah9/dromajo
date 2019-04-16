@@ -10,8 +10,6 @@
 
 /*
  * API for RISCVEMU-based cosimulation
- *
- * Copyright (c) 2018,2019 Esperanto Technologies
  */
 
 #ifndef _RISCVEMU_COSIM_H
@@ -67,11 +65,6 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
  *
  */
 void riscvemu_cosim_raise_trap(riscvemu_cosim_state_t *state, int64_t cause);
-
-
-/* Deprecated, will go away soon */
-void riscvemu_cosim_raise_interrupt(riscvemu_cosim_state_t *state, int64_t cause);
-
 
 #ifdef __cplusplus
 } // extern C
