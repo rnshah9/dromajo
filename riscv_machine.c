@@ -879,6 +879,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     s->cpu_state = riscv_cpu_init(s->mem_map, p->validation_terminate_event);
 
     /* RAM */
+    cpu_register_ram(s->mem_map, 0, 4096, 0); // Have memory at 0 for uaccess-etcsr to pass
     cpu_register_ram(s->mem_map, s->ram_base_addr, s->ram_size, 0);
     cpu_register_ram(s->mem_map, ROM_BASE_ADDR, ROM_SIZE, 0);
     s->cpu_state->physical_addr_len = p->physical_addr_len;
