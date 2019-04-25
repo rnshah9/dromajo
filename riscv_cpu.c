@@ -2306,6 +2306,17 @@ static void create_io64_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t *da
     rom[(*data_pos)++] = val >> 32;
 }
 
+static void create_hang_nonzero_hart(uint32_t *rom, uint32_t *code_pos, uint32_t *data_pos)
+{
+    /* Note, this matches the boot loader prologue from copy_kernel() */
+
+    rom[(*code_pos)++] = 0xf1402573;  // start:  csrr   a0, mhartid
+    rom[(*code_pos)++] = 0x00050663;  //         beqz   a0, 1f
+    rom[(*code_pos)++] = 0x10500073;  // 0:      wfi
+    rom[(*code_pos)++] = 0xffdff06f;  //         j      0b
+                                      // 1:
+}
+
 static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
 {
     uint32_t rom[ROM_SIZE / 4];
@@ -2319,6 +2330,8 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     uint32_t code_pos = (BOOT_BASE_ADDR - ROM_BASE_ADDR) / sizeof *rom;
     uint32_t data_pos = 0xB00 / sizeof *rom;
     uint32_t data_pos_start = data_pos;
+
+    create_hang_nonzero_hart(rom, &code_pos, &data_pos);
 
     create_csr64_recovery(rom, &code_pos, &data_pos, 0x7b1, s->pc); // Write to DPC (CSR, 0x7b1)
 

@@ -792,20 +792,17 @@ static void load_elf_image(RISCVMachine *s, const void *image, size_t image_len,
 
 /* Return non-zero on failure */
 static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
-                        const char *cmd_line, bool is_elf)
+                       const char *cmd_line, bool is_elf)
 {
-    uint32_t fdt_addr;
-    uint8_t *ram_ptr;
-    uint32_t *q;
-    uint64_t entry_point;
-
     if (buf_len > s->ram_size) {
         vm_error("Kernel too big\n");
         return 1;
     }
 
     if (is_elf) {
+        uint64_t entry_point;
         load_elf_image(s, buf, buf_len, &entry_point);
+
         if (entry_point != s->ram_base_addr) {
             fprintf(stderr, "RISCVEMU current requires a 0x%lx starting "
                     "address, image assumes 0x%0lx\n",
@@ -816,31 +813,33 @@ static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
     else
         memcpy(get_ram_ptr(s, s->ram_base_addr), buf, buf_len);
 
-    ram_ptr = get_ram_ptr(s, ROM_BASE_ADDR);
+    assert(s->ram_base_addr == 0x80000000 || s->ram_base_addr == 0x8000000000);
 
-    fdt_addr = (BOOT_BASE_ADDR-ROM_BASE_ADDR) + 10 * 4;
-    riscv_build_fdt(s, ram_ptr + fdt_addr, cmd_line);
+    uint8_t *ram_ptr  = get_ram_ptr(s, ROM_BASE_ADDR);
+    uint32_t fdt_addr = (BOOT_BASE_ADDR - ROM_BASE_ADDR) + 256;
+    uint32_t *q       = (uint32_t *)(ram_ptr + (BOOT_BASE_ADDR - ROM_BASE_ADDR));
 
-    /* jump_addr = 0x80000000 */
+    /* KEEP THIS IN SYNC WITH boom-template/bootrom/cosim/cosim.S
+       Eventually we'll make this code loadable */
 
-    q = (uint32_t *)(ram_ptr + (BOOT_BASE_ADDR-ROM_BASE_ADDR));
-    q[0] = 0xf1402573; // csrr    a0, mhartid
-    q[1] = 0x00000597; // auipc   a1, 0x0      = BOOT_BASE_ADDR + 3*4
-    q[2] = 0x02458593; // addi    a1, a1, 28   = BOOT_BASE_ADDR + 10*4
-    q[3] = 0x0010041b; // addiw   s0, zero, 1
+    *q++ = 0xf1402573;  // start:  csrr   a0, mhartid
+    *q++ = 0x00050663;  //         beqz   a0, 1f
+    *q++ = 0x10500073;  // 0:      wfi
+    *q++ = 0xffdff06f;  //         j      0b
+    *q++ = 0x00000597;  // 1:      auipc  a1, 0x0
+    *q++ = 0x0f058593;  //         addi   a1, a1, 240 # _start + 256
+    *q++ = 0x60300413;  //         li     s0, 1539
+    *q++ = 0x7b041073;  //         csrw   dcsr, s0
+    *q++ = 0x0010041b;  //         addiw  s0, zero, 1
+    *q++ = 0x02741413;  //         slli   s0, s0, 39
     if (s->ram_base_addr == 0x80000000)
-        q[4] = 0x01f41413; // slli    s0, s0, 39   ; s0 =      8000_0000
-    else if (s->ram_base_addr == 0x8000000000)
-        q[4] = 0x02741413; // slli    s0, s0, 39   ; s0 =   80_0000_0000
-    else
-        // XXX Don't want to rock the boat right now and make the right fix
-        assert(s->ram_base_addr == 0x80000000 || s->ram_base_addr == 0x8000000000);
-    q[5] = 0x7b141073; // csrw    dpc, s0
-    q[6] = 0x60300413; // li      s0, 1539
-    q[7] = 0x7b041073; // csrw    dcsr, s0
-    q[8] = 0x7b200073; // dret
+        q[-1] = 0x01f41413; //     slli s0, s0, 31
+    *q++ = 0x7b141073;  //         csrw   dpc, s0
+    *q++ = 0x7b200073;  //         dret
 
     riscv_set_debug_mode(s->cpu_state, TRUE);
+
+    riscv_build_fdt(s, ram_ptr + fdt_addr, cmd_line);
 
     return 0;
 }
