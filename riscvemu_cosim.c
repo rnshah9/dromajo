@@ -170,11 +170,10 @@ void riscvemu_cosim_raise_trap(riscvemu_cosim_state_t *state, int64_t cause)
     VirtMachine *m = (VirtMachine  *)state;
 
     if (cause < 0) {
-        assert(m->pending_interrupt == -1);
+        assert(m->pending_interrupt == -1); // XXX RTLMAX-434
         m->pending_interrupt = cause & 63;
         fprintf(stderr, "DUT raised interrupt %d\n", m->pending_interrupt);
     } else {
-        assert(m->pending_exception == -1);
         m->pending_exception = cause;
     }
 }
