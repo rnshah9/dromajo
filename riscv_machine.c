@@ -56,9 +56,25 @@
 //#define DUMP_HTIF
 //#define DUMP_PLIC
 
-#define UART0_BASE_ADDR 0x54000000
-// sifive,uart
-#define UART0_IRQ 3 // Same as qemu UART0 (qemu has 2 sifive uarts)
+#define PLIC_BASE_ADDR          0x10000000
+#define PLIC_SIZE                0x2000000
+#define PLIC_HART_BASE          0x00200000
+#define PLIC_HART_SIZE              0x1000
+
+#define HTIF_BASE_ADDR          0x40008000
+#define IDE_BASE_ADDR           0x40009000
+#define VIRTIO_BASE_ADDR        0x40010000
+#define VIRTIO_SIZE                 0x1000
+#define VIRTIO_IRQ                       1
+#define FRAMEBUFFER_BASE_ADDR   0x41000000
+
+// sifive,uart, same as qemu UART0 (qemu has 2 sifive uarts)
+#define UART0_BASE_ADDR         0x54000000
+#define UART0_SIZE                      32
+#define UART0_IRQ                        3
+
+#define RTC_FREQ                  10000000
+
 enum {
     SIFIVE_UART_TXFIFO        = 0,
     SIFIVE_UART_RXFIFO        = 4,
@@ -81,18 +97,6 @@ enum {
     SIFIVE_UART_IP_TXWM       = 1, /* Transmit watermark interrupt pending */
     SIFIVE_UART_IP_RXWM       = 2  /* Receive watermark interrupt pending */
 };
-#define UART0_SIZE      32
-
-#define HTIF_BASE_ADDR 0x40008000
-#define IDE_BASE_ADDR  0x40009000
-#define VIRTIO_BASE_ADDR 0x40010000
-#define VIRTIO_SIZE      0x1000
-#define VIRTIO_IRQ       1
-#define PLIC_BASE_ADDR 0xC000000
-#define PLIC_SIZE      0x00400000
-#define FRAMEBUFFER_BASE_ADDR 0x41000000
-
-#define RTC_FREQ 10000000
 
 static uint64_t rtc_get_time(RISCVMachine *m)
 {
@@ -100,8 +104,7 @@ static uint64_t rtc_get_time(RISCVMachine *m)
 }
 
 typedef struct SiFiveUARTState {
-  CharacterDevice *cs; // Console
-
+    CharacterDevice *cs; // Console
     uint32_t irq;
     uint8_t rx_fifo[8];
     unsigned int rx_fifo_len;
@@ -280,9 +283,6 @@ static void plic_update_mip(RISCVMachine *s)
         riscv_cpu_reset_mip(cpu, MIP_MEIP | MIP_SEIP);
     }
 }
-
-#define PLIC_HART_BASE 0x200000
-#define PLIC_HART_SIZE 0x1000
 
 static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
 {
@@ -733,7 +733,7 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
         fdt_end_node(s); /* virtio */
     }
 
-    // UART
+    // SiFive UART
     fdt_begin_node_num(s, "uart", UART0_BASE_ADDR);
     fdt_prop_str(s, "compatible", "sifive,uart0");
     fdt_prop_tab_u64_2(s, "reg", UART0_BASE_ADDR, UART0_SIZE);
