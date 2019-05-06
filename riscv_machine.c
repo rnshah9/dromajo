@@ -48,6 +48,7 @@
 #include "iomem.h"
 #include "riscv_cpu.h"
 #include "riscv_machine.h"
+#include "dw_apb_uart.h"
 
 /* RISCV machine */
 
@@ -739,6 +740,13 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
     fdt_prop_tab_u64_2(s, "reg", UART0_BASE_ADDR, UART0_SIZE);
     fdt_end_node(s); /* uart */
 
+    // Fake Synopsys™ DesignWare™ ABP™ UART
+    fdt_begin_node_num(s, "uart", DW_APB_UART0_BASE_ADDR); {
+        fdt_prop_str(s, "compatible", "snps,dw-apb-uart");
+        fdt_prop_tab_u64_2(s, "reg", DW_APB_UART0_BASE_ADDR, DW_APB_UART0_SIZE);
+        // No interrupts?
+    } fdt_end_node(s);
+
     fb_dev = m->common.fb_dev;
     if (fb_dev) {
         fdt_begin_node_num(s, "framebuffer", FRAMEBUFFER_BASE_ADDR);
@@ -885,10 +893,16 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
 
     SiFiveUARTState *uart = (SiFiveUARTState *)calloc(sizeof *uart, 1);
     uart->irq = UART0_IRQ;
-    uart->cs = p->console;
-
+    uart->cs  = p->console;
     cpu_register_device(s->mem_map, UART0_BASE_ADDR, UART0_SIZE, uart,
                         uart_read, uart_write, DEVIO_SIZE32);
+
+    DW_apb_uart_state *dw_apb_uart = (DW_apb_uart_state *)calloc(sizeof *dw_apb_uart, 1);
+    dw_apb_uart->irq = DW_APB_UART0_IRQ;
+    dw_apb_uart->cs  = p->console;
+    cpu_register_device(s->mem_map, DW_APB_UART0_BASE_ADDR, DW_APB_UART0_SIZE,
+                        dw_apb_uart, dw_apb_uart_read, dw_apb_uart_write,
+                        DEVIO_SIZE32 | DEVIO_SIZE16 | DEVIO_SIZE8);
 
     cpu_register_device(s->mem_map, CLINT_BASE_ADDR, CLINT_SIZE, s,
                         clint_read, clint_write, DEVIO_SIZE32);

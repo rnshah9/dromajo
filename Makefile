@@ -48,7 +48,7 @@ BENCH_WORKLOAD=../../from-ccelio/bbl-vmlinux-initramfs
 
 all: $(PROGS)
 
-EMU_OBJS:=virtio.o pci.o fs.o cutils.o iomem.o \
+EMU_OBJS:=virtio.o pci.o fs.o cutils.o iomem.o dw_apb_uart.o \
     json.o machine.o elf64.o
 
 RISCVEMU_OBJS:=$(EMU_OBJS) riscvemu.o riscv_machine.o softfp.o riscvemu_main.o
@@ -117,7 +117,7 @@ clean:
 
 -include $(wildcard *.d)
 
-TAGS:
+tags:
 	etags *.[hc]
 
 bench: riscvemu
