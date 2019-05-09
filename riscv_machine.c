@@ -924,9 +924,15 @@ static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len,
        Eventually we'll make this code loadable */
 
     *q++ = 0xf1402573;  // start:  csrr   a0, mhartid
-    *q++ = 0x00050663;  //         beqz   a0, 1f
-    *q++ = 0x10500073;  // 0:      wfi
-    *q++ = 0xffdff06f;  //         j      0b
+    if (s->ncpus==1) {
+      *q++ = 0x00050663;  //         beqz   a0, 1f
+      *q++ = 0x10500073;  // 0:      wfi
+      *q++ = 0xffdff06f;  //         j      0b
+    }else{
+      *q++ = 0x00000013; // nop
+      *q++ = 0x00000013; // nop
+      *q++ = 0x00000013; // nop
+    }
     *q++ = 0x00000597;  // 1:      auipc  a1, 0x0
     *q++ = 0x0f058593;  //         addi   a1, a1, 240 # _start + 256
     *q++ = 0x60300413;  //         li     s0, 1539
@@ -978,7 +984,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     s->common.maxinsns = p->maxinsns;
     s->common.snapshot_load_name = p->snapshot_load_name;
 
-    s->ncpus = 2; // FIXME: harcoded for the moment (use args)
+    s->ncpus = p->ncpus;
 
     if (s->ncpus>MAX_CPUS) {
       fprintf(stderr,"ERROR: ncpus:%d exceeds maximum MAX_CPU\n",s->ncpus);

@@ -2420,7 +2420,8 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     uint32_t data_pos = 0xB00 / sizeof *rom;
     uint32_t data_pos_start = data_pos;
 
-    create_hang_nonzero_hart(rom, &code_pos, &data_pos);
+    if (m->ncpus==1) // FIXME: May be interesting to freeze hartid >= ncpus
+      create_hang_nonzero_hart(rom, &code_pos, &data_pos);
 
     create_csr64_recovery(rom, &code_pos, &data_pos, 0x7b1, s->pc); // Write to DPC (CSR, 0x7b1)
 

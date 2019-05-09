@@ -175,6 +175,7 @@ void riscvemu_cosim_raise_trap(int hartid, riscvemu_cosim_state_t *state, int64_
     VirtMachine   *m = (VirtMachine  *)state;
     //RISCVMachine  *r = (RISCVMachine *)m;
     //RISCVCPUState *s = r->cpu_state[hartid];
+    //riscv_cpu_set_mip(s, riscv_cpu_get_mip(s) | 1 << cause);
 
     if (cause < 0) {
         assert(m->pending_interrupt == -1); // XXX RTLMAX-434
@@ -388,7 +389,7 @@ int riscvemu_cosim_step(int hartid,
                 /* Unfortunately, handling the error case is awkward,
                  * so we just exit from here */
 
-                fprintf(riscvemu_stderr, "%d 0x%016"PRIx64" ", emu_priv, emu_pc);
+                fprintf(riscvemu_stderr, "%d 0x%016" PRIx64 " ", emu_priv, emu_pc);
                 if ((emu_insn & 3) == 3)
                     fprintf(riscvemu_stderr, "(0x%08x) ", emu_insn);
                 else

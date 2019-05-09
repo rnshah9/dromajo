@@ -51,7 +51,7 @@ static void default_set_addr(PhysMemoryMap *map,
 
 PhysMemoryMap *phys_mem_map_init(void)
 {
-    PhysMemoryMap *s = (PhysMemoryMap *)mallocz(sizeof(*s));
+    PhysMemoryMap *s = (PhysMemoryMap *)mallocz(sizeof(PhysMemoryMap));
     s->register_ram = default_register_ram;
     s->free_ram = default_free_ram;
     s->get_dirty_bits = default_get_dirty_bits;

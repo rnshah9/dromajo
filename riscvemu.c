@@ -609,7 +609,8 @@ static void usage(const char *prog, const char *msg)
             CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard,"
             " Copyright (c) 2018,2019 Esperanto Technologies\n"
             "usage: %s {options} [config|elf-file]\n"
-            "       --cmdline Kernel command line arguments to append \n"
+            "       --cmdline Kernel command line arguments to append\n"
+            "       --ncpus number of cpus to simulate (default 1)\n"
             "       --load resumes a previously saved snapshot\n"
             "       --save saves a snapshot upon exit\n"
             "       --maxinsns terminates execution after a number of instructions\n"
@@ -630,6 +631,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     const char *snapshot_save_name = 0;
     const char *path               = NULL;
     const char *cmdline            = NULL;
+    long        ncpus              = 1;
     const char *terminate_event    = NULL;
     uint64_t    maxinsns           = 0;
     uint64_t    trace              = UINT64_MAX;
@@ -646,6 +648,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         int option_index = 0;
         static struct option long_options[] = {
             {"cmdline", required_argument, 0,  'c' },
+            {"ncpus", required_argument, 0,  'n' },
             {"load",    required_argument, 0,  'l' },
             {"save",    required_argument, 0,  's' },
             {"maxinsns",required_argument, 0,  'm' },
@@ -666,6 +669,14 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             if (cmdline)
                 usage(prog, "already had a kernel command line");
             cmdline = strdup(optarg);
+            break;
+
+        case 'n':
+            if (ncpus!=1)
+                usage(prog, "already had a ncpus set");
+            ncpus = atoll(optarg);
+            if (ncpus>=MAX_CPUS)
+                usage(prog,"ncpus limit reached (MAX_CPUS). Increase MAX_CPUS");
             break;
 
         case 'l':
@@ -779,6 +790,8 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         p->ram_base_addr = memory_addr_override;
     if (memory_size_override)
         p->ram_size = memory_size_override << 20;
+
+    p->ncpus = ncpus;
 
     if (cmdline)
         vm_add_cmdline(p, cmdline);

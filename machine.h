@@ -117,6 +117,7 @@ typedef struct {
     uint64_t htif_base_addr;
 
     char *cmdline; /* bios or kernel command line */
+    int ncpus;
     BOOL accel_enable; /* enable acceleration (KVM) */
     char *input_device; /* NULL means no input */
 
