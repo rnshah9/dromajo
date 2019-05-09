@@ -170,9 +170,11 @@ static inline void handle_dut_overrides(RISCVCPUState *s,
  * MSB indicates an asynchronous interrupt, synchronous exception
  * otherwise.
  */
-void riscvemu_cosim_raise_trap(riscvemu_cosim_state_t *state, int64_t cause)
+void riscvemu_cosim_raise_trap(int hartid, riscvemu_cosim_state_t *state, int64_t cause)
 {
-    VirtMachine *m = (VirtMachine  *)state;
+    VirtMachine   *m = (VirtMachine  *)state;
+    //RISCVMachine  *r = (RISCVMachine *)m;
+    //RISCVCPUState *s = r->cpu_state[hartid];
 
     if (cause < 0) {
         assert(m->pending_interrupt == -1); // XXX RTLMAX-434
@@ -314,7 +316,8 @@ static void cosim_history(RISCVCPUState *s,
  * The `intr_pending` flag is used to communicate that the DUT will
  * take an interrupt in the next cycle.
  */
-int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
+int riscvemu_cosim_step(int hartid,
+                        riscvemu_cosim_state_t *riscvemu_cosim_state,
                         uint64_t                dut_pc,
                         uint32_t                dut_insn,
                         uint64_t                dut_wdata,
@@ -325,7 +328,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
 {
     VirtMachine   *m = (VirtMachine  *)riscvemu_cosim_state;
     RISCVMachine  *r = (RISCVMachine *)m;
-    RISCVCPUState *s = r->cpu_state;
+    RISCVCPUState *s = r->cpu_state[hartid];
     uint64_t emu_pc, emu_wdata = 0;
     int      emu_priv;
     uint32_t emu_insn;

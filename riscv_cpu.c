@@ -1262,6 +1262,9 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         *pval = 0;
         return -1;
     }
+#if defined(DUMP_CSR)
+    fprintf(stderr, "csr_read: hartid=%d csr=0x%03x val=0x%x\n", (int)s->mhartid, csr, (int)val);
+#endif
     *pval = val;
     return 0;
 }
@@ -1414,7 +1417,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     target_ulong mask;
 
 #if defined(DUMP_CSR)
-    fprintf(riscvemu_stderr, "csr_write: csr=0x%03x val=0x", csr);
+    fprintf(riscvemu_stderr, "csr_write: hardid=%d csr=0x%03x val=0x", (int)s->mhartid, csr);
     print_target_ulong(val);
     fprintf(riscvemu_stderr, "\n");
 #endif
@@ -1809,16 +1812,16 @@ static void raise_exception2(RISCVCPUState *s, uint64_t cause,
     };
 
     if (cause & CAUSE_INTERRUPT)
-        fprintf(riscvemu_stderr, "core   0: exception interrupt #%d, epc 0x%016jx\n",
-                cause & 63, (uintmax_t)s->pc);
+        fprintf(riscvemu_stderr, "hartid=%d: exception interrupt #%d, epc 0x%016jx\n",
+                (int)s->marthid, cause & 63, (uintmax_t)s->pc);
     else if (cause <= CAUSE_STORE_PAGE_FAULT) {
-        fprintf(riscvemu_stderr, "priv: %d core   0: exception %s, epc 0x%016jx\n",
-               s->priv, cause_s[cause], (uintmax_t)s->pc);
-        fprintf(riscvemu_stderr, "core   0:           tval 0x%016jx\n", (uintmax_t)tval);
+        fprintf(riscvemu_stderr, "hartid=%d priv: %d exception %s, epc 0x%016jx\n",
+               (int)s->marthid, s->priv, cause_s[cause], (uintmax_t)s->pc);
+        fprintf(riscvemu_stderr, "hartid=%d0           tval 0x%016jx\n", (int)s->mhartid, (uintmax_t)tval);
     } else {
-        fprintf(riscvemu_stderr, "core   0: exception %d, epc 0x%016jx\n",
-               cause, (uintmax_t)s->pc);
-        fprintf(riscvemu_stderr, "core   0:           tval 0x%016jx\n", (uintmax_t)tval);
+        fprintf(riscvemu_stderr, "hartid=%d: exception %d, epc 0x%016jx\n",
+               (int)s->marthid, cause, (uintmax_t)s->pc);
+        fprintf(riscvemu_stderr, "hartid=%d:           tval 0x%016jx\n", (int)s->mhartid, (uintmax_t)tval);
     }
 #endif
 
@@ -1951,7 +1954,7 @@ static __exception int raise_interrupt(RISCVCPUState *s)
         return 0;
     irq_num = ctz32(mask);
 #ifdef DUMP_INTERRUPTS
-    fprintf(riscvemu_stderr, "raise_interrupt: irq=%d priv=%d pc=%llx\n", irq_num,s->priv,(unsigned long long)s->pc);
+    fprintf(riscvemu_stderr, "raise_interrupt: irq=%d priv=%d pc=%llx hartid=%d\n", irq_num,s->priv,(unsigned long long)s->pc, (int)s->mhartid);
 #endif
 
     raise_exception(s, irq_num | CAUSE_INTERRUPT);
@@ -2030,7 +2033,8 @@ BOOL riscv_cpu_get_power_down(RISCVCPUState *s)
     return s->power_down_flag;
 }
 
-RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
+RISCVCPUState *riscv_cpu_init(int hartid,
+                              PhysMemoryMap *mem_map,
                               const char *validation_terminate_event)
 {
     RISCVCPUState *s;
@@ -2046,6 +2050,7 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
     s->mstatus = ((uint64_t)2 << MSTATUS_UXL_SHIFT) |
                  ((uint64_t)2 << MSTATUS_SXL_SHIFT) |
                  (3 << MSTATUS_MPP_SHIFT);
+    s->plic_enable_irq = 0;
     s->misa |= MCPUID_SUPER | MCPUID_USER | MCPUID_I | MCPUID_M | MCPUID_A;
     s->most_recently_written_reg = -1;
 #if FLEN >= 32
@@ -2064,7 +2069,7 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
     s->mvendorid = 11 * 128 + 101; // Esperanto JEDEC number 101 in bank 11
     s->marchid   = (1ULL << 63) | 2;
     s->mimpid    = 1;
-    s->mhartid   = 0;
+    s->mhartid   = hartid;
 
     s->store_repair_addr = ~0;
     s->tselect = 0;
@@ -2524,7 +2529,7 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     fprintf(riscvemu_stderr, "clint hart0 timecmp=%ld cycles (%ld)\n", m->timecmp, s->mcycle/RTC_FREQ_DIV);
 
     // Assuming 16 ratio between CPU and CLINT and that CPU is reset to zero
-    create_io64_recovery( rom, &code_pos, &data_pos, CLINT_BASE_ADDR + 0x4000, m->timecmp);
+    create_io64_recovery( rom, &code_pos, &data_pos, CLINT_BASE_ADDR + 0x4000, s->timecmp);
     create_csr64_recovery(rom, &code_pos, &data_pos, 0xb02, s->minstret);
     create_csr64_recovery(rom, &code_pos, &data_pos, 0xb00, s->mcycle);
 

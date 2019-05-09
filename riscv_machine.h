@@ -14,17 +14,20 @@
 #include "virtio.h"
 #include "machine.h"
 
+#define MAX_CPUS  8
+
 typedef struct RISCVMachine {
     VirtMachine common;
     PhysMemoryMap *mem_map;
-    RISCVCPUState *cpu_state;
+    RISCVCPUState *cpu_state[MAX_CPUS];
+    int      ncpus;
     uint64_t ram_size;
     uint64_t ram_base_addr;
-    /* RTC */
-    uint64_t timecmp;
     /* PLIC */
-    uint32_t plic_pending_irq, plic_served_irq;
+    uint32_t plic_pending_irq;
+    uint32_t plic_claimed_irq;
     IRQSignal plic_irq[32]; /* IRQ 0 is not used */
+
     /* HTIF */
     uint64_t htif_tohost_addr;
 

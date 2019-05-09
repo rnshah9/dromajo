@@ -37,23 +37,23 @@
 #endif
 
 
-int iterate_core(VirtMachine *m)
+int iterate_core(int hartid, VirtMachine *m)
 {
     if (m->maxinsns-- <= 0)
         /* Succeed after N instructions without failure. */
         return 0;
 
+    RISCVCPUState *cpu = ((RISCVMachine *)m)->cpu_state[hartid];
+
     /* Instruction that raises exceptions should be marked as such in
      * the trace of retired instructions.  Breaking this caused
      * ARCHSIM-74.
      */
-    RISCVMachine  *rvm  = (RISCVMachine *)m;
-    RISCVCPUState *cpu  = rvm->cpu_state;
-    uint64_t last_pc    = virt_machine_get_pc(m);
-    int      priv       = virt_machine_get_priv_level(m);
-    int      keep_going = virt_machine_run(m);
+    uint64_t last_pc    = virt_machine_get_pc(hartid, m);
+    int      priv       = riscv_get_priv_level(cpu);
+    int      keep_going = virt_machine_run(hartid, m);
 
-    if (last_pc == virt_machine_get_pc(m))
+    if (last_pc == virt_machine_get_pc(hartid, m))
         return 0;
 
     if (m->trace) {
@@ -65,8 +65,8 @@ int iterate_core(VirtMachine *m)
             (insn_raw & 3) == 3 ? insn_raw : (uint16_t) insn_raw);
 
     uint64_t dummy1, dummy2;
-    int iregno = virt_machine_get_most_recently_written_reg(m, &dummy1);
-    int fregno = virt_machine_get_most_recently_written_fp_reg(m, &dummy2);
+    int iregno = riscv_get_most_recently_written_reg(cpu, &dummy1);
+    int fregno = riscv_get_most_recently_written_fp_reg(cpu, &dummy2);
 
     if (cpu->pending_exception != -1)
         fprintf(riscvemu_stderr, " exception %d, tval %016lx", cpu->pending_exception,
@@ -106,14 +106,19 @@ int main(int argc, char **argv)
         return 1;
 
     int keep_going;
+    RISCVMachine  *rvm  = (RISCVMachine *)m;
     do {
-        keep_going = iterate_core(m);
+        keep_going = 0;
+        for(int i=0;i<rvm->ncpus;i++)
+          keep_going |= iterate_core(i, m);
     } while (keep_going);
 
-    int benchmark_exit_code = virt_machine_benchmark_exit_code(m);
-    if (benchmark_exit_code != 0){
+    for(int i=0;i<rvm->ncpus;i++) {
+      int benchmark_exit_code = riscv_benchmark_exit_code(((RISCVMachine *)m)->cpu_state[i]);
+      if (benchmark_exit_code != 0){
         fprintf(riscvemu_stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
         return 1;
+      }
     }
 
     fprintf(riscvemu_stderr,"\nPower off.\n");

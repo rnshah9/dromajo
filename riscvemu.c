@@ -521,24 +521,23 @@ static EthernetDevice *slirp_open(void)
 
 #endif /* CONFIG_SLIRP */
 
-BOOL virt_machine_run(VirtMachine *m)
+BOOL virt_machine_run(int hartid, VirtMachine *m)
 {
     RISCVMachine *s = (RISCVMachine *)m;
 
     (void) virt_machine_get_sleep_duration(m, MAX_SLEEP_TIME);
 
-    riscv_cpu_interp64(s->cpu_state, 1);
+    riscv_cpu_interp64(s->cpu_state[hartid], 1);
 
     if (s->htif_tohost_addr) {
         uint32_t tohost;
         bool fail = true;
-        tohost = riscv_phys_read_u32(s->cpu_state, s->htif_tohost_addr, &fail);
+        tohost = riscv_phys_read_u32(s->cpu_state[hartid], s->htif_tohost_addr, &fail);
         if (!fail && tohost & 1)
             return false;
     }
 
-    return !riscv_terminated(s->cpu_state) &&
-        m->maxinsns > 0;
+    return !riscv_terminated(s->cpu_state[hartid]) && m->maxinsns > 0;
 }
 
 void help(void)
@@ -881,7 +880,8 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     if (s->maxinsns == 0)
         s->maxinsns = UINT64_MAX;
 
-    ((RISCVMachine *)s)->cpu_state->ignore_sbi_shutdown = ignore_sbi_shutdown;
+    for(int i=0;i<((RISCVMachine *)s)->ncpus;i++)
+      ((RISCVMachine *)s)->cpu_state[i]->ignore_sbi_shutdown = ignore_sbi_shutdown;
 
     virt_machine_free_config(p);
 
