@@ -139,6 +139,8 @@ typedef struct {
     uint64_t mmio_start;
     uint64_t mmio_end;
     uint64_t physical_addr_len;
+
+    char    *logfile; // If non-zero, all output goes here, stderr and stdout
 } VirtMachineParams;
 
 typedef struct VirtMachine {

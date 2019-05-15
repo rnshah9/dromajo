@@ -367,6 +367,11 @@ static int virt_machine_parse_config(VirtMachineParams *p,
     vm_get_uint64_opt(cfg, "mmio_end",   &p->mmio_end);
     vm_get_uint64_opt(cfg, "physical_addr_len", &p->physical_addr_len);
 
+    if (vm_get_str_opt(cfg, "logfile", &str) < 0)
+        goto tag_fail;
+    if (str)
+        p->logfile = strdup(str);
+
     json_free(cfg);
     return 0;
  tag_fail:

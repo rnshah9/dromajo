@@ -759,6 +759,20 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 #endif
     virt_machine_load_config_file(p, path, NULL, NULL);
 
+    if (p->logfile) {
+        FILE *log = fopen(p->logfile, "w");
+        if (!log) {
+            perror(p->logfile);
+            exit(1);
+        }
+
+        fclose(stdout);
+        fclose(stderr);
+        stdout = log;
+        stderr = log;
+    }
+
+
 #ifdef CONFIG_FS_NET
     fs_net_event_loop(NULL, NULL);
 #endif
