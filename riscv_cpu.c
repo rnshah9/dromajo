@@ -1527,7 +1527,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case 0x33d:
     case 0x33e:
     case 0x33f:
-        s->mhpmevent[csr & 0x1F] = val;
+        s->mhpmevent[csr & 0x1F] = val & (HPM_EVENT_SETMASK | HPM_EVENT_EVENTMASK);
         break;
 
     case CSR_ET_MCIP:
