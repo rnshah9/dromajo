@@ -734,11 +734,13 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
         fdt_end_node(s); /* virtio */
     }
 
+#ifdef USE_SIFIVE_UART
     // SiFive UART
     fdt_begin_node_num(s, "uart", UART0_BASE_ADDR);
     fdt_prop_str(s, "compatible", "sifive,uart0");
     fdt_prop_tab_u64_2(s, "reg", UART0_BASE_ADDR, UART0_SIZE);
     fdt_end_node(s); /* uart */
+#endif
 
     // Fake Synopsys™ DesignWare™ ABP™ UART
     fdt_begin_node_num(s, "uart", DW_APB_UART0_BASE_ADDR); {
