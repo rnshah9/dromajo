@@ -43,16 +43,19 @@
 // to validation CSR 1
 
 #define CMD_OFFSET 56
+// Maxion owns commands 128 upwards
+#define CMD_PREFIX 0x80ULL
+#define CMD_MASK (~CMD_PREFIX & 0xFF)
 #define PAYLOAD_OFFSET 0
 #define PAYLOAD_MASK ((1ULL << CMD_OFFSET) - 1)
 
 /* List of different validation commands
  */
 enum VALIDATON_CMD {
-    VALIDATION_CMD_INVALID = 0,
-    VALIDATION_CMD_LINUX = 1ULL, // Linux events
-    VALIDATION_CMD_BENCH = 2ULL, // Benchmark events
-    VALIDATION_CMD_EXIT_CODE = 3ULL, // The binary reutrn value
+    VALIDATION_CMD_INVALID = CMD_PREFIX,
+    VALIDATION_CMD_LINUX, // Linux events
+    VALIDATION_CMD_BENCH, // Benchmark events
+    VALIDATION_CMD_EXIT_CODE, // The binary reutrn value
 };
 
 /* List of Linux related events
@@ -60,6 +63,7 @@ enum VALIDATON_CMD {
 enum LINUX_CMD_VALUE {
     LINUX_CMD_VALUE_INVALID = 0,
     LINUX_CMD_VALUE_BOOT_DONE, // We are done booting
+    LINUX_CMD_VALUE_TERMINATE, // temrminate boot, this is a workaround for halt.
     LINUX_CMD_VALUE_NUM
 };
 
@@ -85,6 +89,7 @@ struct event_info
  */
 static const struct event_info validation_events[] = {
     { EVENT(LINUX, BOOT_DONE), "linux-boot", TRUE },
+    { EVENT(LINUX, TERMINATE), "linux-terminate", TRUE },
     { EVENT(BENCH, START), "benchmark-start", TRUE },
     { EVENT(BENCH, END), "benchmark-end", TRUE },
 };

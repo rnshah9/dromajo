@@ -88,12 +88,11 @@ checkpoint-tests: checkpoint-test-riscv-test
 
 # Download the reference image
 
-KERNEL_VERSION=3facd4e6a0611bdab349ce28782a7c032c346855
-KERNEL_S3_PATH=et-maxion-ci-inputs/bbl-vmlinux/$(KERNEL_VERSION)
+KERNEL_S3_PATH=et-maxion-ci-inputs/bbl-vmlinux/2019-05-22-bd8b5fb442e10e2c09a2dd6a1fb5c60fa4251fdb/benchmarks/linux-golden-base
 
 $(OUTPUT_DIR)/firesim-golden-download.done:
 	artifacts.py --pull $(KERNEL_S3_PATH)/bbl-vmlinux0.bin.xz $(OUTPUT_DIR)/bbl-vmlinux0.bin.xz
-	artifacts.py --pull $(KERNEL_S3_PATH)/bbl-vmlinux0.cfg.xz $(OUTPUT_DIR)/bbl-vmlinux0.cfg.xz
+	artifacts.py --pull $(KERNEL_S3_PATH)/base-bbl-vmlinux0.cfg.xz $(OUTPUT_DIR)/bbl-vmlinux0.cfg.xz
 	xz -fd $(OUTPUT_DIR)/bbl-vmlinux0.bin.xz $(OUTPUT_DIR)/bbl-vmlinux0.cfg.xz
 	date > $@
 
