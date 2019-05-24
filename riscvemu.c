@@ -31,8 +31,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#include "riscvemu.h"
 #include <stdlib.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdarg.h>
@@ -71,8 +72,8 @@
 #endif
 
 typedef struct {
-    int stdin_fd;
-    int console_esc_state;
+    FILE *stdin, *out;
+    int  console_esc_state;
     BOOL resize_pending;
 } STDIODevice;
 
@@ -113,8 +114,9 @@ static void term_init(BOOL allow_ctrlc)
 
 static void console_write(void *opaque, const uint8_t *buf, int len)
 {
-    fwrite(buf, 1, len, stdout);
-    fflush(stdout);
+    STDIODevice *s = opaque;
+    fwrite(buf, 1, len, s->out);
+    fflush(s->out);
 }
 
 static int console_read(void *opaque, uint8_t *buf, int len)
@@ -124,7 +126,7 @@ static int console_read(void *opaque, uint8_t *buf, int len)
     if (len <= 0)
         return 0;
 
-    int ret = read(s->stdin_fd, buf, len);
+    int ret = fread(buf, len, 1, s->stdin);
     if (ret <= 0)
         return 0;
 
@@ -135,10 +137,10 @@ static int console_read(void *opaque, uint8_t *buf, int len)
             s->console_esc_state = 0;
             switch (ch) {
             case 'x':
-                fprintf(stderr, "Terminated\n");
+                fprintf(riscvemu_stderr, "Terminated\n");
                 exit(0);
             case 'h':
-                fprintf(stderr, "\n"
+                fprintf(riscvemu_stderr, "\n"
                         "C-b h   print this help\n"
                         "C-b x   exit emulator\n"
                         "C-b C-b send C-b\n");
@@ -167,7 +169,7 @@ static void term_resize_handler(int sig)
         global_stdio_device->resize_pending = TRUE;
 }
 
-CharacterDevice *console_init(BOOL allow_ctrlc)
+CharacterDevice *console_init(BOOL allow_ctrlc, FILE *stdin, FILE *out)
 {
     CharacterDevice *dev;
     STDIODevice *s;
@@ -175,12 +177,13 @@ CharacterDevice *console_init(BOOL allow_ctrlc)
 
     term_init(allow_ctrlc);
 
-    dev = mallocz(sizeof(*dev));
-    s = mallocz(sizeof(*s));
-    s->stdin_fd = 0;
+    dev = mallocz(sizeof *dev);
+    s = mallocz(sizeof *s);
+    s->stdin = stdin;
+    s->out = out;
     /* Note: the glibc does not properly tests the return value of
-       write() in printf, so some messages on stdout may be lost */
-    fcntl(s->stdin_fd, F_SETFL, O_NONBLOCK);
+       write() in printf, so some messages on out may be lost */
+    fcntl(fileno(s->stdin), F_SETFL, O_NONBLOCK);
 
     s->resize_pending = TRUE;
     global_stdio_device = s;
@@ -225,7 +228,7 @@ static int bf_read_async(BlockDevice *bs,
                          BlockDeviceCompletionFunc *cb, void *opaque)
 {
     BlockDeviceFile *bf = bs->opaque;
-    //    fprintf(stderr,"bf_read_async: sector_num=%" PRId64 " n=%d\n", sector_num, n);
+    //    fprintf(riscvemu_stderr,"bf_read_async: sector_num=%" PRId64 " n=%d\n", sector_num, n);
 #ifdef DUMP_BLOCK_READ
     {
         static FILE *f;
@@ -416,7 +419,7 @@ static EthernetDevice *tun_open(const char *ifname)
 
     fd = open("/dev/net/tun", O_RDWR);
     if (fd < 0) {
-        fprintf(stderr, "Error: could not open /dev/net/tun\n");
+        fprintf(riscvemu_stderr, "Error: could not open /dev/net/tun\n");
         return NULL;
     }
     memset(&ifr, 0, sizeof(ifr));
@@ -424,7 +427,7 @@ static EthernetDevice *tun_open(const char *ifname)
     pstrcpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
     ret = ioctl(fd, TUNSETIFF, (void *) &ifr);
     if (ret != 0) {
-        fprintf(stderr, "Error: could not configure /dev/net/tun\n");
+        fprintf(riscvemu_stderr, "Error: could not configure /dev/net/tun\n");
         close(fd);
         return NULL;
     }
@@ -503,7 +506,7 @@ static EthernetDevice *slirp_open(void)
     int restricted = 0;
 
     if (slirp_state) {
-        fprintf(stderr, "Only a single slirp instance is allowed\n");
+        fprintf(riscvemu_stderr, "Only a single slirp instance is allowed\n");
         return NULL;
     }
     net = mallocz(sizeof(*net));
@@ -546,7 +549,7 @@ BOOL virt_machine_run(VirtMachine *m)
 
 void help(void)
 {
-    fprintf(stderr,"riscvemu version " CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard\n"
+    fprintf(riscvemu_stderr,"riscvemu version " CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard\n"
            "                             Copyright (c) 2018,2019 Esperanto Technologies\n"
            "usage: riscvemu [options] config_file\n"
            "options are:\n"
@@ -577,7 +580,7 @@ void launch_alternate_executable(char **argv)
         len = 0;
     }
     if (len + strlen(new_exename) > sizeof(filename) - 1) {
-        fprintf(stderr, "%s: filename too long\n", exename);
+        fprintf(riscvemu_stderr, "%s: filename too long\n", exename);
         exit(1);
     }
     memcpy(filename, exename, len);
@@ -608,7 +611,7 @@ static BOOL net_poll_cb(void *arg)
 
 static void usage(const char *prog, const char *msg)
 {
-    fprintf(stderr,
+    fprintf(riscvemu_stderr,
             "error: %s\n"
             CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard,"
             " Copyright (c) 2018,2019 Esperanto Technologies\n"
@@ -640,6 +643,9 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     long        memory_size_override = 0;
     uint64_t    memory_addr_override = 0;
     bool        ignore_sbi_shutdown  = false;
+
+    riscvemu_stdout = stdout;
+    riscvemu_stderr = stderr;
 
     optind = 0;
 
@@ -702,11 +708,11 @@ VirtMachine *virt_machine_main(int argc, char **argv)
                     }
                 }
                 if (unknown_event) {
-                    fprintf(stderr, "Unknown terminate event \"%s\" \n", optarg);
-                    fprintf(stderr, "Valid termination events: \n");
+                    fprintf(riscvemu_stderr, "Unknown terminate event \"%s\" \n", optarg);
+                    fprintf(riscvemu_stderr, "Valid termination events: \n");
                     for (int j = 0; j < countof(validation_events); ++j) {
                         if (validation_events[j].terminate) {
-                            fprintf(stderr, "\t\"%s\"\n",
+                            fprintf(riscvemu_stderr, "\t\"%s\"\n",
                                     validation_events[j].name);
                         }
                     }
@@ -760,16 +766,14 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     virt_machine_load_config_file(p, path, NULL, NULL);
 
     if (p->logfile) {
-        FILE *log = fopen(p->logfile, "w");
-        if (!log) {
+        FILE *log_out = fopen(p->logfile, "w");
+        if (!log_out) {
             perror(p->logfile);
             exit(1);
         }
 
-        fclose(stdout);
-        fclose(stderr);
-        stdout = log;
-        stderr = log;
+        riscvemu_stdout = log_out;
+        riscvemu_stderr = log_out;
     }
 
 
@@ -821,14 +825,14 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 #endif
         {
 #if defined(__APPLE__)
-            fprintf(stderr, "Filesystem access not supported yet\n");
+            fprintf(riscvemu_err, "Filesystem access not supported yet\n");
             exit(1);
 #else
             char *fname;
             fname = get_file_path(p->cfg_filename, path);
             fs = fs_disk_init(fname);
             if (!fs) {
-                fprintf(stderr, "%s: must be a directory\n", fname);
+                fprintf(riscvemu_stderr, "%s: must be a directory\n", fname);
                 exit(1);
             }
             free(fname);
@@ -853,18 +857,17 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         } else
 #endif
         {
-            fprintf(stderr, "Unsupported network driver '%s'\n",
+            fprintf(riscvemu_stderr, "Unsupported network driver '%s'\n",
                     p->tab_eth[i].driver);
             exit(1);
         }
     }
 
-    p->console = console_init(TRUE);
+    p->console = console_init(TRUE, stdin, riscvemu_stdout);
 
     p->validation_terminate_event = terminate_event;
 
     VirtMachine *s = virt_machine_init(p);
-
     if (!s)
         return NULL;
 

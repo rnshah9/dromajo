@@ -31,8 +31,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#include "riscvemu.h"
 #include <stdlib.h>
-#include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 #include <inttypes.h>
@@ -114,7 +115,7 @@ static PhysMemoryRange *default_register_ram(PhysMemoryMap *s, uint64_t addr,
 
     pr->phys_mem = mallocz(size);
     if (!pr->phys_mem) {
-        fprintf(stderr, "Could not allocate VM memory\n");
+        fprintf(riscvemu_stderr, "Could not allocate VM memory\n");
         exit(1);
     }
 

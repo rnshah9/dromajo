@@ -96,7 +96,7 @@ enum {
 #define FEATURE_DLF_SIZE                4
 #define FEATURE_LSR_STATUS_CLEAR        0 // Both RBR Read and LSR Read clears OE, PE, FE, and BI
 
-//#define DEBUG(fmt ...) fprintf(stderr, fmt)
+//#define DEBUG(fmt ...) fprintf(riscvemu_stderr, fmt)
 #define DEBUG(fmt ...) (void) 0
 
 uint32_t dw_apb_uart_read(void *opaque, uint32_t offset, int size_log2)

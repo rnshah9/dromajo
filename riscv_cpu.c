@@ -32,8 +32,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#include "riscvemu.h"
 #include <stdlib.h>
-#include <stdio.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <string.h>
@@ -94,7 +95,7 @@ static void fprint_target_ulong(FILE *f, target_ulong a)
 
 static void print_target_ulong(target_ulong a)
 {
-    fprint_target_ulong(stderr, a);
+    fprint_target_ulong(riscvemu_stderr, a);
 }
 
 static char *reg_name[32] = {
@@ -110,32 +111,32 @@ static void dump_regs(RISCVCPUState *s)
     int i, cols;
     const char priv_str[4] = "USHM";
     cols = 256 / 64;
-    fprintf(stderr, "pc =");
+    fprintf(riscvemu_stderr, "pc =");
     print_target_ulong(s->pc);
-    fprintf(stderr, " ");
+    fprintf(riscvemu_stderr, " ");
     for (i = 1; i < 32; i++) {
-        fprintf(stderr, "%-3s=", reg_name[i]);
+        fprintf(riscvemu_stderr, "%-3s=", reg_name[i]);
         print_target_ulong(s->reg[i]);
         if ((i & (cols - 1)) == (cols - 1))
-            fprintf(stderr, "\n");
+            fprintf(riscvemu_stderr, "\n");
         else
-            fprintf(stderr, " ");
+            fprintf(riscvemu_stderr, " ");
     }
-    fprintf(stderr, "priv=%c", priv_str[s->priv]);
-    fprintf(stderr, " mstatus=");
+    fprintf(riscvemu_stderr, "priv=%c", priv_str[s->priv]);
+    fprintf(riscvemu_stderr, " mstatus=");
     print_target_ulong(get_mstatus(s, (target_ulong)-1));
-    fprintf(stderr, " insn_counter=%" PRId64, s->insn_counter);
-    fprintf(stderr, " minstret=%" PRId64, s->minstret);
-    fprintf(stderr, " mcycle=%" PRId64, s->mcycle);
-    fprintf(stderr, "\n");
+    fprintf(riscvemu_stderr, " insn_counter=%" PRId64, s->insn_counter);
+    fprintf(riscvemu_stderr, " minstret=%" PRId64, s->minstret);
+    fprintf(riscvemu_stderr, " mcycle=%" PRId64, s->mcycle);
+    fprintf(riscvemu_stderr, "\n");
 #if 1
-    fprintf(stderr, " mideleg=");
+    fprintf(riscvemu_stderr, " mideleg=");
     print_target_ulong(s->mideleg);
-    fprintf(stderr, " mie=");
+    fprintf(riscvemu_stderr, " mie=");
     print_target_ulong(s->mie);
-    fprintf(stderr, " mip=");
+    fprintf(riscvemu_stderr, " mip=");
     print_target_ulong(s->mip);
-    fprintf(stderr, "\n");
+    fprintf(riscvemu_stderr, "\n");
 #endif
 }
 
@@ -509,9 +510,9 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
         pr = get_phys_mem_range_pmp(s, paddr, 1 << PG_SHIFT, PMPCFG_R);
         if (!pr) {
 #ifdef DUMP_INVALID_MEM_ACCESS
-            fprintf(stderr, "riscv_cpu_read_memory: invalid physical address 0x");
+            fprintf(riscvemu_stderr, "riscv_cpu_read_memory: invalid physical address 0x");
             print_target_ulong(paddr);
-            fprintf(stderr, "\n");
+            fprintf(riscvemu_stderr, "\n");
 #endif
             s->pending_tval = addr;
             s->pending_exception = CAUSE_FAULT_LOAD;
@@ -560,9 +561,9 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
 #endif
             else {
 #ifdef DUMP_INVALID_MEM_ACCESS
-                fprintf(stderr, "unsupported device read access: addr=0x");
+                fprintf(riscvemu_stderr, "unsupported device read access: addr=0x");
                 print_target_ulong(paddr);
-                fprintf(stderr, " width=%d bits\n", 1 << (3 + size_log2));
+                fprintf(riscvemu_stderr, " width=%d bits\n", 1 << (3 + size_log2));
 #endif
                 ret = 0;
             }
@@ -606,9 +607,9 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
         pr = get_phys_mem_range_pmp(s, paddr, 1 << PG_SHIFT, PMPCFG_W);
         if (!pr) {
 #ifdef DUMP_INVALID_MEM_ACCESS
-            fprintf(stderr, "riscv_cpu_write_memory: invalid physical address 0x");
+            fprintf(riscvemu_stderr, "riscv_cpu_write_memory: invalid physical address 0x");
             print_target_ulong(paddr);
-            fprintf(stderr, "\n");
+            fprintf(riscvemu_stderr, "\n");
 #endif
             s->pending_tval = addr;
             s->pending_exception = err == CAUSE_FAULT_STORE;
@@ -658,9 +659,9 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
 #endif
             else {
 #ifdef DUMP_INVALID_MEM_ACCESS
-                fprintf(stderr, "unsupported device write access: addr=0x");
+                fprintf(riscvemu_stderr, "unsupported device write access: addr=0x");
                 print_target_ulong(paddr);
-                fprintf(stderr, " width=%d bits\n", 1 << (3 + size_log2));
+                fprintf(riscvemu_stderr, " width=%d bits\n", 1 << (3 + size_log2));
 #endif
             }
         }
@@ -1192,7 +1193,7 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
 #ifdef DUMP_INVALID_CSR
         /* the 'time' counter is usually emulated */
         if (csr != 0xc01 && csr != 0xc81) {
-            fprintf(stderr, "csr_read: invalid CSR=0x%x\n", csr);
+            fprintf(riscvemu_stderr, "csr_read: invalid CSR=0x%x\n", csr);
         }
 #endif
         *pval = 0;
@@ -1224,7 +1225,7 @@ static int get_insn_rm(RISCVCPUState *s, unsigned int rm)
 static void handle_write_validation1(RISCVCPUState *s, target_ulong val)
 {
     if (val < 256) {// upper bits zero is the expected
-        putchar((char)val); // Console to stdout
+        fputc((char)val, riscvemu_stdout);
         return;
     }
 
@@ -1234,14 +1235,14 @@ static void handle_write_validation1(RISCVCPUState *s, target_ulong val)
     case VALIDATION_CMD_LINUX:
         if (cmd_payload == LINUX_CMD_VALUE_INVALID
             || cmd_payload >= LINUX_CMD_VALUE_NUM) {
-            fprintf(stderr, "ET UNKNOWN linux command=%" PR_target_ulong "\n",
+            fprintf(riscvemu_stderr, "ET UNKNOWN linux command=%" PR_target_ulong "\n",
                     cmd_payload);
         }
         break;
     case VALIDATION_CMD_BENCH:
         if (cmd_payload == BENCH_CMD_VALUE_INVALID
             || cmd_payload >= BENCH_CMD_VALUE_NUM) {
-            fprintf(stderr, "ET UNKNOWN benchmark command=%" PR_target_ulong "\n",
+            fprintf(riscvemu_stderr, "ET UNKNOWN benchmark command=%" PR_target_ulong "\n",
                     cmd_payload);
         }
         break;
@@ -1251,7 +1252,7 @@ static void handle_write_validation1(RISCVCPUState *s, target_ulong val)
         break;
 
     default:
-        fprintf(stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)val);
+        fprintf(riscvemu_stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)val);
     }
 
     for (int i = 0; i < countof(validation_events); ++i) {
@@ -1260,9 +1261,9 @@ static void handle_write_validation1(RISCVCPUState *s, target_ulong val)
             && s->terminating_event != NULL
             && strcmp(validation_events[i].name, s->terminating_event) == 0) {
             s->terminate_simulation = TRUE;
-            fprintf(stderr, "ET terminating validation event: %s encountered.",
+            fprintf(riscvemu_stderr, "ET terminating validation event: %s encountered.",
                     s->terminating_event);
-            fprintf(stderr, " Instructions committed: %lli \n",
+            fprintf(riscvemu_stderr, " Instructions committed: %lli \n",
                     (long long)s->minstret);
             break;
         }
@@ -1323,7 +1324,7 @@ static void unpack_pmpaddrs(RISCVCPUState *s)
 #if 0
     for (int i = 0; i < s->pmp_n; ++i) {
         cfg = s->pmpcfg[i];
-        fprintf(stderr,
+        fprintf(riscvemu_stderr,
                 "PMP%d [%016lx; %016lx) %c %c %c %c %s\n",
                 i, s->pmp[i].lo, s->pmp[i].hi,
                 " L"[!!(cfg & PMPCFG_L)],
@@ -1345,9 +1346,9 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     target_ulong mask;
 
 #if defined(DUMP_CSR)
-    fprintf(stderr, "csr_write: csr=0x%03x val=0x", csr);
+    fprintf(riscvemu_stderr, "csr_write: csr=0x%03x val=0x", csr);
     print_target_ulong(val);
-    fprintf(stderr, "\n");
+    fprintf(riscvemu_stderr, "\n");
 #endif
     switch (csr) {
 #if FLEN > 0
@@ -1618,17 +1619,17 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
 
     case CSR_ET_VALIDATION0: // Esperanto validation0 register
         if ((val >> 12) == 0xDEAD0) // Begin
-            fprintf(stderr, "ET validation begin code=%llx\n", (long long)val & 0xFFF);
+            fprintf(riscvemu_stderr, "ET validation begin code=%llx\n", (long long)val & 0xFFF);
         else if ((val >> 12) == 0x1FEED) {
-            fprintf(stderr, "ET validation PASS code=%llx\n", (long long)val & 0xFFF);
+            fprintf(riscvemu_stderr, "ET validation PASS code=%llx\n", (long long)val & 0xFFF);
             s->terminate_simulation = TRUE;
             break;
         } else if ((val >> 12) == 0x50BAD) {
-            fprintf(stderr, "ET validation FAIL code=%llx\n", (long long)val & 0xFFF);
+            fprintf(riscvemu_stderr, "ET validation FAIL code=%llx\n", (long long)val & 0xFFF);
             s->terminate_simulation = TRUE;
             break;
         } else
-            fprintf(stderr, "ET UNKNOWN command=%llx code=%llx\n", (long long)val >> 12,
+            fprintf(riscvemu_stderr, "ET UNKNOWN command=%llx code=%llx\n", (long long)val >> 12,
                     (long long)(val & 0xFFF));
         break;
 
@@ -1697,7 +1698,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     default:
     invalid_csr:
 #ifdef DUMP_INVALID_CSR
-        fprintf(stderr, "csr_write: invalid CSR=0x%x\n", csr);
+        fprintf(riscvemu_stderr, "csr_write: invalid CSR=0x%x\n", csr);
 #endif
         return -1;
     }
@@ -1738,16 +1739,16 @@ static void raise_exception2(RISCVCPUState *s, uint64_t cause,
     };
 
     if (cause & CAUSE_INTERRUPT)
-        fprintf(stderr, "core   0: exception interrupt #%d, epc 0x%016jx\n",
+        fprintf(riscvemu_stderr, "core   0: exception interrupt #%d, epc 0x%016jx\n",
                 cause & 63, (uintmax_t)s->pc);
     else if (cause <= CAUSE_STORE_PAGE_FAULT) {
-        fprintf(stderr, "priv: %d core   0: exception %s, epc 0x%016jx\n",
+        fprintf(riscvemu_stderr, "priv: %d core   0: exception %s, epc 0x%016jx\n",
                s->priv, cause_s[cause], (uintmax_t)s->pc);
-        fprintf(stderr, "core   0:           tval 0x%016jx\n", (uintmax_t)tval);
+        fprintf(riscvemu_stderr, "core   0:           tval 0x%016jx\n", (uintmax_t)tval);
     } else {
-        fprintf(stderr, "core   0: exception %d, epc 0x%016jx\n",
+        fprintf(riscvemu_stderr, "core   0: exception %d, epc 0x%016jx\n",
                cause, (uintmax_t)s->pc);
-        fprintf(stderr, "core   0:           tval 0x%016jx\n", (uintmax_t)tval);
+        fprintf(riscvemu_stderr, "core   0:           tval 0x%016jx\n", (uintmax_t)tval);
     }
 #endif
 
@@ -1880,7 +1881,7 @@ static __exception int raise_interrupt(RISCVCPUState *s)
         return 0;
     irq_num = ctz32(mask);
 #ifdef DUMP_INTERRUPTS
-    fprintf(stderr, "raise_interrupt: irq=%d priv=%d pc=%llx\n", irq_num,s->priv,(unsigned long long)s->pc);
+    fprintf(riscvemu_stderr, "raise_interrupt: irq=%d priv=%d pc=%llx\n", irq_num,s->priv,(unsigned long long)s->pc);
 #endif
 
     raise_exception(s, irq_num | CAUSE_INTERRUPT);
@@ -2064,7 +2065,7 @@ void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num, uint
         break;
 
     default:
-        fprintf(stderr, "riscv_repair_csr: This CSR is unsupported for repairing: %lx\n",
+        fprintf(riscvemu_stderr, "riscv_repair_csr: This CSR is unsupported for repairing: %lx\n",
                 (unsigned long)csr_num);
         break;
     }
@@ -2341,7 +2342,7 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     // dcsr.stoptime  = 1
     // dcsr = 0x600 | (PrivLevel & 0x3)
     if (s->priv == 2) {
-        fprintf(stderr, "UNSUPORTED Priv mode (no hyper)\n");
+        fprintf(riscvemu_stderr, "UNSUPORTED Priv mode (no hyper)\n");
         exit(-4);
     }
 
@@ -2421,7 +2422,7 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     // Recover CLINT (Close to the end of the recovery to avoid extra cycles)
     // TODO: One per hart (multicore/SMP)
 
-    fprintf(stderr, "clint hart0 timecmp=%ld cycles (%ld)\n", m->timecmp, s->mcycle/RTC_FREQ_DIV);
+    fprintf(riscvemu_stderr, "clint hart0 timecmp=%ld cycles (%ld)\n", m->timecmp, s->mcycle/RTC_FREQ_DIV);
 
     // Assuming 16 ratio between CPU and CLINT and that CPU is reset to zero
     create_io64_recovery( rom, &code_pos, &data_pos, CLINT_BASE_ADDR + 0x4000, m->timecmp);
@@ -2443,7 +2444,7 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     rom[code_pos++] = 0x7b200073;
 
     if (sizeof rom / sizeof *rom <= data_pos || data_pos_start <= code_pos) {
-        fprintf(stderr, "ERROR: ROM is too small. ROM_SIZE should increase.  "
+        fprintf(riscvemu_stderr, "ERROR: ROM is too small. ROM_SIZE should increase.  "
                 "Current code_pos=%d data_pos=%d\n", code_pos, data_pos);
         exit(-6);
     }
@@ -2540,7 +2541,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
     }
 
     if (!boot_ram || !main_ram_found) {
-        fprintf(stderr, "ERROR: could not find boot and main ram???\n");
+        fprintf(riscvemu_stderr, "ERROR: could not find boot and main ram???\n");
         exit(-3);
     }
 
@@ -2549,16 +2550,16 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
     snprintf(f_name, n, "%s.bootram", dump_name);
 
     if (s->priv != 3 || ROM_BASE_ADDR + ROM_SIZE < s->pc) {
-        fprintf(stderr, "NOTE: creating a new boot rom\n");
+        fprintf(riscvemu_stderr, "NOTE: creating a new boot rom\n");
         create_boot_rom(s, m, f_name);
     } else if (BOOT_BASE_ADDR < s->pc) {
-        fprintf(stderr, "ERROR: could not checkpoint when running inside the ROM\n");
+        fprintf(riscvemu_stderr, "ERROR: could not checkpoint when running inside the ROM\n");
         exit(-4);
     } else if (s->pc == BOOT_BASE_ADDR && boot_ram) {
-        fprintf(stderr, "NOTE: using the default riscvemu room\n");
+        fprintf(riscvemu_stderr, "NOTE: using the default riscvemu room\n");
         serialize_memory(boot_ram->phys_mem, boot_ram->size, f_name);
     } else {
-        fprintf(stderr, "ERROR: unexpected PC address 0x%llx\n", (long long)s->pc);
+        fprintf(riscvemu_stderr, "ERROR: unexpected PC address 0x%llx\n", (long long)s->pc);
         exit(-4);
     }
 }

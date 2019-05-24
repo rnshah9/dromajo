@@ -16,7 +16,7 @@
  * Parse the trace output and check that we cosim correctly.
  */
 
-#include <stdio.h>
+#include "riscvemu.h"
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,7 +24,7 @@
 
 void usage(char *progname)
 {
-    fprintf(stderr,
+    fprintf(riscvemu_stderr,
             "Usage:\n"
             "  %s cosim $trace $riscvemuargs ...\n"
             "  %s read $trace\n",
@@ -80,16 +80,16 @@ int main(int argc, char *argv[])
 
         switch (got) {
         case 3:
-            printf("%d %016lx %08x                           DASM(%08x)\n",
+            fprintf(riscvemu_stdout, "%d %016lx %08x                           DASM(%08x)\n",
                    priv, insn_addr, insn, insn);
             break;
 
-        case 5: printf("%d %016lx %08x [x%-2d <- %016lx] DASM(%08x)\n",
+        case 5: fprintf(riscvemu_stdout, "%d %016lx %08x [x%-2d <- %016lx] DASM(%08x)\n",
                        priv, insn_addr, insn, rd, wdata, insn);
             break;
 
         default:
-            fprintf(stderr, "%s:%d: couldn't parse %s\n",
+            fprintf(riscvemu_stderr, "%s:%d: couldn't parse %s\n",
                     trace_name, lineno, buf);
             goto fail;
 
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
             int r = riscvemu_cosim_step(s, insn_addr, insn, wdata,
                                         0, 0, 0, true);
             if (r) {
-                printf("Exited with %08x\n", r);
+                fprintf(riscvemu_stdout, "Exited with %08x\n", r);
                 goto fail;
             }
         }
@@ -110,13 +110,13 @@ int main(int argc, char *argv[])
 
     free(s);
 
-    printf("\nSUCCESS, PASSED, GOOD!\n");
+    fprintf(riscvemu_stdout, "\nSUCCESS, PASSED, GOOD!\n");
 
     exit(EXIT_SUCCESS);
 
 fail:
     free(s);
-    printf("\nFAIL!\n");
+    fprintf(riscvemu_stdout, "\nFAIL!\n");
 
     exit(EXIT_FAILURE);
 }

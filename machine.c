@@ -31,8 +31,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#include "riscvemu.h"
 #include <stdlib.h>
-#include <stdio.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
@@ -57,7 +58,7 @@ void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
+    vfprintf(riscvemu_stderr, fmt, ap);
     va_end(ap);
 }
 
@@ -438,7 +439,7 @@ static int load_file(uint8_t **pbuf, const char *filename)
     fseek(f, 0, SEEK_SET);
     buf = malloc(size);
     if (fread(buf, 1, size, f) != size) {
-        fprintf(stderr, "%s: read error\n", filename);
+        fprintf(riscvemu_stderr, "%s: read error\n", filename);
         exit(1);
     }
     fclose(f);
@@ -451,7 +452,7 @@ static void config_load_file_cb(void *opaque, int err, void *data, size_t size)
 {
     VMConfigLoadState *s = opaque;
 
-    //    printf("err=%d data=%p size=%ld\n", err, data, size);
+    //    fprintf(riscvemu_stdout, "err=%d data=%p size=%ld\n", err, data, size);
     if (err < 0) {
         vm_error("Error %d while loading file\n", -err);
         exit(1);

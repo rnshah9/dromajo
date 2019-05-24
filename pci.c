@@ -174,8 +174,8 @@ static uint32_t pci_device_config_read(PCIDevice *d, uint32_t addr,
         abort();
     }
 #ifdef DEBUG_CONFIG
-    printf("pci_config_read: dev=%s addr=0x%02x val=0x%x s=%d\n",
-           d->name, addr, val, 1 << size_log2);
+    fprintf(riscvemu_stdout, "pci_config_read: dev=%s addr=0x%02x val=0x%x s=%d\n",
+            d->name, addr, val, 1 << size_log2);
 #endif
     return val;
 }

@@ -31,8 +31,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#include "riscvemu.h"
 #include <stdlib.h>
-#include <stdio.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <string.h>
@@ -123,7 +124,7 @@ static void uart_update_irq(SiFiveUARTState *s)
         cond = 1;
     }
     if (cond) {
-      fprintf(stderr,"uart_update_irq: FIXME we should raise IRQ saying that there is new data\n");
+      fprintf(riscvemu_stderr, "uart_update_irq: FIXME we should raise IRQ saying that there is new data\n");
     }
 }
 
@@ -132,7 +133,7 @@ static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
     SiFiveUARTState *s = opaque;
 
 #ifdef DUMP_UART
-    fprintf(stderr, "uart_read: offset=%x size_log2=%d\n", offset, size_log2);
+    fprintf(riscvemu_stderr, "uart_read: offset=%x size_log2=%d\n", offset, size_log2);
 #endif
     switch (offset) {
     case SIFIVE_UART_RXFIFO:
@@ -142,7 +143,7 @@ static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
             int ret = cs->read_data(cs->opaque, &r, 1);
             if (ret) {
 #ifdef DUMP_UART
-                fprintf(stderr, "uart_read: val=%x\n", r);
+                fprintf(riscvemu_stderr, "uart_read: val=%x\n", r);
 #endif
                 return r;
             }
@@ -162,7 +163,7 @@ static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
         return s->div;
     }
 
-    fprintf(stderr, "%s: bad read: offset=0x%x\n", __func__, (int)offset);
+    fprintf(riscvemu_stderr, "%s: bad read: offset=0x%x\n", __func__, (int)offset);
     return 0;
 }
 
@@ -173,7 +174,7 @@ static void uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log
     unsigned char ch = val;
 
 #ifdef DUMP_UART
-    fprintf(stderr, "uart_write: offset=%x val=%x size_log2=%d\n", offset, val, size_log2);
+    fprintf(riscvemu_stderr, "uart_write: offset=%x val=%x size_log2=%d\n", offset, val, size_log2);
 #endif
 
     switch (offset) {
@@ -195,7 +196,7 @@ static void uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log
         return;
     }
 
-    fprintf(stderr, "%s: bad write: addr=0x%x v=0x%x\n", __func__, (int)offset, (int)val);
+    fprintf(riscvemu_stderr, "%s: bad write: addr=0x%x v=0x%x\n", __func__, (int)offset, (int)val);
 }
 
 static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
@@ -227,7 +228,7 @@ static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
     }
 
 #ifdef DUMP_CLINT
-    fprintf(stderr, "clint_read: offset=%x val=%x\n", offset, val);
+    fprintf(riscvemu_stderr, "clint_read: offset=%x val=%x\n", offset, val);
 #endif
 
     return val;
@@ -269,7 +270,7 @@ static void clint_write(void *opaque, uint32_t offset, uint32_t val,
     }
 
 #ifdef DUMP_CLINT
-    fprintf(stderr, "clint_write: offset=%x val=%x\n", offset, val);
+    fprintf(riscvemu_stderr, "clint_write: offset=%x val=%x\n", offset, val);
 #endif
 }
 
@@ -311,7 +312,7 @@ static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
         break;
     }
 #ifdef DUMP_PLIC
-    fprintf(stderr, "plic_read: offset=%x val=%x\n", offset, val);
+    fprintf(riscvemu_stderr, "plic_read: offset=%x val=%x\n", offset, val);
 #endif
 
     return val;
@@ -335,7 +336,7 @@ static void plic_write(void *opaque, uint32_t offset, uint32_t val,
         break;
     }
 #ifdef DUMP_PLIC
-    fprintf(stderr, "plic_write: offset=%x val=%x\n", offset, val);
+    fprintf(riscvemu_stderr, "plic_write: offset=%x val=%x\n", offset, val);
 #endif
 }
 
@@ -814,7 +815,7 @@ static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
         load_elf_image(s, buf, buf_len, &entry_point);
 
         if (entry_point != s->ram_base_addr) {
-            fprintf(stderr, "RISCVEMU current requires a 0x%lx starting "
+            fprintf(riscvemu_stderr, "RISCVEMU current requires a 0x%lx starting "
                     "address, image assumes 0x%0lx\n",
                     s->ram_base_addr, entry_point);
             return 1;
@@ -1023,7 +1024,7 @@ void virt_machine_serialize(VirtMachine *s1, const char *dump_name)
     RISCVMachine *m = (RISCVMachine *)s1;
     RISCVCPUState *s = m->cpu_state;
 
-    fprintf(stderr, "plic: %x %x timecmp=%llx\n", m->plic_pending_irq, m->plic_served_irq, (unsigned long long)m->timecmp);
+    fprintf(riscvemu_stderr, "plic: %x %x timecmp=%llx\n", m->plic_pending_irq, m->plic_served_irq, (unsigned long long)m->timecmp);
 
     riscv_cpu_serialize(s, m, dump_name);
 }

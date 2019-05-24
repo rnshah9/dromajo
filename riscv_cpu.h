@@ -38,6 +38,7 @@
 #include "riscv.h"
 #include "validation_events.h"
 #include <stdbool.h>
+#include <stdio.h>
 
 #define ROM_SIZE       0x00001000
 #define ROM_BASE_ADDR  0x00010000

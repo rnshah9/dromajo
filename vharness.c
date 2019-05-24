@@ -8,8 +8,8 @@
 // agreement/contract under which the program(s) have been supplied.
 //------------------------------------------------------------------------------
 
+#include "riscvemu.h"
 #include <stdlib.h>
-#include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 #include <inttypes.h>
@@ -62,7 +62,7 @@ int iterate_core(VirtMachine *m)
         return keep_going;
     }
 
-    fprintf(stderr, "%d 0x%016"PRIx64" (0x%08x)", priv, last_pc,
+    fprintf(riscvemu_stderr, "%d 0x%016"PRIx64" (0x%08x)", priv, last_pc,
             (insn_raw & 3) == 3 ? insn_raw : (uint16_t) insn_raw);
 
     uint64_t dummy1, dummy2;
@@ -70,14 +70,14 @@ int iterate_core(VirtMachine *m)
     int fregno = virt_machine_get_most_recently_written_fp_reg(m, &dummy2);
 
     if (cpu->pending_exception != -1)
-        fprintf(stderr, " exception %d, tval %016lx", cpu->pending_exception,
+        fprintf(riscvemu_stderr, " exception %d, tval %016lx", cpu->pending_exception,
                 virt_machine_get_priv_level(m) == PRV_M ? cpu->mtval : cpu->stval);
     else if (iregno > 0)
-        fprintf(stderr, " x%2d 0x%016"PRIx64, iregno, virt_machine_get_reg(m, iregno));
+        fprintf(riscvemu_stderr, " x%2d 0x%016"PRIx64, iregno, virt_machine_get_reg(m, iregno));
     else if (fregno >= 0)
-        fprintf(stderr, " f%2d 0x%016"PRIx64, fregno, virt_machine_get_fpreg(m, fregno));
+        fprintf(riscvemu_stderr, " f%2d 0x%016"PRIx64, fregno, virt_machine_get_fpreg(m, fregno));
 
-    putc('\n', stderr);
+    putc('\n', riscvemu_stderr);
 
     return keep_going;
 }
@@ -105,11 +105,11 @@ int main(int argc, char **argv)
 
     int benchmark_exit_code = virt_machine_benchmark_exit_code(m);
     if (benchmark_exit_code != 0){
-        fprintf(stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
+        fprintf(riscvemu_stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
         return 1;
     }
 
-    fprintf(stderr,"\nPower off.\n");
+    fprintf(riscvemu_stderr,"\nPower off.\n");
 
     virt_machine_end(m);
 #endif
