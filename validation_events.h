@@ -36,8 +36,7 @@
 #define VALIDATION_EVENTS_H
 
 #include <stdint.h>
-
-#include "cutils.h"
+#include <stdbool.h>
 
 // List of different validation commands passed
 // to validation CSR 1
@@ -53,17 +52,17 @@
  */
 enum VALIDATON_CMD {
     VALIDATION_CMD_INVALID = CMD_PREFIX,
-    VALIDATION_CMD_LINUX, // Linux events
-    VALIDATION_CMD_BENCH, // Benchmark events
-    VALIDATION_CMD_EXIT_CODE, // The binary reutrn value
+    VALIDATION_CMD_LINUX, 	// Linux events
+    VALIDATION_CMD_BENCH, 	// Benchmark events
+    VALIDATION_CMD_EXIT_CODE, 	// The binary return value
 };
 
 /* List of Linux related events
  */
 enum LINUX_CMD_VALUE {
     LINUX_CMD_VALUE_INVALID = 0,
-    LINUX_CMD_VALUE_BOOT_DONE, // We are done booting
-    LINUX_CMD_VALUE_TERMINATE, // temrminate boot, this is a workaround for halt.
+    LINUX_CMD_VALUE_BOOT_DONE, 	// We are done booting
+    LINUX_CMD_VALUE_TERMINATE, 	// Terminate boot, this is a workaround for halt
     LINUX_CMD_VALUE_NUM
 };
 
@@ -71,8 +70,8 @@ enum LINUX_CMD_VALUE {
  */
 enum BENCH_CMD_VALUE {
     BENCH_CMD_VALUE_INVALID = 0,
-    BENCH_CMD_VALUE_START, // Benchmark start
-    BENCH_CMD_VALUE_END, // Benchmark end
+    BENCH_CMD_VALUE_START, 	// Benchmark start
+    BENCH_CMD_VALUE_END, 	// Benchmark end
     BENCH_CMD_VALUE_NUM
 };
 
@@ -82,16 +81,16 @@ struct event_info
 {
     uint64_t value; // Full value
     const char *name;
-    BOOL terminate;
+    bool terminate;
 };
 
 /* List of the different validation events that we can recognize
  */
 static const struct event_info validation_events[] = {
-    { EVENT(LINUX, BOOT_DONE), "linux-boot", TRUE },
-    { EVENT(LINUX, TERMINATE), "linux-terminate", TRUE },
-    { EVENT(BENCH, START), "benchmark-start", TRUE },
-    { EVENT(BENCH, END), "benchmark-end", TRUE },
+    { EVENT(LINUX, BOOT_DONE), "linux-boot",      true },
+    { EVENT(LINUX, TERMINATE), "linux-terminate", true },
+    { EVENT(BENCH, START),     "benchmark-start", true },
+    { EVENT(BENCH, END),       "benchmark-end",   true },
 };
 
 #endif // VALIDATION_EVENTS_H

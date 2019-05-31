@@ -144,6 +144,16 @@ uint32_t dw_apb_uart_read(void *opaque, uint32_t offset, int size_log2)
         res = s->lsr;
         s->lsr |= (1 << bfoUART_LSR_TEMT) | (1 << bfoUART_LSR_THRE); // TX empty, Holding Empty
         s->lsr &= ~30; // Reading clears BI, FE, PE, OE
+
+        if (!(s->lsr & (1 << bfoUART_LSR_DR))) {
+            CharacterDevice *cs = s->cs;
+            uint8_t buf;
+
+            if (cs->read_data(cs->opaque, &buf, 1)) {
+                s->lsr |= 1 << bfoUART_LSR_DR;
+                s->rbr = buf;
+            }
+        }
         break;
 
     case uart_reg_comptype: // 0xfc
@@ -177,16 +187,12 @@ void dw_apb_uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log
             s->div_latch = (s->div_latch & ~255) + val;
             DEBUG("     div latch is now %d\n", s->div_latch);
         } else {
-            if (s->lsr & (1 << bfoUART_LSR_THRE)) {
-                CharacterDevice *cs = s->cs;
-                unsigned char ch = val;
-                DEBUG("   TRANSMIT '%c' (0x%02x)\n", val, val);
-                cs->write_data(cs->opaque, &ch, 1);
-                s->lsr &= ~(1 << bfoUART_LSR_THRE); // XXX Assumes non-fifo mode
-            } else {
-                DEBUG("   OVERFLOW ('%c' (0x%02x))\n", val, val);
-                // XXX Oddly it doesn't appear that overflow is registered?
-            }
+            CharacterDevice *cs = s->cs;
+            unsigned char ch = val;
+            DEBUG("   TRANSMIT '%c' (0x%02x)\n", val, val);
+            cs->write_data(cs->opaque, &ch, 1);
+            s->lsr &= ~(1 << bfoUART_LSR_THRE); // XXX Assumes non-fifo mode
+            s->lsr &= ~(1 << bfoUART_LSR_TEMT);
         }
         break;
 
