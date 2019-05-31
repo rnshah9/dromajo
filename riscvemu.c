@@ -533,6 +533,9 @@ static EthernetDevice *slirp_open(void)
 BOOL virt_machine_run(VirtMachine *m)
 {
     RISCVMachine *s = (RISCVMachine *)m;
+
+    (void) virt_machine_get_sleep_duration(m, MAX_SLEEP_TIME);
+
     riscv_cpu_interp64(s->cpu_state, 1);
 
     if (s->htif_tohost_addr) {
