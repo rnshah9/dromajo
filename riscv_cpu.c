@@ -60,6 +60,18 @@
                                s->fp_reg[x] = (val);})
 #define read_fp_reg(x)       (s->fp_reg[x])
 
+/*
+ * Maxion/Boom/Rocket doesn't implement all bits in all CSRs but
+ * stores Sv+1, that, is 49 bits and reads are sign-extended from bit
+ * 49 onwards.  For the emulator we achieve this by keeping the
+ * register canonical on writes (as opposed to reads).
+ */
+#define CANONICAL_S49(v) ((intptr_t)(v) << (63-48) >> (63-48))
+#define MEPC_TRUNCATE   CANONICAL_S49
+#define MTVAL_TRUNCATE  CANONICAL_S49
+#define SEPC_TRUNCATE   CANONICAL_S49
+#define STVAL_TRUNCATE  CANONICAL_S49
+
 #ifdef USE_GLOBAL_STATE
 static RISCVCPUState riscv_cpu_global_state;
 #endif
@@ -1386,12 +1398,13 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
     case 0x141:
         s->sepc = val & (s->misa & MCPUID_C ? ~1 : ~3);
+        s->sepc = SEPC_TRUNCATE(s->sepc);
         break;
     case 0x142:
         s->scause = val & SCAUSE_MASK;
         break;
     case 0x143:
-        s->stval = val;
+        s->stval = STVAL_TRUNCATE(val);
         break;
     case 0x144: /* sip */
         mask = s->mideleg;
@@ -1444,12 +1457,13 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
     case 0x341:
         s->mepc = val & (s->misa & MCPUID_C ? ~1 : ~3);
+        s->mepc = MEPC_TRUNCATE(s->mepc);
         break;
     case 0x342:
         s->mcause = val & MCAUSE_MASK;
         break;
     case 0x343:
-        s->mtval = val;
+        s->mtval = MTVAL_TRUNCATE(val);
         break;
     case 0x344:
         mask = /* MEIP | */ MIP_SEIP | /*MIP_UEIP | MTIP | */ MIP_STIP | /*MIP_UTIP | MSIP | */ MIP_SSIP /*| MIP_USIP*/;
@@ -1764,8 +1778,8 @@ static void raise_exception2(RISCVCPUState *s, uint64_t cause,
 
     if (deleg) {
         s->scause = cause;
-        s->sepc = s->pc;
-        s->stval = tval;
+        s->sepc = SEPC_TRUNCATE(s->pc);
+        s->stval = STVAL_TRUNCATE(tval);
         s->mstatus = (s->mstatus & ~MSTATUS_SPIE) |
             (!!(s->mstatus & MSTATUS_SIE) << MSTATUS_SPIE_SHIFT);
         s->mstatus = (s->mstatus & ~MSTATUS_SPP) |
@@ -1778,8 +1792,8 @@ static void raise_exception2(RISCVCPUState *s, uint64_t cause,
             s->pc = s->stvec;
     } else {
         s->mcause = cause;
-        s->mepc = s->pc;
-        s->mtval = tval;
+        s->mepc = MEPC_TRUNCATE(s->pc);
+        s->mtval = MTVAL_TRUNCATE(tval);
 
         /* When a trap is taken from privilege mode y into privilege
            mode x, xPIE is set to the value of xIE; xIE is set to 0;
