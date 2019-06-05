@@ -125,13 +125,17 @@ static inline void handle_dut_overrides(RISCVCPUState *s,
     int reg, offset;
 
     /* Catch reads from CSR mcycle, ucycle, instret, hpmcounters,
-     * or hpmoverflows.
+     * hpmoverflows, mip, and sip.
      * If the destination register is x0 then it is actually a csr-write
      */
     if (opcode == 0x73 && rd != 0 &&
         (0xB00 <= csrno && csrno < 0xB20 ||
          0xC00 <= csrno && csrno < 0xC20 ||
-         (CSR_ET_MCIP == csrno || CSR_ET_SCIP == csrno || CSR_ET_UCIP == csrno)))
+         (csrno == CSR_ET_MCIP ||
+          csrno == CSR_ET_SCIP ||
+          csrno == CSR_ET_UCIP ||
+          csrno == 0x344 /* mip */ ||
+          csrno == 0x144 /* sip */)))
         riscv_set_reg(s, rd, dut_wdata);
 
     /* Catch loads and amo from MMIO space */
