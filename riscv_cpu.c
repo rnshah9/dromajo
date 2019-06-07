@@ -1570,7 +1570,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         uint64_t new  = 0;
 
         for (int i = 0; i < 8; ++i) {
-            uint8_t cfg = orig >> (i * 8);
+            uint64_t cfg = (orig >> (i * 8)) & 255;
             if ((cfg & PMPCFG_L) == 0)
                 cfg = val >> (i * 8);
             cfg &= ~PMPCFG_RES;
