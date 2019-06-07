@@ -192,11 +192,8 @@ pmp_access_ok(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t perm)
     // region (we don't support the cases where the PMP region is
     // smaller than the access).
     for (int i = 0; i < s->pmp_n; ++i)
-        // [lo;hi)  `intersect` [paddr;paddr+size) is non-empty
-        // Alas, doing this properly is expensive due to the risk of
-        // integer overflow so we accept a coverage hole and only test
-        // that paddr is in [lo;hi).
-        if (s->pmp[i].lo <= paddr && paddr < s->pmp[i].hi)
+        // [lo;hi) `intersect` [paddr;paddr+size) is non-empty
+        if (s->pmp[i].lo <= paddr + size - 1 && paddr < s->pmp[i].hi)
             if (priv < PRV_M || s->pmpcfg[i] & PMPCFG_L)
                 return (perm & s->pmpcfg[i]) == perm;
             else
@@ -719,8 +716,12 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
     }
     tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
     ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
-    s->tlb_code[tlb_idx].vaddr = addr & ~PG_MASK;
-    s->tlb_code[tlb_idx].mem_addend = (uintptr_t)ptr - addr;
+    if (pmp_access_ok(s, addr & ~PG_MASK, PG_MASK + 1, PMPCFG_X)) {
+        /* All of this page has full execute access so we can bypass
+         * the slow PMP checks. */
+        s->tlb_code[tlb_idx].vaddr = addr & ~PG_MASK;
+        s->tlb_code[tlb_idx].mem_addend = (uintptr_t)ptr - addr;
+    }
 
     /* check for page crossing */
     int tlb_idx_cross = ((addr+2) >> PG_SHIFT) & (TLB_SIZE - 1);
@@ -1335,6 +1336,8 @@ static void unpack_pmpaddrs(RISCVCPUState *s)
         }
         }
     }
+
+    tlb_flush_all(s); // The TLB partically caches PMP decisions
 
 #if 0
     for (int i = 0; i < s->pmp_n; ++i) {
