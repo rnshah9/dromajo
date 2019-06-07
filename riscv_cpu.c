@@ -519,7 +519,7 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
                 ? CAUSE_LOAD_PAGE_FAULT : CAUSE_FAULT_LOAD;
             return -1;
         }
-        pr = get_phys_mem_range_pmp(s, paddr, 1 << PG_SHIFT, PMPCFG_R);
+        pr = get_phys_mem_range_pmp(s, paddr, size, PMPCFG_R);
         if (!pr) {
 #ifdef DUMP_INVALID_MEM_ACCESS
             fprintf(riscvemu_stderr, "riscv_cpu_read_memory: invalid physical address 0x");
@@ -616,7 +616,7 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
                 CAUSE_STORE_PAGE_FAULT : CAUSE_FAULT_STORE;
             return -1;
         }
-        pr = get_phys_mem_range_pmp(s, paddr, 1 << PG_SHIFT, PMPCFG_W);
+        pr = get_phys_mem_range_pmp(s, paddr, size, PMPCFG_W);
         if (!pr) {
 #ifdef DUMP_INVALID_MEM_ACCESS
             fprintf(riscvemu_stderr, "riscv_cpu_write_memory: invalid physical address 0x");
@@ -1322,10 +1322,13 @@ static void unpack_pmpaddrs(RISCVCPUState *s)
             // NB, meaningless when i >= 56!
             if (j >= 64) {
                 s->pmp[s->pmp_n].lo = 0;
-                s->pmp[s->pmp_n].hi = ~0;
+                s->pmp[s->pmp_n].hi = ~0ll;
             } else {
                 s->pmp[s->pmp_n].lo = (s->csr_pmpaddr[i] << 2) & ~((1llu << j) - 1);
-                s->pmp[s->pmp_n].hi = s->pmp[i].lo + (1llu << j);
+                s->pmp[s->pmp_n].hi = s->pmp[s->pmp_n].lo + (1llu << j);
+                if (s->pmp[s->pmp_n].hi <= s->pmp[s->pmp_n].lo)
+                    // Overflowed
+                    s->pmp[s->pmp_n].hi = ~0ll;
             }
             s->pmp_n++;
             break;
