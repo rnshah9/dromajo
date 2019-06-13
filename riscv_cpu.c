@@ -72,6 +72,9 @@
 #define SEPC_TRUNCATE   CANONICAL_S49
 #define STVAL_TRUNCATE  CANONICAL_S49
 
+// Maxion PMPADDR CSRs only have 38-bits
+#define PMPADDR_MASK	0x3fffffffff
+
 #ifdef USE_GLOBAL_STATE
 static RISCVCPUState riscv_cpu_global_state;
 #endif
@@ -1572,7 +1575,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         for (int i = 0; i < 8; ++i) {
             uint64_t cfg = (orig >> (i * 8)) & 255;
             if ((cfg & PMPCFG_L) == 0)
-                cfg = val >> (i * 8);
+                cfg = (val >> (i * 8)) & 255;
             cfg &= ~PMPCFG_RES;
             new |= cfg << (i * 8);
         }
@@ -1604,7 +1607,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
 
         // Note, due to TOR ranges, one PMPADDR can affect two entries
         // but we just recalculate all of them
-        s->csr_pmpaddr[csr - CSR_PMPADDR(0)] = val;
+        s->csr_pmpaddr[csr - CSR_PMPADDR(0)] = val & PMPADDR_MASK;
         unpack_pmpaddrs(s);
         break;
 
