@@ -624,7 +624,7 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
             fprintf(riscvemu_stderr, "\n");
 #endif
             s->pending_tval = addr;
-            s->pending_exception = err == CAUSE_FAULT_STORE;
+            s->pending_exception = CAUSE_FAULT_STORE;
             return -1;
         } else if (pr->is_ram) {
             phys_mem_set_dirty_bit(pr, paddr - pr->addr);
