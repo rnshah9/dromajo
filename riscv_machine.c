@@ -50,6 +50,7 @@
 #include "riscv_cpu.h"
 #include "riscv_machine.h"
 #include "dw_apb_uart.h"
+#include "elf64.h"
 
 /* RISCV machine */
 
@@ -784,13 +785,10 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
     return size;
 }
 
-static void load_elf_image(RISCVMachine *s, const void *image, size_t image_len,
-                           uint64_t *entry_point)
+static void load_elf_image(RISCVMachine *s, const void *image, size_t image_len)
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)image;
     const Elf64_Phdr *ph = image + ehdr->e_phoff;
-
-    *entry_point = ehdr->e_entry;
 
     for (int i = 0; i < ehdr->e_phnum; ++i, ++ph)
         if (ph->p_type == PT_LOAD) {
@@ -802,24 +800,25 @@ static void load_elf_image(RISCVMachine *s, const void *image, size_t image_len,
 }
 
 /* Return non-zero on failure */
-static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len,
-                       const char *cmd_line, bool is_elf)
+static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len, const char *cmd_line)
 {
     if (buf_len > s->ram_size) {
         vm_error("Kernel too big\n");
         return 1;
     }
 
-    if (is_elf) {
-        uint64_t entry_point;
-        load_elf_image(s, buf, buf_len, &entry_point);
+    if (elf64_is_riscv64(buf, buf_len)) {
+        // XXX if the ELF is given in the config file, then we don't get to set memory base based on that.
 
-        if (entry_point != s->ram_base_addr) {
-            fprintf(riscvemu_stderr, "RISCVEMU current requires a 0x%lx starting "
-                    "address, image assumes 0x%0lx\n",
-                    s->ram_base_addr, entry_point);
+        if (elf64_get_entrypoint(buf) != s->ram_base_addr) {
+            fprintf(riscvemu_stderr,
+                    "RISCVEMU currently requires a 0x%lx starting address, image assumes 0x%0lx\n",
+                    s->ram_base_addr,
+                    elf64_get_entrypoint(buf));
             return 1;
         }
+
+        load_elf_image(s, buf, buf_len);
     }
     else
         memcpy(get_ram_ptr(s, s->ram_base_addr), buf, buf_len);
@@ -986,20 +985,14 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
         }
     }
 
-    int failure = 0;
-    if (p->elf_image)
-        failure = copy_kernel(s, p->elf_image, p->elf_image_size, p->cmdline, true);
-    else if (!p->files[VM_FILE_BIOS].buf) {
-        vm_error("No bios found");
+    if (!p->files[VM_FILE_BIOS].buf) {
+        vm_error("No bios given\n");
         return NULL;
-    } else
-        failure = copy_kernel(s, p->files[VM_FILE_BIOS].buf,
-                              p->files[VM_FILE_BIOS].len, p->cmdline, false);
-
-    if (failure) {
-        free(s);
+    } else if (copy_kernel(s,
+                           p->files[VM_FILE_BIOS].buf,
+                           p->files[VM_FILE_BIOS].len,
+                           p->cmdline))
         return NULL;
-    }
 
     s->mmio_start = p->mmio_start;
     s->mmio_end   = p->mmio_end;

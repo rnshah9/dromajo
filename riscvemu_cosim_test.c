@@ -24,7 +24,7 @@
 
 void usage(char *progname)
 {
-    fprintf(riscvemu_stderr,
+    fprintf(stderr,
             "Usage:\n"
             "  %s cosim $trace $riscvemuargs ...\n"
             "  %s read $trace\n",
@@ -36,6 +36,8 @@ int main(int argc, char *argv[])
 {
     char *progname = argv[0];
     bool cosim = false;
+    int  exit_code = EXIT_SUCCESS;
+
     if (argc < 3)
         usage(progname);
 
@@ -108,15 +110,20 @@ int main(int argc, char *argv[])
         }
     }
 
+done:
     free(s);
 
-    fprintf(riscvemu_stdout, "\nSUCCESS, PASSED, GOOD!\n");
+    if (exit_code == EXIT_SUCCESS)
+        fprintf(riscvemu_stdout, "\nSUCCESS, PASSED, GOOD!\n");
+    else
+        fprintf(riscvemu_stdout, "\nFAIL!\n");
 
-    exit(EXIT_SUCCESS);
+    if (riscvemu_stdout != stdout)
+        fclose(riscvemu_stdout);
+
+    exit(exit_code);
 
 fail:
-    free(s);
-    fprintf(riscvemu_stdout, "\nFAIL!\n");
-
-    exit(EXIT_FAILURE);
+    exit_code = EXIT_FAILURE;
+    goto done;
 }

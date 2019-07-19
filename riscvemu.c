@@ -70,6 +70,7 @@
 #ifdef CONFIG_SLIRP
 #include "slirp/libslirp.h"
 #endif
+#include "elf64.h"
 
 typedef struct {
     FILE *stdin, *out;
@@ -633,6 +634,29 @@ static void usage(const char *prog, const char *msg)
     exit(EXIT_FAILURE);
 }
 
+static bool load_elf_and_fake_the_config(VirtMachineParams *p, const char *path)
+{
+    uint8_t    *buf;
+    int         buf_len = load_file(&buf, path);
+
+    if (elf64_is_riscv64((const char *)buf, buf_len)) {
+
+        /* Fake the corresponding config file */
+        p->files[VM_FILE_BIOS].filename = strdup(path);
+        p->files[VM_FILE_BIOS].buf      = buf;
+        p->files[VM_FILE_BIOS].len      = buf_len;
+        p->ram_size                     = (size_t)256 << 20; // Default to 256 MiB
+        p->ram_base_addr                = elf64_get_entrypoint((const char *)buf);
+        elf64_find_global((const char *)buf, buf_len, "tohost", &p->htif_base_addr);
+
+        return true;
+    }
+
+    free(buf);
+
+    return false;
+}
+
 VirtMachine *virt_machine_main(int argc, char **argv)
 {
     const char *prog               = argv[0];
@@ -766,7 +790,9 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 #ifdef CONFIG_FS_NET
     fs_wget_init();
 #endif
-    virt_machine_load_config_file(p, path, NULL, NULL);
+
+    if (!load_elf_and_fake_the_config(p, path))
+        virt_machine_load_config_file(p, path, NULL, NULL);
 
     if (p->logfile) {
         FILE *log_out = fopen(p->logfile, "w");

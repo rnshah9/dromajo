@@ -126,9 +126,6 @@ typedef struct {
     /* validation terminate event */
     const char* validation_terminate_event;
 
-    void  *elf_image;
-    size_t elf_image_size;
-
     /* maximum increment of instructions to execute */
     uint64_t maxinsns;
 
@@ -163,6 +160,7 @@ typedef struct VirtMachine {
     int         pending_exception;
 } VirtMachine;
 
+int load_file(uint8_t **pbuf, const char *filename);
 void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...);
 int vm_get_int(JSONValue obj, const char *name, int64_t *pval);
 

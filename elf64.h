@@ -30,4 +30,6 @@ bool elf64_is_riscv64(const char *image, size_t image_size);
 bool elf64_find_global(const char *image, size_t image_size,
                        const char *key, uint64_t *value);
 
+uint64_t elf64_get_entrypoint(const char *image);
+
 #endif

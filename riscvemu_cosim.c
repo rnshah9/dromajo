@@ -358,6 +358,8 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
         emu_priv = riscv_get_priv_level(s);
         emu_pc   = riscv_get_pc(s);
         riscv_read_insn(s, &emu_insn, emu_pc);
+        if ((emu_insn & 3) != 3)
+            emu_insn &= 0xFFFF;
 
         if (emu_pc == dut_pc && emu_insn == dut_insn &&
             is_store_conditional(emu_insn) && dut_wdata != 0) {
@@ -386,10 +388,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                  * so we just exit from here */
 
                 fprintf(riscvemu_stderr, "%d 0x%016"PRIx64" ", emu_priv, emu_pc);
-                if ((emu_insn & 3) == 3)
-                    fprintf(riscvemu_stderr, "(0x%08x) ", emu_insn);
-                else
-                    fprintf(riscvemu_stderr, "(0x%08x) ", (uint16_t)emu_insn);
+                fprintf(riscvemu_stderr, "(0x%08x) ", emu_insn);
                 fprintf(riscvemu_stderr,
                         "[error] EMU %cCAUSE %d != DUT %cCAUSE %d\n",
                         priv, cause, priv, m->pending_exception);
@@ -415,14 +414,10 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
         handle_dut_overrides(s, r->mmio_start, r->mmio_end,
                              emu_priv, emu_pc, emu_insn, emu_wdata, dut_wdata);
 
-    if (verbose)
+    if (verbose) {
         fprintf(riscvemu_stderr, "%d 0x%016"PRIx64" ", emu_priv, emu_pc);
-
-    if (verbose)
-        if ((emu_insn & 3) == 3)
-            fprintf(riscvemu_stderr, "(0x%08x) ", emu_insn);
-        else
-            fprintf(riscvemu_stderr, "(0x%08x) ", (uint16_t)emu_insn);
+        fprintf(riscvemu_stderr, "(0x%08x) ", emu_insn);
+    }
 
     if (iregno > 0) {
         emu_wdata = riscv_get_reg(s, iregno);
@@ -438,10 +433,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
         fprintf(riscvemu_stderr, "                      ");
 
     if (verbose)
-        if ((emu_insn & 3) == 3)
-            fprintf(riscvemu_stderr, " DASM(0x%08x)\n", emu_insn);
-        else
-            fprintf(riscvemu_stderr, " DASM(0x%04x)\n", (uint16_t)emu_insn);
+        fprintf(riscvemu_stderr, " DASM(0x%08x)\n", emu_insn);
 
     if (!check)
         return 0;

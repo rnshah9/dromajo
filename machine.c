@@ -423,7 +423,7 @@ char *get_file_path(const char *base_filename, const char *filename)
 
 
 /* return -1 if error. */
-static int load_file(uint8_t **pbuf, const char *filename)
+int load_file(uint8_t **pbuf, const char *filename)
 {
     FILE *f;
     int size;
@@ -474,8 +474,7 @@ static void config_load_file(VMConfigLoadState *s, const char *filename,
 #endif
     {
         uint8_t *buf;
-        int size;
-        size = load_file(&buf, filename);
+        int size = load_file(&buf, filename);
         cb(opaque, buf, size);
         free(buf);
     }
@@ -502,15 +501,7 @@ static void config_file_loaded(void *opaque, uint8_t *buf, int buf_len)
     VMConfigLoadState *s = opaque;
     VirtMachineParams *p = s->vm_params;
 
-    if (elf64_is_riscv64((const char *)buf, buf_len)) {
-        /* Fake the corresponding config file */
-        p->ram_base_addr = RAM_BASE_ADDR;
-        p->ram_size = (size_t)256 << 20; // Default to 256 MiB
-        p->elf_image_size = buf_len;
-        p->elf_image = malloc(buf_len);
-        memcpy(p->elf_image, buf, buf_len);
-        elf64_find_global(p->elf_image, p->elf_image_size, "tohost", &p->htif_base_addr);
-    } else if (virt_machine_parse_config(p, (char *)buf, buf_len) < 0)
+    if (virt_machine_parse_config(p, (char *)buf, buf_len) < 0)
         exit(1);
 
     /* load the additional files */
