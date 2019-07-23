@@ -71,6 +71,9 @@
 #include "slirp/libslirp.h"
 #endif
 
+FILE *riscvemu_stdout;
+FILE *riscvemu_stderr;
+
 typedef struct {
     FILE *stdin, *out;
     int  console_esc_state;
@@ -114,7 +117,7 @@ static void term_init(BOOL allow_ctrlc)
 
 static void console_write(void *opaque, const uint8_t *buf, int len)
 {
-    STDIODevice *s = opaque;
+    STDIODevice *s = (STDIODevice *)opaque;
     fwrite(buf, 1, len, s->out);
     fflush(s->out);
 }
@@ -525,7 +528,7 @@ BOOL virt_machine_run(int hartid, VirtMachine *m)
 {
     RISCVMachine *s = (RISCVMachine *)m;
 
-    (void) virt_machine_get_sleep_duration(m, MAX_SLEEP_TIME);
+    (void) virt_machine_get_sleep_duration(hartid, m, MAX_SLEEP_TIME);
 
     riscv_cpu_interp64(s->cpu_state[hartid], 1);
 
@@ -631,7 +634,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     const char *snapshot_save_name = 0;
     const char *path               = NULL;
     const char *cmdline            = NULL;
-    long        ncpus              = 1;
+    long        ncpus              = 0;
     const char *terminate_event    = NULL;
     uint64_t    maxinsns           = 0;
     uint64_t    trace              = UINT64_MAX;
@@ -672,11 +675,9 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             break;
 
         case 'n':
-            if (ncpus!=1)
+            if (ncpus!=0)
                 usage(prog, "already had a ncpus set");
             ncpus = atoll(optarg);
-            if (ncpus>=MAX_CPUS)
-                usage(prog,"ncpus limit reached (MAX_CPUS). Increase MAX_CPUS");
             break;
 
         case 'l':
@@ -791,7 +792,13 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     if (memory_size_override)
         p->ram_size = memory_size_override << 20;
 
-    p->ncpus = ncpus;
+    if (ncpus)
+      p->ncpus = ncpus;
+    if (p->ncpus>=MAX_CPUS)
+      usage(prog,"ncpus limit reached (MAX_CPUS). Increase MAX_CPUS");
+
+    if (p->ncpus==0)
+      p->ncpus = 1;
 
     if (cmdline)
         vm_add_cmdline(p, cmdline);

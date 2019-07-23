@@ -51,6 +51,8 @@ int iterate_core(int hartid, VirtMachine *m)
      */
     uint64_t last_pc    = virt_machine_get_pc(hartid, m);
     int      priv       = riscv_get_priv_level(cpu);
+    uint32_t insn_raw   = -1;
+    (void) riscv_read_insn(cpu, &insn_raw, last_pc);
     int      keep_going = virt_machine_run(hartid, m);
 
     if (last_pc == virt_machine_get_pc(hartid, m))
@@ -61,7 +63,7 @@ int iterate_core(int hartid, VirtMachine *m)
         return keep_going;
     }
 
-    fprintf(riscvemu_stderr, "%d 0x%016" PRIx64 " (0x%08x)", priv, last_pc,
+    fprintf(riscvemu_stderr, "%d %d 0x%016" PRIx64 " (0x%08x)", hartid, priv, last_pc,
             (insn_raw & 3) == 3 ? insn_raw : (uint16_t) insn_raw);
 
     uint64_t dummy1, dummy2;
@@ -70,11 +72,11 @@ int iterate_core(int hartid, VirtMachine *m)
 
     if (cpu->pending_exception != -1)
         fprintf(riscvemu_stderr, " exception %d, tval %016lx", cpu->pending_exception,
-                virt_machine_get_priv_level(m) == PRV_M ? cpu->mtval : cpu->stval);
+                riscv_get_priv_level(cpu) == PRV_M ? cpu->mtval : cpu->stval);
     else if (iregno > 0)
-        fprintf(riscvemu_stderr, " x%2d 0x%016" PRIx64, iregno, virt_machine_get_reg(m, iregno));
+        fprintf(riscvemu_stderr, " x%2d 0x%016" PRIx64, iregno, virt_machine_get_reg(hartid, m, iregno));
     else if (fregno >= 0)
-        fprintf(riscvemu_stderr, " f%2d 0x%016" PRIx64, fregno, virt_machine_get_fpreg(m, fregno));
+        fprintf(riscvemu_stderr, " f%2d 0x%016" PRIx64, fregno, virt_machine_get_fpreg(hartid, m, fregno));
 
     putc('\n', riscvemu_stderr);
 

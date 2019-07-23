@@ -164,14 +164,14 @@ static inline void track_write(uint64_t vaddr, uint64_t paddr, uint64_t data, in
 #ifdef LIVECACHE
   llc->write(paddr);
 #endif
-  // fprintf(stderr,"track_write vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
+  fprintf(stderr,"track_write vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
 }
 
 static inline uint64_t track_dread(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
 #ifdef LIVECACHE
   llc->read(paddr);
 #endif
-  // fprintf(stderr,"track_dread vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
+  fprintf(stderr,"track_dread vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
 
   return data;
 }
@@ -756,7 +756,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
         /* All of this page has full execute access so we can bypass
          * the slow PMP checks. */
         s->tlb_code[tlb_idx].vaddr        = addr & ~PG_MASK;
-        s->tlb_code[tlb_idx].paddr_addend = paddr - addr;
+        s->tlb_code_paddr_addend[tlb_idx] = paddr - addr;
         s->tlb_code[tlb_idx].mem_addend   = (uintptr_t)ptr - addr;
     }
 
@@ -1813,14 +1813,14 @@ static void raise_exception2(RISCVCPUState *s, uint64_t cause,
 
     if (cause & CAUSE_INTERRUPT)
         fprintf(riscvemu_stderr, "hartid=%d: exception interrupt #%d, epc 0x%016jx\n",
-                (int)s->marthid, cause & 63, (uintmax_t)s->pc);
+                (int)s->mhartid, cause & 63, (uintmax_t)s->pc);
     else if (cause <= CAUSE_STORE_PAGE_FAULT) {
         fprintf(riscvemu_stderr, "hartid=%d priv: %d exception %s, epc 0x%016jx\n",
-               (int)s->marthid, s->priv, cause_s[cause], (uintmax_t)s->pc);
+               (int)s->mhartid, s->priv, cause_s[cause], (uintmax_t)s->pc);
         fprintf(riscvemu_stderr, "hartid=%d0           tval 0x%016jx\n", (int)s->mhartid, (uintmax_t)tval);
     } else {
         fprintf(riscvemu_stderr, "hartid=%d: exception %d, epc 0x%016jx\n",
-               (int)s->marthid, cause, (uintmax_t)s->pc);
+               (int)s->mhartid, cause, (uintmax_t)s->pc);
         fprintf(riscvemu_stderr, "hartid=%d:           tval 0x%016jx\n", (int)s->mhartid, (uintmax_t)tval);
     }
 #endif
@@ -2527,7 +2527,7 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     // Recover CLINT (Close to the end of the recovery to avoid extra cycles)
     // TODO: One per hart (multicore/SMP)
 
-    fprintf(riscvemu_stderr, "clint hart0 timecmp=%ld cycles (%ld)\n", m->timecmp, s->mcycle/RTC_FREQ_DIV);
+    fprintf(riscvemu_stderr, "clint hartid=%d timecmp=%ld cycles (%ld)\n", (int)s->mhartid, s->timecmp, s->mcycle/RTC_FREQ_DIV);
 
     // Assuming 16 ratio between CPU and CLINT and that CPU is reset to zero
     create_io64_recovery( rom, &code_pos, &data_pos, CLINT_BASE_ADDR + 0x4000, s->timecmp);

@@ -364,6 +364,8 @@ static int virt_machine_parse_config(VirtMachineParams *p,
         p->rtc_local_time = el.u.b;
     }
 
+    vm_get_uint64_opt(cfg, "ncpus", &p->ncpus);
+
     vm_get_uint64_opt(cfg, "mmio_start", &p->mmio_start);
     vm_get_uint64_opt(cfg, "mmio_end",   &p->mmio_end);
     vm_get_uint64_opt(cfg, "physical_addr_len", &p->physical_addr_len);

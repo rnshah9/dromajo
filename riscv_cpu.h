@@ -138,9 +138,6 @@ typedef uint128_t mem_uint_t;
 
 typedef struct {
     target_ulong vaddr;
-#ifdef PADDR_INLINE
-    target_ulong paddr_addend;
-#endif
     uintptr_t mem_addend;
 } TLBEntry;
 

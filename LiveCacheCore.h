@@ -449,7 +449,7 @@ CacheAssoc<State, Addr_t>::CacheAssoc(int32_t size, int32_t assoc, int32_t blksi
     : CacheGeneric<State, Addr_t>(size, assoc, blksize, xr) {
   assert(numLines > 0);
 
-  assert(numLines > assoc);
+  assert((int32_t)numLines > assoc);
 
   if(strcasecmp(pStr, k_RANDOM) == 0)
     policy = RANDOM;

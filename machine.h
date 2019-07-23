@@ -117,7 +117,6 @@ typedef struct {
     uint64_t htif_base_addr;
 
     char *cmdline; /* bios or kernel command line */
-    int ncpus;
     BOOL accel_enable; /* enable acceleration (KVM) */
     char *input_device; /* NULL means no input */
 
@@ -135,6 +134,9 @@ typedef struct {
 
     /* snaphot load file */
     const char *snapshot_load_name;
+
+    /* number of cpus */
+    uint64_t ncpus;
 
     /* MMIO range (for co-simulation only) */
     uint64_t mmio_start;
@@ -177,7 +179,7 @@ void vm_add_cmdline(VirtMachineParams *p, const char *cmdline);
 char *get_file_path(const char *base_filename, const char *filename);
 void virt_machine_free_config(VirtMachineParams *p);
 VirtMachine *virt_machine_init(const VirtMachineParams *p);
-//int virt_machine_get_sleep_duration(VirtMachine *s, int delay);
+int virt_machine_get_sleep_duration(int hartid, VirtMachine *s, int delay);
 BOOL vm_mouse_is_absolute(VirtMachine *s);
 void vm_send_mouse_event(VirtMachine *s1, int dx, int dy, int dz,
                          unsigned int buttons);

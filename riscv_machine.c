@@ -100,13 +100,10 @@ enum {
     SIFIVE_UART_IP_RXWM       = 2  /* Receive watermark interrupt pending */
 };
 
-#if 0
- // deprecated
 static uint64_t rtc_get_time(RISCVMachine *m)
 {
-    return m->cpu_state->mcycle / RTC_FREQ_DIV;
+    return m->cpu_state[0]->mcycle / RTC_FREQ_DIV;
 }
-#endif
 
 typedef struct SiFiveUARTState {
     CharacterDevice *cs; // Console
@@ -129,6 +126,18 @@ static void uart_update_irq(SiFiveUARTState *s)
     if (cond) {
       fprintf(riscvemu_stderr, "uart_update_irq: FIXME we should raise IRQ saying that there is new data\n");
     }
+}
+
+static uint32_t mmio_read(void *opaque, uint32_t offset, int size_log2)
+{
+  fprintf(riscvemu_stderr, "mmio_read: offset=%x size_log2=%d\n", offset, size_log2);
+
+  return 0;
+}
+
+static void mmio_write(void *opaque, uint32_t offset, uint32_t val, int size_log2)
+{
+  fprintf(riscvemu_stderr, "mmio_write: offset=%x size_log2=%d\n", offset, size_log2);
 }
 
 static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
@@ -297,7 +306,7 @@ static void clint_write(void *opaque, uint32_t offset, uint32_t val,
 
 static void plic_update_mip(int hartid, RISCVMachine *s)
 {
-    uint32_t mask = s->plic_pending_irq & ~s->plic_claimed_irq;
+    uint32_t mask = s->plic_pending_irq & ~s->plic_served_irq;
     RISCVCPUState *cpu = s->cpu_state[hartid];
     if (mask) {
     fprintf(stderr,"update_mip: hartid=%d mask=%x value=%x\n",(int)hartid, mask, MIP_MEIP|MIP_SEIP);
@@ -354,10 +363,10 @@ static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
       if (wordid == 0) {
         val = 0; // target_priority in qemu
       }else if (wordid == 4) {
-        uint32_t mask = s->plic_pending_irq & ~s->plic_claimed_irq;
+        uint32_t mask = s->plic_pending_irq & ~s->plic_served_irq;
         if (mask != 0) {
             int i = ctz32(mask);
-            s->plic_claimed_irq |= 1 << i;
+            s->plic_served_irq |= 1 << i;
             plic_update_mip(hartid, s);
             val = i + 1;
         } else {
@@ -405,7 +414,7 @@ static void plic_write(void *opaque, uint32_t offset, uint32_t val,
         int irq = val&31;
         fprintf(stderr, "plic_write: hartid=%d claim wordid=%d offset=%x val=%x irq=%d\n", hartid, wordid, offset, val, irq);
         uint32_t mask = 1 << (irq- 1);
-        s->plic_claimed_irq &= ~mask;
+        s->plic_served_irq &= ~mask;
       }else{
         fprintf(stderr, "plic_write: hartid=%d ERROR?? unexpected wordid=%d offset=%x val=%x\n", hartid, wordid, offset, val);
       }
@@ -1004,6 +1013,12 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
       s->cpu_state[i]->physical_addr_len = p->physical_addr_len;
     }
 
+    if (p->mmio_start) {
+      uint64_t sz = p->mmio_end - p->mmio_start;
+      cpu_register_device(s->mem_map, p->mmio_start, sz, 0,
+          mmio_read, mmio_write, DEVIO_SIZE32 | DEVIO_SIZE16 | DEVIO_SIZE8);
+    }
+
     SiFiveUARTState *uart = (SiFiveUARTState *)calloc(sizeof *uart, 1);
     uart->irq = UART0_IRQ;
     uart->cs  = p->console;
@@ -1142,7 +1157,7 @@ void virt_machine_serialize(VirtMachine *s1, const char *dump_name)
     RISCVMachine *m = (RISCVMachine *)s1;
     RISCVCPUState *s = m->cpu_state[0]; // FIXME: MULTICORE
 
-    fprintf(riscvemu_stderr, "plic: %x %x timecmp=%llx\n", m->plic_pending_irq, m->plic_served_irq, (unsigned long long)m->timecmp);
+    fprintf(riscvemu_stderr, "plic: %x %x timecmp=%llx\n", m->plic_pending_irq, m->plic_served_irq, (unsigned long long)s->timecmp);
 
     assert(m->ncpus==1); // FIXME: riscv_cpu_serialize must be patched for multicore
     riscv_cpu_serialize(s, m, dump_name);
@@ -1157,17 +1172,15 @@ void virt_machine_deserialize(VirtMachine *s1, const char *dump_name)
     riscv_cpu_deserialize(s, m, dump_name);
 }
 
-#if 0
- // deprecated
-int virt_machine_get_sleep_duration(VirtMachine *s1, int ms_delay)
+int virt_machine_get_sleep_duration(int hartid, VirtMachine *s1, int ms_delay)
 {
     RISCVMachine *m = (RISCVMachine *)s1;
-    RISCVCPUState *s = m->cpu_state;
+    RISCVCPUState *s = m->cpu_state[hartid];
     int64_t ms_delay1;
 
     /* wait for an event: the only asynchronous event is the RTC timer */
     if (!(riscv_cpu_get_mip(s) & MIP_MTIP) && rtc_get_time(m)>0) {
-        ms_delay1 = m->timecmp - rtc_get_time(m);
+        ms_delay1 = s->timecmp - rtc_get_time(m);
         if (ms_delay1 <= 0) {
             riscv_cpu_set_mip(s, MIP_MTIP);
             ms_delay = 0;
@@ -1184,6 +1197,9 @@ int virt_machine_get_sleep_duration(VirtMachine *s1, int ms_delay)
 
     return ms_delay;
 }
+
+#if 0
+ // deprecated
 
 void virt_machine_set_pc(VirtMachine *m, uint64_t pc)
 {

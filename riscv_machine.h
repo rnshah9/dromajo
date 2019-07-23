@@ -25,7 +25,7 @@ typedef struct RISCVMachine {
     uint64_t ram_base_addr;
     /* PLIC */
     uint32_t plic_pending_irq;
-    uint32_t plic_claimed_irq;
+    uint32_t plic_served_irq;
     IRQSignal plic_irq[32]; /* IRQ 0 is not used */
 
     /* HTIF */
