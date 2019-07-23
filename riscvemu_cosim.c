@@ -321,6 +321,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                         int                     dut_ghr_ena,
                         uint64_t                dut_ghr0,  // ghistory[63: 0]
                         uint64_t                dut_ghr1,  // ghistory[89:64]
+                        uint64_t                dut_mstatus,
                         bool                    check)
 {
     VirtMachine   *m = (VirtMachine  *)riscvemu_cosim_state;
@@ -358,6 +359,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
         emu_priv = riscv_get_priv_level(s);
         emu_pc   = riscv_get_pc(s);
         riscv_read_insn(s, &emu_insn, emu_pc);
+
         if ((emu_insn & 3) != 3)
             emu_insn &= 0xFFFF;
 
@@ -438,31 +440,31 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
     if (!check)
         return 0;
 
+    uint64_t emu_mstatus = riscv_cpu_get_mstatus(s);
 
-    if (dut_pc != emu_pc) {
-        fprintf(riscvemu_stderr, "[error] EMU PC %016"PRIx64" != DUT PC %016"PRIx64"\n",
+    if (emu_pc      != dut_pc                           ||
+        emu_insn    != dut_insn  && (emu_insn & 3) == 3 || // DUT expands all C instructions
+        emu_wdata   != dut_wdata && emu_wrote_data      ||
+        emu_mstatus != dut_mstatus) {
+
+        fprintf(riscvemu_stderr, "[error] EMU PC %016"PRIx64", DUT PC %016"PRIx64"\n",
                 emu_pc, dut_pc);
-        exit_code =  0x1FFF;
-    }
-
-    if (emu_insn != dut_insn && (emu_insn & 3) == 3) {
-        fprintf(riscvemu_stderr, "[error] EMU INSN %08x != DUT INSN %08x\n",
+        fprintf(riscvemu_stderr, "[error] EMU INSN %08x, DUT INSN %08x\n",
                 emu_insn, dut_insn);
+        if (emu_wrote_data)
+            fprintf(riscvemu_stderr, "[error] EMU WDATA %016"PRIx64", DUT WDATA %016"PRIx64"\n",
+                    emu_wdata, dut_wdata);
+        fprintf(riscvemu_stderr, "[error] EMU MSTATUS %08"PRIx64", DUT MSTATUS %08"PRIx64"\n",
+                emu_mstatus, dut_mstatus);
+        fprintf(riscvemu_stderr, "[error] DUT pending exception %d pending interrupt %d\n",
+                m->pending_exception, m->pending_interrupt);
         exit_code = 0x1FFF;
     }
 
-    if (dut_wdata != emu_wdata && emu_wrote_data) {
-        fprintf(riscvemu_stderr, "[error] EMU WDATA %016"PRIx64" != DUT WDATA %016"PRIx64"\n",
-                emu_wdata, dut_wdata);
-        exit_code = 0x1FFF;
-    }
-
-    if (exit_code == 0)
-        riscv_cpu_sync_regs(s);
+    riscv_cpu_sync_regs(s);
 
     if (!dut_ghr_ena)
         return exit_code;
-
 
     cosim_history(s, dut_pc, dut_ghr0, dut_ghr1, &exit_code);
 

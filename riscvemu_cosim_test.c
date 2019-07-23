@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 
         if (cosim) {
             int r = riscvemu_cosim_step(s, insn_addr, insn, wdata,
-                                        0, 0, 0, true);
+                                        0, 0, 0, 0, true);
             if (r) {
                 fprintf(riscvemu_stdout, "Exited with %08x\n", r);
                 goto fail;

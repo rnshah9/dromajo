@@ -54,6 +54,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                         int                     dut_ghr_ena,
                         uint64_t                dut_ghr0,  // ghistory[63: 0]
                         uint64_t                dut_ghr1,  // ghistory[89:64]
+                        uint64_t                mstatus,
                         bool                    check);
 
 /*

@@ -332,4 +332,7 @@ int riscv_cpu_get_phys_addr(RISCVCPUState *s,
                             target_ulong vaddr,
                             riscv_memory_access_t access,
                             target_ulong *ppaddr);
+
+uint64_t riscv_cpu_get_mstatus(RISCVCPUState* s);
+
 #endif
