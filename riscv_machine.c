@@ -137,7 +137,7 @@ static uint32_t mmio_read(void *opaque, uint32_t offset, int size_log2)
 
 static void mmio_write(void *opaque, uint32_t offset, uint32_t val, int size_log2)
 {
-  fprintf(riscvemu_stderr, "mmio_write: offset=%x size_log2=%d\n", offset, size_log2);
+  fprintf(riscvemu_stderr, "mmio_write: offset=%x size_log2=%d val=%x\n", offset, size_log2, val);
 }
 
 static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)

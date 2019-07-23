@@ -160,28 +160,28 @@ static void dump_regs(RISCVCPUState *s)
 LiveCache *llc=0;
 #endif
 
-static inline void track_write(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+static inline void track_write(int mhartid, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
 #ifdef LIVECACHE
   llc->write(paddr);
 #endif
-  fprintf(stderr,"track_write vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
+  //fprintf(stderr,"track_write marhtid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
 }
 
-static inline uint64_t track_dread(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+static inline uint64_t track_dread(int mhartid, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
 #ifdef LIVECACHE
   llc->read(paddr);
 #endif
-  fprintf(stderr,"track_dread vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
+  //fprintf(stderr,"track_dread mhartid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
 
   return data;
 }
 
-static inline uint64_t track_iread(uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+static inline uint64_t track_iread(int mhartid, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
 #ifdef LIVECACHE
   llc->read(paddr);
 #endif
   assert(size==16 || size==32);
-  // fprintf(stderr,"track_iread vaddr:%llx paddr:%llx data:%llx size:%d\n", (long long)vaddr, (long long)paddr, (long long)data, size);
+  //fprintf(stderr,"track_iread mhartid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
 
   return data;
 }
@@ -244,7 +244,7 @@ get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t p
             *fail = true;                                               \
             return;                                                     \
         }                                                               \
-        track_write(paddr, paddr, val, size);                           \
+        track_write(s->mhartid, paddr, paddr, val, size);               \
         *(uint_type *)(pr->phys_mem + (uintptr_t)(paddr - pr->addr)) = val; \
         *fail = false;                                                  \
     }                                                                   \
@@ -259,7 +259,7 @@ get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t p
         }                                                               \
         uint_type pval = *(uint_type *)(pr->phys_mem +                  \
                                         (uintptr_t)(paddr - pr->addr)); \
-        pval = track_dread(paddr, paddr, pval, size);                   \
+        pval = track_dread(s->mhartid, paddr, paddr, pval, size);       \
         *fail = false;                                                  \
         return pval;                                                    \
     }
@@ -282,7 +282,7 @@ PHYS_MEM_READ_WRITE(64, uint64_t)
         if (likely(s->tlb_read[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
             uint64_t data = *(uint_type *)(s->tlb_read[tlb_idx].mem_addend + (uintptr_t)addr); \
             uint64_t paddr = s->tlb_read_paddr_addend[tlb_idx] + addr;  \
-            *pval = track_dread(addr, paddr, data, size);               \
+            *pval = track_dread(s->mhartid, addr, paddr, data, size);   \
             return 0;                                                   \
         }                                                               \
                                                                         \
@@ -306,7 +306,7 @@ PHYS_MEM_READ_WRITE(64, uint64_t)
         if (likely(s->tlb_write[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
             *(uint_type *)(s->tlb_write[tlb_idx].mem_addend + (uintptr_t)addr) = val; \
             uint64_t paddr = s->tlb_write_paddr_addend[tlb_idx] + addr;  \
-            track_write(addr, paddr, val, size);                        \
+            track_write(s->mhartid, addr, paddr, val, size);            \
             return 0;                                                   \
         }                                                               \
                                                                         \
@@ -609,7 +609,7 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
             }
         }
     }
-    *pval = track_dread(addr,paddr, ret, size);
+    *pval = track_dread(s->mhartid, addr, paddr, ret, size);
     return 0;
 }
 
@@ -711,7 +711,7 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
             }
         }
     }
-    track_write(addr,paddr,val,size);
+    track_write(s->mhartid, addr, paddr,val,size);
     return 0;
 }
 
@@ -787,8 +787,8 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
         //*insn = (uint32_t)*((uint16_t*)ptr);
         //*insn |= ((uint32_t)*((uint16_t*)ptr_cross) << 16);
 
-        data1 = track_iread(addr,paddr      ,data1,16);
-        data2 = track_iread(addr,paddr_cross,data2,16);
+        data1 = track_iread(s->mhartid, addr, paddr      , data1, 16);
+        data2 = track_iread(s->mhartid, addr, paddr_cross, data2, 16);
 
         *insn = data1 | (data2<<16);
 
@@ -803,7 +803,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
         assert(0);
     }
 
-    *insn = track_iread(addr,paddr,*insn,size);
+    *insn = track_iread(s->mhartid, addr, paddr, *insn, size);
 
     return 0;
 }
@@ -819,9 +819,9 @@ static inline __exception int target_read_insn_u16(RISCVCPUState *s, uint16_t *p
         mem_addend = s->tlb_code[tlb_idx].mem_addend;
         uint32_t data = *(uint16_t *)(mem_addend + (uintptr_t)addr);
 #ifdef PADDR_INLINE
-        *pinsn = track_iread(addr,s->tlb_code[tlb_idx].paddr_addend + addr,data,16);
+        *pinsn = track_iread(s->mhartid, addr,s->tlb_code[tlb_idx].paddr_addend + addr,data,16);
 #else
-        *pinsn = track_iread(addr,s->tlb_code_paddr_addend[tlb_idx] + addr,data,16);
+        *pinsn = track_iread(s->mhartid, addr,s->tlb_code_paddr_addend[tlb_idx] + addr,data,16);
 #endif
         return 0;
     }
@@ -1692,17 +1692,17 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
 
     case CSR_ET_VALIDATION0: // Esperanto validation0 register
         if ((val >> 12) == 0xDEAD0) // Begin
-            fprintf(riscvemu_stderr, "ET validation begin code=%llx\n", (long long)val & 0xFFF);
+            fprintf(riscvemu_stderr, "ET validation mhartid=%d begin code=%llx\n", (int)s->mhartid, (long long)val & 0xFFF);
         else if ((val >> 12) == 0x1FEED) {
-            fprintf(riscvemu_stderr, "ET validation PASS code=%llx\n", (long long)val & 0xFFF);
+            fprintf(riscvemu_stderr, "ET validation mhartid=%d PASS code=%llx\n", (int)s->mhartid, (long long)val & 0xFFF);
             s->terminate_simulation = TRUE;
             break;
         } else if ((val >> 12) == 0x50BAD) {
-            fprintf(riscvemu_stderr, "ET validation FAIL code=%llx\n", (long long)val & 0xFFF);
+            fprintf(riscvemu_stderr, "ET validation mhartid=%d FAIL code=%llx\n", (int)s->mhartid, (long long)val & 0xFFF);
             s->terminate_simulation = TRUE;
             break;
         } else
-            fprintf(riscvemu_stderr, "ET UNKNOWN command=%llx code=%llx\n", (long long)val >> 12,
+            fprintf(riscvemu_stderr, "ET UNKNOWN mhartid=%d command=%llx code=%llx\n", (int)s->mhartid, (long long)val >> 12,
                     (long long)(val & 0xFFF));
         break;
 

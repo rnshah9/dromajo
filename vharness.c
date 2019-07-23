@@ -90,7 +90,8 @@ extern LiveCache *llc;
 int main(int argc, char **argv)
 {
 #ifdef LIVECACHE
-  llc = new LiveCache("LLC", 1024*1024*32); // 32MB LLC (should be ~2x larger than real)
+  //llc = new LiveCache("LLC", 1024*1024*32); // 32MB LLC (should be ~2x larger than real)
+  llc = new LiveCache("LLC", 1024*32); // Small 32KB for testing
 #endif
 
 #ifdef REGRESS_RISCV_COSIM
