@@ -633,15 +633,15 @@ static bool load_elf_and_fake_the_config(VirtMachineParams *p, const char *path)
     uint8_t    *buf;
     int         buf_len = load_file(&buf, path);
 
-    if (elf64_is_riscv64((const char *)buf, buf_len)) {
+    if (elf64_is_riscv64(buf, buf_len)) {
 
         /* Fake the corresponding config file */
         p->files[VM_FILE_BIOS].filename = strdup(path);
         p->files[VM_FILE_BIOS].buf      = buf;
         p->files[VM_FILE_BIOS].len      = buf_len;
         p->ram_size                     = (size_t)256 << 20; // Default to 256 MiB
-        p->ram_base_addr                = elf64_get_entrypoint((const char *)buf);
-        elf64_find_global((const char *)buf, buf_len, "tohost", &p->htif_base_addr);
+        p->ram_base_addr                = elf64_get_entrypoint(buf);
+        elf64_find_global(buf, buf_len, "tohost", &p->htif_base_addr);
 
         return true;
     }

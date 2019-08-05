@@ -26,10 +26,10 @@
 #define EM_RISCV          0xF3 /* Little endian RISC-V, 32- and 64-bit */
 #endif
 
-bool elf64_is_riscv64(const char *image, size_t image_size);
-bool elf64_find_global(const char *image, size_t image_size,
+bool elf64_is_riscv64(const uint8_t *image, size_t image_size);
+bool elf64_find_global(const uint8_t *image, size_t image_size,
                        const char *key, uint64_t *value);
 
-uint64_t elf64_get_entrypoint(const char *image);
+uint64_t elf64_get_entrypoint(const uint8_t *image);
 
 #endif

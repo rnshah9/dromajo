@@ -17,7 +17,7 @@
 #include "elf64.h"
 #include <string.h>
 
-bool elf64_is_riscv64(const char *image, size_t image_size)
+bool elf64_is_riscv64(const uint8_t *image, size_t image_size)
 {
     const Elf64_Ehdr *ehdr = (const Elf64_Ehdr *)image;
 
@@ -53,17 +53,17 @@ bool elf64_is_riscv64(const char *image, size_t image_size)
     return true;
 }
 
-uint64_t elf64_get_entrypoint(const char *image)
+uint64_t elf64_get_entrypoint(const uint8_t *image)
 {
     const Elf64_Ehdr *ehdr = (const Elf64_Ehdr *)image;
 
     return ehdr->e_entry;
 }
 
-bool elf64_find_global(const char *image, size_t image_size,
+bool elf64_find_global(const uint8_t *image, size_t image_size,
                        const char *key, uint64_t *value)
 {
-    const char *image_end   = image + image_size;
+    const uint8_t *image_end   = image + image_size;
     Elf64_Ehdr *ehdr        = (Elf64_Ehdr *)image;
 
     if (ehdr->e_shoff + sizeof(Elf64_Shdr) - 1 > image_size)
@@ -71,14 +71,14 @@ bool elf64_find_global(const char *image, size_t image_size,
 
     Elf64_Shdr *shdr        = (Elf64_Shdr *)&image[ehdr->e_shoff];
 
-    if ((char *)&shdr[ehdr->e_shstrndx + 1] > image_end)
+    if ((const uint8_t *)&shdr[ehdr->e_shstrndx + 1] > image_end)
         return false;
 
     const Elf64_Sym  *symtab      = 0;
     int               symtab_len  = 0;
     const char       *strtab      = 0;
 
-    if ((char *)&shdr[ehdr->e_shnum] > image_end)
+    if ((const uint8_t *)&shdr[ehdr->e_shnum] > image_end)
         return false;
 
     /* Look for symbol table */
@@ -86,7 +86,7 @@ bool elf64_find_global(const char *image, size_t image_size,
         Elf64_Shdr *sh = &shdr[i];
 
         if (sh->sh_type == SHT_STRTAB && i != ehdr->e_shstrndx)
-            strtab = image + sh->sh_offset;
+            strtab = (const char *)(image + sh->sh_offset);
 
         if (sh->sh_type == SHT_SYMTAB) {
             symtab = (Elf64_Sym *)&image[sh->sh_offset];
@@ -95,7 +95,7 @@ bool elf64_find_global(const char *image, size_t image_size,
     }
 
     if (symtab && strtab) {
-        if ((char *)&symtab[symtab_len] > image_end)
+        if ((const uint8_t *)&symtab[symtab_len] > image_end)
             return false;
 
         for (int i = 0; i < symtab_len; ++i) {
