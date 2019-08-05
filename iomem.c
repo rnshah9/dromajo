@@ -51,7 +51,7 @@ static void default_set_addr(PhysMemoryMap *map,
 
 PhysMemoryMap *phys_mem_map_init(void)
 {
-    PhysMemoryMap *s = mallocz(sizeof *s);
+    PhysMemoryMap *s = (PhysMemoryMap *)mallocz(sizeof(PhysMemoryMap));
     s->register_ram = default_register_ram;
     s->free_ram = default_free_ram;
     s->get_dirty_bits = default_get_dirty_bits;
@@ -113,7 +113,7 @@ static PhysMemoryRange *default_register_ram(PhysMemoryMap *s, uint64_t addr,
 
     pr = register_ram_entry(s, addr, size, devram_flags);
 
-    pr->phys_mem = mallocz(size);
+    pr->phys_mem = (uint8_t *)mallocz(size);
     if (!pr->phys_mem) {
         fprintf(riscvemu_stderr, "Could not allocate VM memory\n");
         exit(1);
@@ -126,7 +126,7 @@ static PhysMemoryRange *default_register_ram(PhysMemoryMap *s, uint64_t addr,
         pr->dirty_bits_size = ((nb_pages + 31) / 32) * sizeof(uint32_t);
         pr->dirty_bits_index = 0;
         for (i = 0; i < 2; i++) {
-            pr->dirty_bits_tab[i] = mallocz(pr->dirty_bits_size);
+            pr->dirty_bits_tab[i] = (uint32_t *)mallocz(pr->dirty_bits_size);
         }
         pr->dirty_bits = pr->dirty_bits_tab[pr->dirty_bits_index];
     }

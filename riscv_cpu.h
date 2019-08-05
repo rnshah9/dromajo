@@ -53,8 +53,8 @@
 #define DUMP_INVALID_MEM_ACCESS
 #define DUMP_MMU_EXCEPTIONS
 //#define DUMP_INTERRUPTS
-//#define DUMP_INVALID_CSR
-#define DUMP_ILLEGAL_INSTRUCTION
+#define DUMP_INVALID_CSR
+//#define DUMP_ILLEGAL_INSTRUCTION
 //#define DUMP_EXCEPTIONS
 //#define DUMP_CSR
 #define CONFIG_LOGFILE
@@ -236,6 +236,8 @@ typedef struct RISCVCPUState {
     target_ulong dpc;  // Debug DPC 0x7b1 (debug spec only)
     target_ulong dscratch;  // Debug dscratch 0x7b2 (debug spec only)
 
+    uint32_t plic_enable_irq;
+
     // ET MCE registers (just bits, nothing happens on these)
     uint32_t mce_enable_mask;
     uint32_t mce_inject_mask;
@@ -256,6 +258,11 @@ typedef struct RISCVCPUState {
     TLBEntry tlb_read[TLB_SIZE];
     TLBEntry tlb_write[TLB_SIZE];
     TLBEntry tlb_code[TLB_SIZE];
+#ifndef PADDR_INLINE
+    target_ulong tlb_read_paddr_addend[TLB_SIZE];
+    target_ulong tlb_write_paddr_addend[TLB_SIZE];
+    target_ulong tlb_code_paddr_addend[TLB_SIZE];
+#endif
 
     // User specified, command line argument terminating event
     const char *terminating_event;
@@ -266,10 +273,13 @@ typedef struct RISCVCPUState {
     RISCVCTFInfo info;
     target_ulong next_addr; /* the CFI target address-- only valid for CFIs. */
 
+    /* RTC */
+    uint64_t timecmp;
+
     bool ignore_sbi_shutdown;
 } RISCVCPUState;
 
-RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map, const char *term_event);
+RISCVCPUState *riscv_cpu_init(int hartid, PhysMemoryMap *mem_map, const char *term_event);
 void riscv_cpu_end(RISCVCPUState *s);
 int riscv_cpu_interp(RISCVCPUState *s, int n_cycles);
 uint64_t riscv_cpu_get_cycles(RISCVCPUState *s);

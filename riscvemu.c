@@ -72,6 +72,9 @@
 #endif
 #include "elf64.h"
 
+FILE *riscvemu_stdout;
+FILE *riscvemu_stderr;
+
 typedef struct {
     FILE *stdin, *out;
     int  console_esc_state;
@@ -115,14 +118,14 @@ static void term_init(BOOL allow_ctrlc)
 
 static void console_write(void *opaque, const uint8_t *buf, int len)
 {
-    STDIODevice *s = opaque;
+    STDIODevice *s = (STDIODevice *)opaque;
     fwrite(buf, 1, len, s->out);
     fflush(s->out);
 }
 
 static int console_read(void *opaque, uint8_t *buf, int len)
 {
-    STDIODevice *s = opaque;
+    STDIODevice *s = (STDIODevice *)opaque;
 
     if (len <= 0)
         return 0;
@@ -172,14 +175,10 @@ static void term_resize_handler(int sig)
 
 CharacterDevice *console_init(BOOL allow_ctrlc, FILE *stdin, FILE *out)
 {
-    CharacterDevice *dev;
-    STDIODevice *s;
-    struct sigaction sig;
-
     term_init(allow_ctrlc);
 
-    dev = mallocz(sizeof *dev);
-    s = mallocz(sizeof *s);
+    CharacterDevice *dev = (CharacterDevice *)mallocz(sizeof(*dev));
+    STDIODevice *s = (STDIODevice *)mallocz(sizeof(*s));
     s->stdin = stdin;
     s->out = out;
     /* Note: the glibc does not properly tests the return value of
@@ -190,6 +189,7 @@ CharacterDevice *console_init(BOOL allow_ctrlc, FILE *stdin, FILE *out)
     global_stdio_device = s;
 
     /* use a signal to get the host terminal resize events */
+    struct sigaction sig;
     sig.sa_handler = term_resize_handler;
     sigemptyset(&sig.sa_mask);
     sig.sa_flags = 0;
@@ -207,7 +207,7 @@ typedef enum {
     BF_MODE_SNAPSHOT,
 } BlockDeviceModeEnum;
 
-#define SECTOR_SIZE 512
+#define SECTOR_SIZE 512UL
 
 typedef struct BlockDeviceFile {
     FILE *f;
@@ -218,7 +218,7 @@ typedef struct BlockDeviceFile {
 
 static int64_t bf_get_sector_count(BlockDevice *bs)
 {
-    BlockDeviceFile *bf = bs->opaque;
+    BlockDeviceFile *bf = (BlockDeviceFile *)bs->opaque;
     return bf->nb_sectors;
 }
 
@@ -228,7 +228,7 @@ static int bf_read_async(BlockDevice *bs,
                          uint64_t sector_num, uint8_t *buf, int n,
                          BlockDeviceCompletionFunc *cb, void *opaque)
 {
-    BlockDeviceFile *bf = bs->opaque;
+    BlockDeviceFile *bf = (BlockDeviceFile *)bs->opaque;
     //    fprintf(riscvemu_stderr,"bf_read_async: sector_num=%" PRId64 " n=%d\n", sector_num, n);
 #ifdef DUMP_BLOCK_READ
     {
@@ -266,7 +266,7 @@ static int bf_write_async(BlockDevice *bs,
                           uint64_t sector_num, const uint8_t *buf, int n,
                           BlockDeviceCompletionFunc *cb, void *opaque)
 {
-    BlockDeviceFile *bf = bs->opaque;
+    BlockDeviceFile *bf = (BlockDeviceFile *)bs->opaque;
     int ret;
 
     switch (bf->mode) {
@@ -280,12 +280,11 @@ static int bf_write_async(BlockDevice *bs,
         break;
     case BF_MODE_SNAPSHOT:
         {
-            int i;
-            if ((sector_num + n) > bf->nb_sectors)
+            if ((unsigned int)(sector_num + n) > bf->nb_sectors)
                 return -1;
-            for (i = 0; i < n; i++) {
+            for (int i = 0; i < n; i++) {
                 if (!bf->sector_table[sector_num]) {
-                    bf->sector_table[sector_num] = malloc(SECTOR_SIZE);
+                    bf->sector_table[sector_num] = (uint8_t *)malloc(SECTOR_SIZE);
                 }
                 memcpy(bf->sector_table[sector_num], buf, SECTOR_SIZE);
                 sector_num++;
@@ -304,10 +303,6 @@ static int bf_write_async(BlockDevice *bs,
 static BlockDevice *block_device_init(const char *filename,
                                       BlockDeviceModeEnum mode)
 {
-    BlockDevice *bs;
-    BlockDeviceFile *bf;
-    int64_t file_size;
-    FILE *f;
     const char *mode_str;
 
     if (mode == BF_MODE_RW) {
@@ -316,23 +311,23 @@ static BlockDevice *block_device_init(const char *filename,
         mode_str = "rb";
     }
 
-    f = fopen(filename, mode_str);
+    FILE *f = fopen(filename, mode_str);
     if (!f) {
         perror(filename);
         exit(1);
     }
     fseek(f, 0, SEEK_END);
-    file_size = ftello(f);
+    int64_t file_size = ftello(f);
 
-    bs = mallocz(sizeof(*bs));
-    bf = mallocz(sizeof(*bf));
+    BlockDevice *bs = (BlockDevice *)mallocz(sizeof(*bs));
+    BlockDeviceFile *bf = (BlockDeviceFile *)mallocz(sizeof(*bf));
 
     bf->mode = mode;
     bf->nb_sectors = file_size / 512;
     bf->f = f;
 
     if (mode == BF_MODE_SNAPSHOT) {
-        bf->sector_table = mallocz(sizeof(bf->sector_table[0]) *
+        bf->sector_table = (uint8_t **)mallocz(sizeof(bf->sector_table[0]) *
                                    bf->nb_sectors);
     }
 
@@ -355,7 +350,7 @@ typedef struct {
 static void tun_write_packet(EthernetDevice *net,
                              const uint8_t *buf, int len)
 {
-    TunState *s = net->opaque;
+    TunState *s = (TunState *)net->opaque;
     ssize_t got = write(s->fd, buf, len);
     assert(got == len);
 }
@@ -364,7 +359,7 @@ static void tun_select_fill(EthernetDevice *net, int *pfd_max,
                             fd_set *rfds, fd_set *wfds, fd_set *efds,
                             int *pdelay)
 {
-    TunState *s = net->opaque;
+    TunState *s = (TunState *)net->opaque;
     int net_fd = s->fd;
 
     s->select_filled = net->device_can_write_packet(net);
@@ -378,7 +373,7 @@ static void tun_select_poll(EthernetDevice *net,
                             fd_set *rfds, fd_set *wfds, fd_set *efds,
                             int select_ret)
 {
-    TunState *s = net->opaque;
+    TunState *s = (TunState *)net->opaque;
     int net_fd = s->fd;
     uint8_t buf[2048];
     int ret;
@@ -415,8 +410,6 @@ static EthernetDevice *tun_open(const char *ifname)
 {
     struct ifreq ifr;
     int fd, ret;
-    EthernetDevice *net;
-    TunState *s;
 
     fd = open("/dev/net/tun", O_RDWR);
     if (fd < 0) {
@@ -434,14 +427,15 @@ static EthernetDevice *tun_open(const char *ifname)
     }
     fcntl(fd, F_SETFL, O_NONBLOCK);
 
-    net = mallocz(sizeof(*net));
+    EthernetDevice *net = (EthernetDevice *)mallocz(sizeof(*net));
     net->mac_addr[0] = 0x02;
     net->mac_addr[1] = 0x00;
     net->mac_addr[2] = 0x00;
     net->mac_addr[3] = 0x00;
     net->mac_addr[4] = 0x00;
     net->mac_addr[5] = 0x01;
-    s = mallocz(sizeof(*s));
+
+    TunState *s = (TunState *)mallocz(sizeof(*s));
     s->fd = fd;
     net->opaque = s;
     net->write_packet = tun_write_packet;
@@ -531,24 +525,23 @@ static EthernetDevice *slirp_open(void)
 
 #endif /* CONFIG_SLIRP */
 
-BOOL virt_machine_run(VirtMachine *m)
+BOOL virt_machine_run(int hartid, VirtMachine *m)
 {
     RISCVMachine *s = (RISCVMachine *)m;
 
-    (void) virt_machine_get_sleep_duration(m, MAX_SLEEP_TIME);
+    (void) virt_machine_get_sleep_duration(hartid, m, MAX_SLEEP_TIME);
 
-    riscv_cpu_interp64(s->cpu_state, 1);
+    riscv_cpu_interp64(s->cpu_state[hartid], 1);
 
     if (s->htif_tohost_addr) {
         uint32_t tohost;
         bool fail = true;
-        tohost = riscv_phys_read_u32(s->cpu_state, s->htif_tohost_addr, &fail);
+        tohost = riscv_phys_read_u32(s->cpu_state[hartid], s->htif_tohost_addr, &fail);
         if (!fail && tohost & 1)
             return false;
     }
 
-    return !riscv_terminated(s->cpu_state) &&
-        m->maxinsns > 0;
+    return !riscv_terminated(s->cpu_state[hartid]) && m->maxinsns > 0;
 }
 
 void help(void)
@@ -620,7 +613,8 @@ static void usage(const char *prog, const char *msg)
             CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard,"
             " Copyright (c) 2018,2019 Esperanto Technologies\n"
             "usage: %s {options} [config|elf-file]\n"
-            "       --cmdline Kernel command line arguments to append \n"
+            "       --cmdline Kernel command line arguments to append\n"
+            "       --ncpus number of cpus to simulate (default 1)\n"
             "       --load resumes a previously saved snapshot\n"
             "       --save saves a snapshot upon exit\n"
             "       --maxinsns terminates execution after a number of instructions\n"
@@ -664,6 +658,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     const char *snapshot_save_name = 0;
     const char *path               = NULL;
     const char *cmdline            = NULL;
+    long        ncpus              = 0;
     const char *terminate_event    = NULL;
     uint64_t    maxinsns           = 0;
     uint64_t    trace              = UINT64_MAX;
@@ -680,6 +675,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         int option_index = 0;
         static struct option long_options[] = {
             {"cmdline", required_argument, 0,  'c' },
+            {"ncpus", required_argument, 0,  'n' },
             {"load",    required_argument, 0,  'l' },
             {"save",    required_argument, 0,  's' },
             {"maxinsns",required_argument, 0,  'm' },
@@ -700,6 +696,12 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             if (cmdline)
                 usage(prog, "already had a kernel command line");
             cmdline = strdup(optarg);
+            break;
+
+        case 'n':
+            if (ncpus!=0)
+                usage(prog, "already had a ncpus set");
+            ncpus = atoll(optarg);
             break;
 
         case 'l':
@@ -726,7 +728,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
                 if (terminate_event) {
                     usage(prog, "already had a terminate event");
                 }
-                for (int i = 0; i < countof(validation_events); ++i) {
+                for (unsigned int i = 0; i < countof(validation_events); ++i) {
                     if (validation_events[i].terminate
                         && strcmp(validation_events[i].name, optarg) != 0)
                     {
@@ -737,7 +739,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
                 if (unknown_event) {
                     fprintf(riscvemu_stderr, "Unknown terminate event \"%s\" \n", optarg);
                     fprintf(riscvemu_stderr, "Valid termination events: \n");
-                    for (int j = 0; j < countof(validation_events); ++j) {
+                    for (unsigned int j = 0; j < countof(validation_events); ++j) {
                         if (validation_events[j].terminate) {
                             fprintf(riscvemu_stderr, "\t\"%s\"\n",
                                     validation_events[j].name);
@@ -815,6 +817,14 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         p->ram_base_addr = memory_addr_override;
     if (memory_size_override)
         p->ram_size = memory_size_override << 20;
+
+    if (ncpus)
+      p->ncpus = ncpus;
+    if (p->ncpus>=MAX_CPUS)
+      usage(prog,"ncpus limit reached (MAX_CPUS). Increase MAX_CPUS");
+
+    if (p->ncpus==0)
+      p->ncpus = 1;
 
     if (cmdline)
         vm_add_cmdline(p, cmdline);
@@ -916,7 +926,8 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     if (s->maxinsns == 0)
         s->maxinsns = UINT64_MAX;
 
-    ((RISCVMachine *)s)->cpu_state->ignore_sbi_shutdown = ignore_sbi_shutdown;
+    for(int i=0;i<((RISCVMachine *)s)->ncpus;i++)
+      ((RISCVMachine *)s)->cpu_state[i]->ignore_sbi_shutdown = ignore_sbi_shutdown;
 
     virt_machine_free_config(p);
 

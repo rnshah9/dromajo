@@ -103,7 +103,7 @@ enum {
 
 static uint64_t rtc_get_time(RISCVMachine *m)
 {
-    return m->cpu_state->mcycle / RTC_FREQ_DIV;
+    return m->cpu_state[0]->mcycle / RTC_FREQ_DIV;
 }
 
 typedef struct SiFiveUARTState {
@@ -129,9 +129,21 @@ static void uart_update_irq(SiFiveUARTState *s)
     }
 }
 
+static uint32_t mmio_read(void *opaque, uint32_t offset, int size_log2)
+{
+  fprintf(riscvemu_stderr, "mmio_read: offset=%x size_log2=%d\n", offset, size_log2);
+
+  return 0;
+}
+
+static void mmio_write(void *opaque, uint32_t offset, uint32_t val, int size_log2)
+{
+  fprintf(riscvemu_stderr, "mmio_write: offset=%x size_log2=%d val=%x\n", offset, size_log2, val);
+}
+
 static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
 {
-    SiFiveUARTState *s = opaque;
+    SiFiveUARTState *s = (SiFiveUARTState *)opaque;
 
 #ifdef DUMP_UART
     fprintf(riscvemu_stderr, "uart_read: offset=%x size_log2=%d\n", offset, size_log2);
@@ -170,7 +182,7 @@ static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
 
 static void uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log2)
 {
-    SiFiveUARTState *s = opaque;
+    SiFiveUARTState *s = (SiFiveUARTState *)opaque;
     CharacterDevice *cs = s->cs;
     unsigned char ch = val;
 
@@ -202,30 +214,40 @@ static void uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log
 
 static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
 {
-    RISCVMachine *m = opaque;
+    RISCVMachine *m = (RISCVMachine *)opaque;
     uint32_t val;
-    uint64_t mtime = m->cpu_state->mcycle / RTC_FREQ_DIV;
 
     assert(size_log2 == 2);
-    switch (offset) {
-    case 0:
-        val = (riscv_cpu_get_mip(m->cpu_state) & MIP_MSIP) != 0;
-        break;
-    case 0xbff8:
-        val = mtime;
-        break;
-    case 0xbffc:
-        val = mtime >> 32;
-        break;
-    case 0x4000:
-        val = m->timecmp;
-        break;
-    case 0x4004:
-        val = m->timecmp >> 32;
-        break;
-    default:
+    if (offset>=0 && offset<0x4000) {
+      int hartid = offset>>2;
+      if (hartid>m->ncpus) {
+        fprintf(stderr, "%s: MSIP access for hartid:%d which is beyond ncpus\n", __func__, hartid);
         val = 0;
-        break;
+      }else{
+        val = (riscv_cpu_get_mip(m->cpu_state[hartid]) & MIP_MSIP) != 0;
+      }
+    }else if (offset == 0xbff8) {
+      uint64_t mtime = m->cpu_state[0]->mcycle / RTC_FREQ_DIV; // WARNING: mcycle may need to move to RISCVMachine
+      val = mtime;
+    }else if (offset == 0xbffc) {
+      uint64_t mtime = m->cpu_state[0]->mcycle / RTC_FREQ_DIV;
+      val = mtime >> 32;
+    }else if (offset>=0x4000 && offset <0xbff8) {
+      int high = (offset>>2)&1;
+      int hartid = (offset-0x4000)>>3;
+      if (hartid>m->ncpus) {
+        fprintf(stderr, "%s: MSIP access for hartid:%d which is beyond ncpus\n", __func__, hartid);
+        val = 0;
+      }else{
+        if (high) {
+          val = m->cpu_state[hartid]->timecmp >> 32;
+        }else{
+          val = m->cpu_state[hartid]->timecmp;
+        }
+      }
+    }else{
+      fprintf(stderr,"clint_read to unmanaged address 0x%x\n",CLINT_BASE_ADDR+offset);
+      val = 0;
     }
 
 #ifdef DUMP_CLINT
@@ -238,36 +260,44 @@ static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
 static void clint_write(void *opaque, uint32_t offset, uint32_t val,
                         int size_log2)
 {
-    RISCVMachine *m = opaque;
-    uint64_t mtime = m->cpu_state->mcycle / RTC_FREQ_DIV;
+    RISCVMachine *m = (RISCVMachine *)opaque;
 
     assert(size_log2 == 2);
-    switch (offset) {
-    case 0:
+    if (offset>=0 && offset<0x4000) {
+      int hartid = offset>>2;
+      if (hartid>m->ncpus) {
+        fprintf(stderr, "%s: MSIP access for hartid:%d which is beyond ncpus\n", __func__, hartid);
+      }else{
         if (val & 1)
-            riscv_cpu_set_mip(m->cpu_state, MIP_MSIP);
+          riscv_cpu_set_mip(m->cpu_state[hartid], MIP_MSIP);
         else
-            riscv_cpu_reset_mip(m->cpu_state, MIP_MSIP);
-        break;
-
-    case 0x4000:
-        m->timecmp = (m->timecmp & ~0xffffffff) | val;
-        riscv_cpu_reset_mip(m->cpu_state, MIP_MTIP);
-        break;
-    case 0x4004:
-        m->timecmp = (m->timecmp & 0xffffffff) | ((uint64_t)val << 32);
-        riscv_cpu_reset_mip(m->cpu_state, MIP_MTIP);
-        break;
-    case 0xbff8:
-        mtime = (mtime & 0xFFFFFFFF00000000L) + val;
-        m->cpu_state->mcycle = mtime * RTC_FREQ_DIV;
-        break;
-    case 0xbffc:
-        mtime = (mtime & 0x00000000FFFFFFFFL) + ((uint64_t)val << 32);
-        m->cpu_state->mcycle = mtime * RTC_FREQ_DIV;
-        break;
-    default:
-        break;
+          riscv_cpu_reset_mip(m->cpu_state[hartid], MIP_MSIP);
+      }
+    }else if (offset == 0xbff8) {
+      uint64_t mtime = m->cpu_state[0]->mcycle / RTC_FREQ_DIV; // WARNING: move mcycle to RISCVMachine
+      mtime = (mtime & 0xFFFFFFFF00000000L) + val;
+      m->cpu_state[0]->mcycle = mtime * RTC_FREQ_DIV;
+    }else if (offset == 0xbffc) {
+      uint64_t mtime = m->cpu_state[0]->mcycle / RTC_FREQ_DIV;
+      mtime = (mtime & 0x00000000FFFFFFFFL) + ((uint64_t)val << 32);
+      m->cpu_state[0]->mcycle = mtime * RTC_FREQ_DIV;
+    }else if (offset>=0x4000 && offset <0xbff8) {
+      int high = (offset>>2)&1;
+      int hartid = (offset-0x4000)>>3;
+      if (hartid>m->ncpus) {
+        fprintf(stderr, "%s: MSIP access for hartid:%d which is beyond ncpus\n", __func__, hartid);
+      }else{
+        if (high) {
+          m->cpu_state[hartid]->timecmp = (m->cpu_state[hartid]->timecmp & ~0xffffffff) | val;
+          riscv_cpu_reset_mip(m->cpu_state[hartid], MIP_MTIP);
+        }else{
+          m->cpu_state[hartid]->timecmp = (m->cpu_state[hartid]->timecmp & 0xffffffff) | ((uint64_t)val << 32);
+          riscv_cpu_reset_mip(m->cpu_state[hartid], MIP_MTIP);
+        }
+      }
+    }else{
+      fprintf(stderr,"clint_write to unmanaged address 0x%x\n",CLINT_BASE_ADDR+offset);
+      val = 0;
     }
 
 #ifdef DUMP_CLINT
@@ -275,42 +305,78 @@ static void clint_write(void *opaque, uint32_t offset, uint32_t val,
 #endif
 }
 
-static void plic_update_mip(RISCVMachine *s)
+static void plic_update_mip(int hartid, RISCVMachine *s)
 {
-    RISCVCPUState *cpu = s->cpu_state;
-    uint32_t mask;
-    mask = s->plic_pending_irq & ~s->plic_served_irq;
+    uint32_t mask = s->plic_pending_irq & ~s->plic_served_irq;
+    RISCVCPUState *cpu = s->cpu_state[hartid];
     if (mask) {
+    fprintf(stderr,"update_mip: hartid=%d mask=%x value=%x\n",(int)hartid, mask, MIP_MEIP|MIP_SEIP);
         riscv_cpu_set_mip(cpu, MIP_MEIP | MIP_SEIP);
     } else {
+    fprintf(stderr,"update_mip: hartid=%d mask=%x value=%x\n",(int)hartid, mask, 0);
         riscv_cpu_reset_mip(cpu, MIP_MEIP | MIP_SEIP);
     }
 }
 
+/* Copy & paste from qemu include/hw/riscv/virt.h */
+#define PLIC_HART_CONFIG "MS"
+#define PLIC_NUM_SOURCES 127
+#define PLIC_NUM_PRIORITIES 7
+#define PLIC_PRIORITY_BASE 0x04
+#define PLIC_PENDING_BASE 0x1000
+#define PLIC_ENABLE_BASE 0x2000
+#define PLIC_ENABLE_STRIDE 0x80
+#define PLIC_CONTEXT_BASE 0x200000
+#define PLIC_CONTEXT_STRIDE 0x1000
+
+#define PLIC_BITFIELD_WORDS ((PLIC_NUM_SOURCES+31)>>5)
+
+static uint32_t plic_priority[PLIC_NUM_SOURCES+1];
+
 static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
 {
-    RISCVMachine *s = opaque;
-    uint32_t val, mask;
-    int i;
+    uint32_t val = 0;
+    RISCVMachine *s = (RISCVMachine *)opaque;
+
     assert(size_log2 == 2);
-    switch (offset) {
-    case PLIC_HART_BASE:
+    if (offset>=PLIC_PRIORITY_BASE && offset<=(PLIC_PRIORITY_BASE+(PLIC_NUM_SOURCES<<2))) {
+      uint32_t irq = ((offset - PLIC_PRIORITY_BASE) >> 2) + 1;
+      assert(irq<PLIC_NUM_SOURCES);
+      val = plic_priority[irq];
+    }else if (offset>=PLIC_PENDING_BASE && offset<=(PLIC_PENDING_BASE+(PLIC_NUM_SOURCES>>3))) {
+      if (offset==PLIC_PENDING_BASE)
+        val = s->plic_pending_irq;
+      else
         val = 0;
-        break;
-    case PLIC_HART_BASE + 4:
-        mask = s->plic_pending_irq & ~s->plic_served_irq;
+    }else if (offset>=PLIC_ENABLE_BASE && offset<=(PLIC_ENABLE_BASE+(PLIC_ENABLE_STRIDE*MAX_CPUS))) {
+      int addrid = (offset - PLIC_ENABLE_BASE)/PLIC_ENABLE_STRIDE;
+      int hartid = addrid/2; // PLIC_HART_CONFIG is "MS"
+      if(hartid<s->ncpus) {
+        //uint32_t wordid = (offset & (PLIC_ENABLE_STRIDE-1))>>2;
+        RISCVCPUState *cpu = s->cpu_state[hartid];
+        val = cpu->plic_enable_irq;
+      }else{
+        val = 0;
+      }
+    }else if (offset>=PLIC_CONTEXT_BASE && offset<=(PLIC_CONTEXT_BASE+(PLIC_CONTEXT_STRIDE*MAX_CPUS))) {
+      uint32_t hartid = (offset - PLIC_CONTEXT_BASE)/PLIC_CONTEXT_STRIDE;
+      uint32_t wordid = (offset & (PLIC_CONTEXT_STRIDE-1))>>2;
+      if (wordid == 0) {
+        val = 0; // target_priority in qemu
+      }else if (wordid == 4) {
+        uint32_t mask = s->plic_pending_irq & ~s->plic_served_irq;
         if (mask != 0) {
-            i = ctz32(mask);
+            int i = ctz32(mask);
             s->plic_served_irq |= 1 << i;
-            plic_update_mip(s);
+            plic_update_mip(hartid, s);
             val = i + 1;
         } else {
             val = 0;
         }
-        break;
-    default:
-        val = 0;
-        break;
+      }
+    }else{
+      fprintf(stderr,"plic_read: unknown offset=%x\n",offset);
+      val = 0;
     }
 #ifdef DUMP_PLIC
     fprintf(riscvemu_stderr, "plic_read: offset=%x val=%x\n", offset, val);
@@ -322,19 +388,39 @@ static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
 static void plic_write(void *opaque, uint32_t offset, uint32_t val,
                        int size_log2)
 {
-    RISCVMachine *s = opaque;
+    RISCVMachine *s = (RISCVMachine *)opaque;
 
     assert(size_log2 == 2);
-    switch (offset) {
-    case PLIC_HART_BASE + 4:
-        val--;
-        if (val < 32) {
-            s->plic_served_irq &= ~(1 << val);
-            plic_update_mip(s);
-        }
-        break;
-    default:
-        break;
+    if (offset>=PLIC_PRIORITY_BASE && offset<=(PLIC_PRIORITY_BASE+(PLIC_NUM_SOURCES<<2))) {
+      uint32_t irq = ((offset - PLIC_PRIORITY_BASE) >> 2) + 1;
+      assert(irq<PLIC_NUM_SOURCES);
+      plic_priority[irq] = val & 7;
+
+    }else if (offset>=PLIC_PENDING_BASE && offset<=(PLIC_PENDING_BASE+(PLIC_NUM_SOURCES>>3))) {
+      fprintf(stderr,"plic_write: INVALID pending write to offset=0x%x\n",offset);
+    }else if (offset>=PLIC_ENABLE_BASE && offset<=(PLIC_ENABLE_BASE+(PLIC_ENABLE_STRIDE*MAX_CPUS))) {
+      int addrid = (offset - PLIC_ENABLE_BASE)/PLIC_ENABLE_STRIDE;
+      int hartid = addrid/2; // PLIC_HART_CONFIG is "MS"
+      if(hartid<s->ncpus) {
+        //uint32_t wordid = (offset & (PLIC_ENABLE_STRIDE-1))>>2;
+        RISCVCPUState *cpu = s->cpu_state[hartid];
+        cpu->plic_enable_irq = val;
+      }
+    }else if (offset>=PLIC_CONTEXT_BASE && offset<=(PLIC_CONTEXT_BASE+(PLIC_CONTEXT_STRIDE*MAX_CPUS))) {
+      uint32_t hartid = (offset - PLIC_CONTEXT_BASE)/PLIC_CONTEXT_STRIDE;
+      uint32_t wordid = (offset & (PLIC_CONTEXT_STRIDE-1))>>2;
+      if (wordid == 0) {
+        plic_priority[wordid] = val;
+      }else if (wordid == 4) {
+        int irq = val&31;
+        fprintf(stderr, "plic_write: hartid=%d claim wordid=%d offset=%x val=%x irq=%d\n", hartid, wordid, offset, val, irq);
+        uint32_t mask = 1 << (irq- 1);
+        s->plic_served_irq &= ~mask;
+      }else{
+        fprintf(stderr, "plic_write: hartid=%d ERROR?? unexpected wordid=%d offset=%x val=%x\n", hartid, wordid, offset, val);
+      }
+    }else{
+      fprintf(stderr, "plic_write: ERROR: unexpected offset=%x val=%x\n", offset, val);
     }
 #ifdef DUMP_PLIC
     fprintf(riscvemu_stderr, "plic_write: offset=%x val=%x\n", offset, val);
@@ -343,15 +429,18 @@ static void plic_write(void *opaque, uint32_t offset, uint32_t val,
 
 static void plic_set_irq(void *opaque, int irq_num, int state)
 {
-    RISCVMachine *s = opaque;
-    uint32_t mask;
+    RISCVMachine *m = (RISCVMachine *)opaque;
 
-    mask = 1 << (irq_num - 1);
+    uint32_t mask = 1 << (irq_num - 1);
+
     if (state)
-        s->plic_pending_irq |= mask;
+        m->plic_pending_irq |= mask;
     else
-        s->plic_pending_irq &= ~mask;
-    plic_update_mip(s);
+        m->plic_pending_irq &= ~mask;
+
+    for(int hartid=0;hartid<m->ncpus;hartid++) {
+      plic_update_mip(hartid, m);
+    }
 }
 
 static uint8_t *get_ram_ptr(RISCVMachine *s, uint64_t paddr)
@@ -404,17 +493,15 @@ typedef struct {
 
 static FDTState *fdt_init(void)
 {
-    FDTState *s;
-    s = mallocz(sizeof(*s));
+    FDTState *s = (FDTState *)mallocz(sizeof(*s));
     return s;
 }
 
 static void fdt_alloc_len(FDTState *s, int len)
 {
-    int new_size;
     if (unlikely(len > s->tab_size)) {
-        new_size = max_int(len, s->tab_size * 3 / 2);
-        s->tab = realloc(s->tab, new_size * sizeof(uint32_t));
+        int new_size = max_int(len, s->tab_size * 3 / 2);
+        s->tab = (uint32_t *)realloc(s->tab, new_size * sizeof(uint32_t));
         s->tab_size = new_size;
     }
 }
@@ -440,7 +527,7 @@ static void fdt_put_data(FDTState *s, const uint8_t *data, int len)
 static void fdt_begin_node(FDTState *s, const char *name)
 {
     fdt_put32(s, FDT_BEGIN_NODE);
-    fdt_put_data(s, (uint8_t *)name, strlen(name) + 1);
+    fdt_put_data(s, (const uint8_t *)name, strlen(name) + 1);
     s->open_node_count++;
 }
 
@@ -472,7 +559,7 @@ static int fdt_get_string_offset(FDTState *s, const char *name)
     new_len = s->string_table_len + name_size;
     if (new_len > s->string_table_size) {
         new_size = max_int(new_len, s->string_table_size * 3 / 2);
-        s->string_table = realloc(s->string_table, new_size);
+        s->string_table = (char *)realloc(s->string_table, new_size);
         s->string_table_size = new_size;
     }
     pos = s->string_table_len;
@@ -482,12 +569,12 @@ static int fdt_get_string_offset(FDTState *s, const char *name)
 }
 
 static void fdt_prop(FDTState *s, const char *prop_name,
-                     const void *data, int data_len)
+                     const char *data, int data_len)
 {
     fdt_put32(s, FDT_PROP);
     fdt_put32(s, data_len);
     fdt_put32(s, fdt_get_string_offset(s, prop_name));
-    fdt_put_data(s, data, data_len);
+    fdt_put_data(s, (const uint8_t *)data, data_len);
 }
 
 static void fdt_prop_tab_u32(FDTState *s, const char *prop_name,
@@ -528,28 +615,27 @@ static void fdt_prop_tab_str(FDTState *s, const char *prop_name,
                              ...)
 {
     va_list ap;
-    int size, str_size;
-    char *ptr, *tab;
+    int size;
 
     va_start(ap, prop_name);
     size = 0;
     for (;;) {
-        ptr = va_arg(ap, char *);
+        char *ptr = va_arg(ap, char *);
         if (!ptr)
             break;
-        str_size = strlen(ptr) + 1;
+        int str_size = strlen(ptr) + 1;
         size += str_size;
     }
     va_end(ap);
 
-    tab = malloc(size);
+    char *tab = (char *)malloc(size);
     va_start(ap, prop_name);
     size = 0;
     for (;;) {
-        ptr = va_arg(ap, char *);
+        char *ptr = va_arg(ap, char *);
         if (!ptr)
             break;
-        str_size = strlen(ptr) + 1;
+        int str_size = strlen(ptr) + 1;
         memcpy(tab + size, ptr, str_size);
         size += str_size;
     }
@@ -622,10 +708,11 @@ void fdt_end(FDTState *s)
 static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
 {
     FDTState *s;
-    int size, max_xlen, i, cur_phandle, intc_phandle, plic_phandle;
+    int intc_phandle = 0;
+    int size, max_xlen, i, cur_phandle, plic_phandle;
     char isa_string[128], *q;
     uint32_t misa;
-    uint32_t tab[4];
+    uint32_t tab[4*MAX_CPUS];
     FBDevice *fb_dev;
 
     s = fdt_init();
@@ -644,36 +731,42 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
     fdt_prop_u32(s, "#size-cells", 0);
     fdt_prop_u32(s, "timebase-frequency", RTC_FREQ);
 
-    /* cpu */
-    fdt_begin_node_num(s, "cpu", 0);
-    fdt_prop_str(s, "device_type", "cpu");
-    fdt_prop_u32(s, "reg", 0);
-    fdt_prop_str(s, "status", "okay");
-    fdt_prop_str(s, "compatible", "riscv");
+    int hartid2handle[MAX_CPUS];
 
-    max_xlen = 64;
-    misa = riscv_cpu_get_misa(m->cpu_state);
-    q = isa_string;
-    q += snprintf(isa_string, sizeof(isa_string), "rv%d", max_xlen);
-    for (i = 0; i < 26; i++) {
+    for(int hartid=0;hartid<m->ncpus;hartid++) {
+      /* cpu */
+      fdt_begin_node_num(s, "cpu", hartid);
+      fdt_prop_str(s, "device_type", "cpu");
+      fdt_prop_u32(s, "reg", hartid);
+      fdt_prop_str(s, "status", "okay");
+      fdt_prop_str(s, "compatible", "riscv");
+
+      max_xlen = 64;
+      misa = riscv_cpu_get_misa(m->cpu_state[hartid]);
+      q = isa_string;
+      q += snprintf(isa_string, sizeof(isa_string), "rv%d", max_xlen);
+      for (i = 0; i < 26; i++) {
         if (misa & (1 << i))
-            *q++ = 'a' + i;
+          *q++ = 'a' + i;
+      }
+      *q = '\0';
+      fdt_prop_str(s, "riscv,isa", isa_string);
+
+      fdt_prop_str(s, "mmu-type", max_xlen <= 32 ? "riscv,sv32" : "riscv,sv48");
+      fdt_prop_u32(s, "clock-frequency", 2000000000);
+
+      fdt_begin_node(s, "interrupt-controller");
+      fdt_prop_u32(s, "#interrupt-cells", 1);
+      fdt_prop(s, "interrupt-controller", NULL, 0);
+      fdt_prop_str(s, "compatible", "riscv,cpu-intc");
+      intc_phandle = cur_phandle++;
+      hartid2handle[hartid] = intc_phandle;
+      fdt_prop_u32(s, "phandle", intc_phandle);
+      fdt_prop_u32(s, "linux,phandle", intc_phandle);
+      fdt_end_node(s); /* interrupt-controller */
+
+      fdt_end_node(s); /* cpu */
     }
-    *q = '\0';
-    fdt_prop_str(s, "riscv,isa", isa_string);
-
-    fdt_prop_str(s, "mmu-type", max_xlen <= 32 ? "sv32" : "sv48");
-    fdt_prop_u32(s, "clock-frequency", 2000000000);
-
-    fdt_begin_node(s, "interrupt-controller");
-    fdt_prop_u32(s, "#interrupt-cells", 1);
-    fdt_prop(s, "interrupt-controller", NULL, 0);
-    fdt_prop_str(s, "compatible", "riscv,cpu-intc");
-    intc_phandle = cur_phandle++;
-    fdt_prop_u32(s, "phandle", intc_phandle);
-    fdt_end_node(s); /* interrupt-controller */
-
-    fdt_end_node(s); /* cpu */
 
     fdt_end_node(s); /* cpus */
 
@@ -697,11 +790,13 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
     fdt_begin_node_num(s, "clint", CLINT_BASE_ADDR);
     fdt_prop_str(s, "compatible", "riscv,clint0");
 
-    tab[0] = intc_phandle;
-    tab[1] = 3; /* M IPI irq */
-    tab[2] = intc_phandle;
-    tab[3] = 7; /* M timer irq */
-    fdt_prop_tab_u32(s, "interrupts-extended", tab, 4);
+    for(int hartid=0;hartid<m->ncpus;hartid++) {
+      tab[hartid*4+0] = hartid2handle[hartid];
+      tab[hartid*4+1] = 3; /* M IPI irq */
+      tab[hartid*4+2] = hartid2handle[hartid];
+      tab[hartid*4+3] = 7; /* M timer irq */
+    }
+    fdt_prop_tab_u32(s, "interrupts-extended", tab, 4*m->ncpus);
 
     fdt_prop_tab_u64_2(s, "reg", CLINT_BASE_ADDR, CLINT_SIZE);
 
@@ -709,16 +804,19 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
 
     fdt_begin_node_num(s, "plic", PLIC_BASE_ADDR);
     fdt_prop_u32(s, "#interrupt-cells", 1);
+
     fdt_prop(s, "interrupt-controller", NULL, 0);
     fdt_prop_str(s, "compatible", "riscv,plic0");
     fdt_prop_u32(s, "riscv,ndev", 31);
     fdt_prop_tab_u64_2(s, "reg", PLIC_BASE_ADDR, PLIC_SIZE);
 
-    tab[0] = intc_phandle;
-    tab[1] = 9; /* S ext irq */
-    tab[2] = intc_phandle;
-    tab[3] = 11; /* M ext irq */
-    fdt_prop_tab_u32(s, "interrupts-extended", tab, 4);
+    for(int hartid=0;hartid<m->ncpus;hartid++) {
+      tab[hartid*4+0] = hartid2handle[hartid];
+      tab[hartid*4+1] = 9; /* S ext irq */
+      tab[hartid*4+2] = hartid2handle[hartid];
+      tab[hartid*4+3] = 11; /* M ext irq */
+    }
+    fdt_prop_tab_u32(s, "interrupts-extended", tab, 4*m->ncpus);
 
     plic_phandle = cur_phandle++;
     fdt_prop_u32(s, "phandle", plic_phandle);
@@ -785,22 +883,23 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
     return size;
 }
 
-static void load_elf_image(RISCVMachine *s, const void *image, size_t image_len)
+static void load_elf_image(RISCVMachine *s, const uint8_t *image, size_t image_len)
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)image;
-    const Elf64_Phdr *ph = image + ehdr->e_phoff;
+    const Elf64_Phdr *ph = (Elf64_Phdr *)(image + ehdr->e_phoff);
 
     for (int i = 0; i < ehdr->e_phnum; ++i, ++ph)
         if (ph->p_type == PT_LOAD) {
             size_t rounded_size = ph->p_memsz;
             rounded_size = (rounded_size + DEVRAM_PAGE_SIZE - 1) & ~(DEVRAM_PAGE_SIZE - 1);
-            cpu_register_ram(s->mem_map, ph->p_vaddr, rounded_size, 0);
+            if (ph->p_vaddr != RAM_BASE_ADDR)
+              cpu_register_ram(s->mem_map, ph->p_vaddr, rounded_size, 0);
             memcpy(get_ram_ptr(s, ph->p_vaddr), image + ph->p_offset, ph->p_filesz);
         }
 }
 
 /* Return non-zero on failure */
-static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len, const char *cmd_line)
+static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len, const char *cmd_line)
 {
     if (buf_len > s->ram_size) {
         vm_error("Kernel too big\n");
@@ -833,9 +932,15 @@ static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len, const c
        Eventually we'll make this code loadable */
 
     *q++ = 0xf1402573;  // start:  csrr   a0, mhartid
-    *q++ = 0x00050663;  //         beqz   a0, 1f
-    *q++ = 0x10500073;  // 0:      wfi
-    *q++ = 0xffdff06f;  //         j      0b
+    if (s->ncpus==1) {
+      *q++ = 0x00050663;  //         beqz   a0, 1f
+      *q++ = 0x10500073;  // 0:      wfi
+      *q++ = 0xffdff06f;  //         j      0b
+    }else{
+      *q++ = 0x00000013; // nop
+      *q++ = 0x00000013; // nop
+      *q++ = 0x00000013; // nop
+    }
     *q++ = 0x00000597;  // 1:      auipc  a1, 0x0
     *q++ = 0x0f058593;  //         addi   a1, a1, 240 # _start + 256
     *q++ = 0x60300413;  //         li     s0, 1539
@@ -847,7 +952,8 @@ static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len, const c
     *q++ = 0x7b141073;  //         csrw   dpc, s0
     *q++ = 0x7b200073;  //         dret
 
-    riscv_set_debug_mode(s->cpu_state, TRUE);
+    for(int i=0;i<s->ncpus;i++)
+      riscv_set_debug_mode(s->cpu_state[i], TRUE);
 
     riscv_build_fdt(s, ram_ptr + fdt_addr, cmd_line);
 
@@ -857,8 +963,9 @@ static int copy_kernel(RISCVMachine *s, const void *buf, size_t buf_len, const c
 static void riscv_flush_tlb_write_range(void *opaque, uint8_t *ram_addr,
                                         size_t ram_size)
 {
-    RISCVMachine *s = opaque;
-    riscv_cpu_flush_tlb_write_range_ram(s->cpu_state, ram_addr, ram_size);
+    RISCVMachine *s = (RISCVMachine *)opaque;
+    for (int i = 0; i < s->ncpus; i++)
+      riscv_cpu_flush_tlb_write_range_ram(s->cpu_state[i], ram_addr, ram_size);
 }
 
 void virt_machine_set_defaults(VirtMachineParams *p)
@@ -873,7 +980,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     VIRTIODevice *blk_dev;
     int irq_num, i;
     VIRTIOBusDef vbus_s, *vbus = &vbus_s;
-    RISCVMachine *s = mallocz(sizeof(*s));
+    RISCVMachine *s = (RISCVMachine *)mallocz(sizeof(*s));
 
     s->ram_size = p->ram_size;
     s->ram_base_addr = p->ram_base_addr;
@@ -885,13 +992,31 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
     s->common.maxinsns = p->maxinsns;
     s->common.snapshot_load_name = p->snapshot_load_name;
 
-    s->cpu_state = riscv_cpu_init(s->mem_map, p->validation_terminate_event);
+    s->ncpus = p->ncpus;
+
+    if (s->ncpus>MAX_CPUS) {
+      fprintf(stderr,"ERROR: ncpus:%d exceeds maximum MAX_CPU\n",s->ncpus);
+      exit(3);
+    }
+
+    for(int i=0;i<s->ncpus;i++) {
+      s->cpu_state[i] = riscv_cpu_init(i, s->mem_map, p->validation_terminate_event);
+    }
 
     /* RAM */
     cpu_register_ram(s->mem_map, 0, 4096, 0); // Have memory at 0 for uaccess-etcsr to pass
     cpu_register_ram(s->mem_map, s->ram_base_addr, s->ram_size, 0);
     cpu_register_ram(s->mem_map, ROM_BASE_ADDR, ROM_SIZE, 0);
-    s->cpu_state->physical_addr_len = p->physical_addr_len;
+
+    for(int i=0;i<s->ncpus;i++) {
+      s->cpu_state[i]->physical_addr_len = p->physical_addr_len;
+    }
+
+    if (p->mmio_start) {
+      uint64_t sz = p->mmio_end - p->mmio_start;
+      cpu_register_device(s->mem_map, p->mmio_start, sz, 0,
+          mmio_read, mmio_write, DEVIO_SIZE32 | DEVIO_SIZE16 | DEVIO_SIZE8);
+    }
 
     SiFiveUARTState *uart = (SiFiveUARTState *)calloc(sizeof *uart, 1);
     uart->irq = UART0_IRQ;
@@ -910,9 +1035,14 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
                         clint_read, clint_write, DEVIO_SIZE32);
     cpu_register_device(s->mem_map, PLIC_BASE_ADDR, PLIC_SIZE, s,
                         plic_read, plic_write, DEVIO_SIZE32);
-    for (i = 1; i < 32; i++) {
-        irq_init(&s->plic_irq[i], plic_set_irq, s, i);
+
+    for (int j = 1; j < 32; j++) {
+      irq_init(&s->plic_irq[j], plic_set_irq, s, j);
     }
+
+    // One map. Handle per CPU inside
+    cpu_register_device(s->mem_map, CLINT_BASE_ADDR, CLINT_SIZE, s,
+        clint_read, clint_write, DEVIO_SIZE32);
     s->htif_tohost_addr = p->htif_base_addr;
 
     s->common.console = p->console;
@@ -1007,7 +1137,10 @@ void virt_machine_end(VirtMachine *s1)
     if (s1->snapshot_save_name)
         virt_machine_serialize(s1, s1->snapshot_save_name);
 
-    riscv_cpu_end(s->cpu_state);
+    /* XXX: stop all */
+    for(int i=0;i<s->ncpus;i++) {
+      riscv_cpu_end(s->cpu_state[i]);
+    }
     phys_mem_map_end(s->mem_map);
     free(s);
 }
@@ -1015,30 +1148,32 @@ void virt_machine_end(VirtMachine *s1)
 void virt_machine_serialize(VirtMachine *s1, const char *dump_name)
 {
     RISCVMachine *m = (RISCVMachine *)s1;
-    RISCVCPUState *s = m->cpu_state;
+    RISCVCPUState *s = m->cpu_state[0]; // FIXME: MULTICORE
 
-    fprintf(riscvemu_stderr, "plic: %x %x timecmp=%llx\n", m->plic_pending_irq, m->plic_served_irq, (unsigned long long)m->timecmp);
+    fprintf(riscvemu_stderr, "plic: %x %x timecmp=%llx\n", m->plic_pending_irq, m->plic_served_irq, (unsigned long long)s->timecmp);
 
+    assert(m->ncpus==1); // FIXME: riscv_cpu_serialize must be patched for multicore
     riscv_cpu_serialize(s, m, dump_name);
 }
 
 void virt_machine_deserialize(VirtMachine *s1, const char *dump_name)
 {
     RISCVMachine *m = (RISCVMachine *)s1;
-    RISCVCPUState *s = m->cpu_state;
+    RISCVCPUState *s = m->cpu_state[0]; // FIXME: MULTICORE
 
+    assert(m->ncpus==1); // FIXME: riscv_cpu_serialize must be patched for multicore
     riscv_cpu_deserialize(s, m, dump_name);
 }
 
-int virt_machine_get_sleep_duration(VirtMachine *s1, int ms_delay)
+int virt_machine_get_sleep_duration(int hartid, VirtMachine *s1, int ms_delay)
 {
     RISCVMachine *m = (RISCVMachine *)s1;
-    RISCVCPUState *s = m->cpu_state;
+    RISCVCPUState *s = m->cpu_state[hartid];
     int64_t ms_delay1;
 
     /* wait for an event: the only asynchronous event is the RTC timer */
     if (!(riscv_cpu_get_mip(s) & MIP_MTIP) && rtc_get_time(m)>0) {
-        ms_delay1 = m->timecmp - rtc_get_time(m);
+        ms_delay1 = s->timecmp - rtc_get_time(m);
         if (ms_delay1 <= 0) {
             riscv_cpu_set_mip(s, MIP_MTIP);
             ms_delay = 0;
@@ -1056,6 +1191,9 @@ int virt_machine_get_sleep_duration(VirtMachine *s1, int ms_delay)
     return ms_delay;
 }
 
+#if 0
+ // deprecated
+
 void virt_machine_set_pc(VirtMachine *m, uint64_t pc)
 {
     RISCVMachine *s = (RISCVMachine *)m;
@@ -1068,41 +1206,46 @@ void virt_machine_set_reg(VirtMachine *m, int rn, uint64_t val)
     riscv_set_reg(s->cpu_state,rn,val);
 }
 
-uint64_t virt_machine_get_pc(VirtMachine *m)
-{
-    RISCVMachine *s = (RISCVMachine *)m;
-    return riscv_get_pc(s->cpu_state);
-}
-
-uint64_t virt_machine_get_reg(VirtMachine *m, int rn)
-{
-    RISCVMachine *s = (RISCVMachine *)m;
-    return riscv_get_reg(s->cpu_state,rn);
-}
-
-uint64_t virt_machine_get_fpreg(VirtMachine *m, int rn)
-{
-    RISCVMachine *s = (RISCVMachine *)m;
-    return riscv_get_fpreg(s->cpu_state,rn);
-}
 
 void virt_machine_dump_regs(VirtMachine *m)
 {
     RISCVMachine *s = (RISCVMachine *)m;
     riscv_dump_regs(s->cpu_state);
 }
+#endif
+
+uint64_t virt_machine_get_pc(int hartid, VirtMachine *m)
+{
+    RISCVMachine *s = (RISCVMachine *)m;
+    return riscv_get_pc(s->cpu_state[hartid]);
+}
+
+uint64_t virt_machine_get_reg(int hartid, VirtMachine *m, int rn)
+{
+    RISCVMachine *s = (RISCVMachine *)m;
+    return riscv_get_reg(s->cpu_state[hartid],rn);
+}
+
+uint64_t virt_machine_get_fpreg(int hartid, VirtMachine *m, int rn)
+{
+    RISCVMachine *s = (RISCVMachine *)m;
+    return riscv_get_fpreg(s->cpu_state[hartid],rn);
+}
 
 int virt_machine_read_insn(VirtMachine *m, uint32_t *pmem_addend, uint64_t addr)
 {
     RISCVMachine *s = (RISCVMachine *)m;
-    return riscv_read_insn(s->cpu_state, pmem_addend, addr);
+    return riscv_read_insn(s->cpu_state[0], pmem_addend, addr);
 }
 
+#if 0
+ // deprecated
 void virt_machine_repair_csr(VirtMachine *m, uint32_t reg_num, uint64_t csr_num, uint64_t csr_val)
 {
     RISCVMachine *s = (RISCVMachine *)m;
     riscv_repair_csr(s->cpu_state,reg_num,csr_num,csr_val);
 }
+#endif
 
 const char *virt_machine_get_name(void)
 {
@@ -1132,6 +1275,8 @@ void vm_send_mouse_event(VirtMachine *s1, int dx, int dy, int dz,
     }
 }
 
+#if 0
+  // deprecated
 uint64_t virt_machine_get_instret(VirtMachine *m)
 {
     RISCVMachine *s = (RISCVMachine *)m;
@@ -1157,3 +1302,4 @@ int virt_machine_benchmark_exit_code(VirtMachine *m)
 {
     return riscv_benchmark_exit_code(((RISCVMachine *)m)->cpu_state);
 }
+#endif

@@ -79,8 +79,7 @@ static void fs_delete(FSDevice *fs, FSFile *f)
 /* warning: path belong to fid_create() */
 static FSFile *fid_create(FSDevice *s1, char *path, uint32_t uid)
 {
-    FSFile *f;
-    f = mallocz(sizeof(*f));
+    FSFile *f = (FSFile *)mallocz(sizeof(*f));
     f->path = path;
     f->uid = uid;
     return f;
@@ -101,10 +100,9 @@ static int errno_table[][2] = {
 
 static int errno_to_p9(int err)
 {
-    int i;
     if (err == 0)
         return 0;
-    for (i = 0; i < countof(errno_table); i++) {
+    for (unsigned int i = 0; i < countof(errno_table); i++) {
         if (err == errno_table[i][1])
             return errno_table[i][0];
     }
@@ -131,10 +129,8 @@ static int open_flags[][2] = {
 
 static int p9_flags_to_host(int flags)
 {
-    int ret, i;
-
-    ret = (flags & P9_O_NOACCESS);
-    for (i = 0; i < countof(open_flags); i++) {
+    int ret = (flags & P9_O_NOACCESS);
+    for (unsigned int i = 0; i < countof(open_flags); i++) {
         if (flags & open_flags[i][0])
             ret |= open_flags[i][1];
     }
@@ -168,12 +164,10 @@ static void fs_statfs(FSDevice *fs1, FSStatFS *st)
 
 static char *compose_path(const char *path, const char *name)
 {
-    int path_len, name_len;
-    char *d;
+    int path_len = strlen(path);
+    int name_len = strlen(name);
+    char *d = (char *)malloc(path_len + 1 + name_len + 1);
 
-    path_len = strlen(path);
-    name_len = strlen(name);
-    d = malloc(path_len + 1 + name_len + 1);
     memcpy(d, path, path_len);
     d[path_len] = '/';
     memcpy(d + path_len + 1, name, name_len + 1);
@@ -631,14 +625,13 @@ static void fs_disk_end(FSDevice *fs1)
 
 FSDevice *fs_disk_init(const char *root_path)
 {
-    FSDeviceDisk *fs;
     struct stat st;
 
     lstat(root_path, &st);
     if (!S_ISDIR(st.st_mode))
         return NULL;
 
-    fs = mallocz(sizeof(*fs));
+    FSDeviceDisk *fs = (FSDeviceDisk *)mallocz(sizeof(*fs));
 
     fs->common.fs_end = fs_disk_end;
     fs->common.fs_delete = fs_delete;

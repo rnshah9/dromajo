@@ -1700,25 +1700,25 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 goto illegal_insn;
             switch (funct3) {
             case 0:
-                write_fp_reg(rd, fma_sf32(chkfp32(read_fp_reg(rs1)),
+                write_fp_reg(rd, (fp_uint)fma_sf32(chkfp32(read_fp_reg(rs1)),
                                           chkfp32(read_fp_reg(rs2)),
                                           chkfp32(read_fp_reg(rs3)),
-                                          rm, &s->fflags) | F32_HIGH);
+                                          (RoundingModeEnum)rm, &s->fflags) | F32_HIGH);
                 break;
 #if FLEN >= 64
             case 1:
-                write_fp_reg(rd, fma_sf64(read_fp_reg(rs1),
+                write_fp_reg(rd, (fp_uint)fma_sf64(read_fp_reg(rs1),
                                           read_fp_reg(rs2),
                                           read_fp_reg(rs3),
-                                          rm, &s->fflags) | F64_HIGH);
+                                          (RoundingModeEnum)rm, &s->fflags) | F64_HIGH);
                 break;
 #endif
 #if FLEN >= 128
             case 3:
-                write_fp_reg(rd, fma_sf128(read_fp_reg(rs1),
+                write_fp_reg(rd, (fp_uint)fma_sf128(read_fp_reg(rs1),
                                            read_fp_reg(rs2),
                                            read_fp_reg(rs3),
-                                           rm, &s->fflags));;
+                                           (RoundingModeEnum)rm, &s->fflags));;
 #endif
             default:
                 goto illegal_insn;
@@ -1738,14 +1738,14 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 write_fp_reg(rd, fma_sf32(chkfp32(read_fp_reg(rs1)),
                                           chkfp32(read_fp_reg(rs2)),
                                           chkfp32(read_fp_reg(rs3)) ^ FSIGN_MASK32,
-                                          rm, &s->fflags) | F32_HIGH);
+                                          (RoundingModeEnum)rm, &s->fflags) | F32_HIGH);
                 break;
 #if FLEN >= 64
             case 1:
                 write_fp_reg(rd, fma_sf64(read_fp_reg(rs1),
                                           read_fp_reg(rs2),
                                           read_fp_reg(rs3) ^ FSIGN_MASK64,
-                                          rm, &s->fflags) | F64_HIGH);
+                                          (RoundingModeEnum)rm, &s->fflags) | F64_HIGH);
                 break;
 #endif
 #if FLEN >= 128
@@ -1753,7 +1753,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 write_fp_reg(rd, fma_sf128(read_fp_reg(rs1),
                                            read_fp_reg(rs2),
                                            read_fp_reg(rs3) ^ FSIGN_MASK128,
-                                           rm, &s->fflags));
+                                           (RoundingModeEnum)rm, &s->fflags));
                 break;
 #endif
             default:
@@ -1774,14 +1774,14 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 write_fp_reg(rd, fma_sf32(chkfp32(read_fp_reg(rs1)) ^ FSIGN_MASK32,
                                           chkfp32(read_fp_reg(rs2)),
                                           chkfp32(read_fp_reg(rs3)),
-                                          rm, &s->fflags) | F32_HIGH);
+                                          (RoundingModeEnum)rm, &s->fflags) | F32_HIGH);
                 break;
 #if FLEN >= 64
             case 1:
                 write_fp_reg(rd, fma_sf64(read_fp_reg(rs1) ^ FSIGN_MASK64,
                                           read_fp_reg(rs2),
                                           read_fp_reg(rs3),
-                                          rm, &s->fflags) | F64_HIGH);
+                                          (RoundingModeEnum)rm, &s->fflags) | F64_HIGH);
                 break;
 #endif
 #if FLEN >= 128
@@ -1789,7 +1789,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 write_fp_reg(rd, fma_sf128(read_fp_reg(rs1) ^ FSIGN_MASK128,
                                            read_fp_reg(rs2),
                                            read_fp_reg(rs3),
-                                           rm, &s->fflags));
+                                           (RoundingModeEnum)rm, &s->fflags));
                 break;
 #endif
             default:
@@ -1810,14 +1810,14 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 write_fp_reg(rd, fma_sf32(chkfp32(read_fp_reg(rs1)) ^ FSIGN_MASK32,
                                           chkfp32(read_fp_reg(rs2)),
                                           chkfp32(read_fp_reg(rs3)) ^ FSIGN_MASK32,
-                                          rm, &s->fflags) | F32_HIGH);
+                                          (RoundingModeEnum)rm, &s->fflags) | F32_HIGH);
                 break;
 #if FLEN >= 64
             case 1:
                 write_fp_reg(rd, fma_sf64(read_fp_reg(rs1) ^ FSIGN_MASK64,
                                           read_fp_reg(rs2),
                                           read_fp_reg(rs3) ^ FSIGN_MASK64,
-                                          rm, &s->fflags) | F64_HIGH);
+                                          (RoundingModeEnum)rm, &s->fflags) | F64_HIGH);
                 break;
 #endif
 #if FLEN >= 128
@@ -1825,7 +1825,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                 write_fp_reg(rd, fma_sf128(read_fp_reg(rs1) ^ FSIGN_MASK128,
                                            read_fp_reg(rs2),
                                            read_fp_reg(rs3) ^ FSIGN_MASK128,
-                                           rm, &s->fflags));
+                                           (RoundingModeEnum)rm, &s->fflags));
                 break;
 #endif
             default:

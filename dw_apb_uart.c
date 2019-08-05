@@ -57,9 +57,11 @@ static const char *reg_names[256/4] = {
     "halt Tx",
     "dma software ack",
 
+#ifndef __cplusplus
     [0xf4/4] = "component parameters",
     [0xf8/4] = "component version",
     [0xfc/4] = "component type",
+#endif
 };
 
 /* The most important registers (only ones implemented) */
@@ -101,7 +103,7 @@ enum {
 
 uint32_t dw_apb_uart_read(void *opaque, uint32_t offset, int size_log2)
 {
-    DW_apb_uart_state *s = opaque;
+    DW_apb_uart_state *s = (DW_apb_uart_state *)opaque;
     int res = 0;
 
     assert(offset % 4 == 0 && offset/4 < 64);
@@ -170,7 +172,7 @@ uint32_t dw_apb_uart_read(void *opaque, uint32_t offset, int size_log2)
 
 void dw_apb_uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log2)
 {
-    DW_apb_uart_state *s = opaque;
+    DW_apb_uart_state *s = (DW_apb_uart_state *)opaque;
 
     val &= 255;
 

@@ -82,6 +82,8 @@ static inline int clz128(uint128_t a)
 }
 #endif
 
+#include "softfp.h"
+
 #define F_SIZE 32
 #include "softfp_template.h"
 

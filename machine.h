@@ -132,6 +132,9 @@ typedef struct {
     /* snaphot load file */
     const char *snapshot_load_name;
 
+    /* number of cpus */
+    uint64_t ncpus;
+
     /* MMIO range (for co-simulation only) */
     uint64_t mmio_start;
     uint64_t mmio_end;
@@ -174,7 +177,7 @@ void vm_add_cmdline(VirtMachineParams *p, const char *cmdline);
 char *get_file_path(const char *base_filename, const char *filename);
 void virt_machine_free_config(VirtMachineParams *p);
 VirtMachine *virt_machine_init(const VirtMachineParams *p);
-int virt_machine_get_sleep_duration(VirtMachine *s, int delay);
+int virt_machine_get_sleep_duration(int hartid, VirtMachine *s, int delay);
 BOOL vm_mouse_is_absolute(VirtMachine *s);
 void vm_send_mouse_event(VirtMachine *s1, int dx, int dy, int dz,
                          unsigned int buttons);
@@ -211,18 +214,18 @@ void virt_machine_end(VirtMachine *s);
 VirtMachine *virt_machine_main(int argc, char **argv);
 void         virt_machine_serialize(VirtMachine *m, const char *dump_name);
 void         virt_machine_deserialize(VirtMachine *m, const char *dump_name);
-BOOL         virt_machine_run(VirtMachine *m);
-void         virt_machine_dump_regs(VirtMachine *m);
+BOOL         virt_machine_run(int hartid, VirtMachine *m);
+//void         virt_machine_dump_regs(VirtMachine *m);
 int          virt_machine_read_insn(VirtMachine *m, uint32_t *insn, uint64_t addr);
-uint64_t     virt_machine_get_pc(VirtMachine *m);
-void         virt_machine_set_pc(VirtMachine *m, uint64_t pc);
-uint64_t     virt_machine_get_reg(VirtMachine *m, int rn);
-uint64_t     virt_machine_get_fpreg(VirtMachine *m, int rn);
-uint64_t     virt_machine_get_instret(VirtMachine *m);
-int          virt_machine_get_priv_level(VirtMachine *m);
-int          virt_machine_get_most_recently_written_reg(VirtMachine *m, uint64_t *instret_ts);
-int          virt_machine_get_most_recently_written_fp_reg(VirtMachine *m, uint64_t *instret_ts);
-int          virt_machine_benchmark_exit_code(VirtMachine *m);
+uint64_t     virt_machine_get_pc(int hartid, VirtMachine *m);
+//void         virt_machine_set_pc(VirtMachine *m, uint64_t pc);
+uint64_t     virt_machine_get_reg(int hartid, VirtMachine *m, int rn);
+uint64_t     virt_machine_get_fpreg(int hartid, VirtMachine *m, int rn);
+//uint64_t     virt_machine_get_instret(VirtMachine *m);
+//int          virt_machine_get_priv_level(VirtMachine *m);
+//int          virt_machine_get_most_recently_written_reg(VirtMachine *m, uint64_t *instret_ts);
+//int          virt_machine_get_most_recently_written_fp_reg(VirtMachine *m, uint64_t *instret_ts);
+//int          virt_machine_benchmark_exit_code(VirtMachine *m);
 #ifdef __cplusplus
 } // extern C
 #endif

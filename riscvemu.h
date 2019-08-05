@@ -13,7 +13,7 @@
 
 #include <stdio.h>
 
-FILE *riscvemu_stdout;
-FILE *riscvemu_stderr;
+extern FILE *riscvemu_stdout;
+extern FILE *riscvemu_stderr;
 
 #endif
