@@ -47,7 +47,8 @@ riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[]);
  * with the expected values.
  *
  */
-int riscvemu_cosim_step(int hartid, riscvemu_cosim_state_t *riscvemu_cosim_state,
+int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
+                        int                     hartid,
                         uint64_t                dut_pc,
                         uint32_t                dut_insn,
                         uint64_t                dut_wdata,

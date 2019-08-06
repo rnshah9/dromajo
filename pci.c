@@ -529,8 +529,8 @@ I440FXState *i440fx_init(PCIBus **pbus, int *ppiix3_devfn,
                          PhysMemoryMap *mem_map, PhysMemoryMap *port_map,
                          IRQSignal *pic_irqs)
 {
-    I440FXState *s = (I440FXState *)mallocz(sizeof(*s));
-    PCIBus *b = (PCIBus *)mallocz(sizeof(PCIBus));
+    I440FXState *s = (I440FXState *)mallocz(sizeof *s);
+    PCIBus *b = (PCIBus *)mallocz(sizeof *b);
 
     b->bus_num = 0;
     b->mem_map = mem_map;

@@ -96,7 +96,7 @@ int strstart(const char *str, const char *val, const char **ptr)
 
 void dbuf_init(DynBuf *s)
 {
-    memset(s, 0, sizeof(*s));
+    memset(s, 0, sizeof *s);
 }
 
 void dbuf_write(DynBuf *s, size_t offset, const uint8_t *data, size_t len)
@@ -126,5 +126,5 @@ void dbuf_putstr(DynBuf *s, const char *str)
 void dbuf_free(DynBuf *s)
 {
     free(s->buf);
-    memset(s, 0, sizeof(*s));
+    memset(s, 0, sizeof *s);
 }

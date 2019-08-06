@@ -10,7 +10,7 @@
 
 /*
  * Filesystem abstraction
- * 
+ *
  * Copyright (c) 2016 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

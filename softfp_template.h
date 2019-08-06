@@ -403,7 +403,7 @@ F_UINT mul_sf(F_UINT a, F_UINT b, RoundingModeEnum rm,
     }
     r_exp = a_exp + b_exp - (1 << (EXP_SIZE - 1)) + 2;
 
-    r_mant = mul_u(&r_mant_low,a_mant << RND_SIZE, b_mant << (RND_SIZE + 1));
+    r_mant = mul_u(&r_mant_low, a_mant << RND_SIZE, b_mant << (RND_SIZE + 1));
     r_mant |= (r_mant_low != 0);
     return normalize_sf(r_sign, r_exp, r_mant, rm, pfflags);
 }

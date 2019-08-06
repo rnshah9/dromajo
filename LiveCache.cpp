@@ -183,4 +183,3 @@ void LiveCache::mergeSort(Line **arr, uint64_t len) {
     }
   }
 }
-

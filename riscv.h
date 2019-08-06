@@ -130,8 +130,8 @@
 #define ET_MCE_WATCHDOG_SZ                         24
 
 // Derived masks (but calling them that would be confusing)
-#define ET_MCE_MASK_BITS                        ((1<<ET_MCE_MASK_SZ)-1)
-#define ET_MCE_WATCHDOG_BITS                    ((1<<ET_MCE_WATCHDOG_SZ)-1)
+#define ET_MCE_MASK_BITS                        ((1 << ET_MCE_MASK_SZ) - 1)
+#define ET_MCE_WATCHDOG_BITS                    ((1 << ET_MCE_WATCHDOG_SZ) - 1)
 
 // Values at reset, extracted from Maxion RTL
 #define ET_MCE_ENABLE_MASK_RESET                ET_MCE_MASK_BITS

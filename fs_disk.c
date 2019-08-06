@@ -79,7 +79,7 @@ static void fs_delete(FSDevice *fs, FSFile *f)
 /* warning: path belong to fid_create() */
 static FSFile *fid_create(FSDevice *s1, char *path, uint32_t uid)
 {
-    FSFile *f = (FSFile *)mallocz(sizeof(*f));
+    FSFile *f = (FSFile *)mallocz(sizeof *f);
     f->path = path;
     f->uid = uid;
     return f;
@@ -631,7 +631,7 @@ FSDevice *fs_disk_init(const char *root_path)
     if (!S_ISDIR(st.st_mode))
         return NULL;
 
-    FSDeviceDisk *fs = (FSDeviceDisk *)mallocz(sizeof(*fs));
+    FSDeviceDisk *fs = (FSDeviceDisk *)mallocz(sizeof *fs);
 
     fs->common.fs_end = fs_disk_end;
     fs->common.fs_delete = fs_delete;

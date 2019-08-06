@@ -164,14 +164,14 @@ static inline void track_write(int mhartid, uint64_t vaddr, uint64_t paddr, uint
 #ifdef LIVECACHE
   llc->write(paddr);
 #endif
-  //fprintf(stderr,"track_write marhtid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
+  //fprintf(stderr, "track_write marhtid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
 }
 
 static inline uint64_t track_dread(int mhartid, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
 #ifdef LIVECACHE
   llc->read(paddr);
 #endif
-  //fprintf(stderr,"track_dread mhartid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
+  //fprintf(stderr, "track_dread mhartid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
 
   return data;
 }
@@ -181,7 +181,7 @@ static inline uint64_t track_iread(int mhartid, uint64_t vaddr, uint64_t paddr, 
   llc->read(paddr);
 #endif
   assert(size==16 || size==32);
-  //fprintf(stderr,"track_iread mhartid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
+  //fprintf(stderr, "track_iread mhartid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
 
   return data;
 }
@@ -711,7 +711,7 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
             }
         }
     }
-    track_write(s->mhartid, addr, paddr,val,size);
+    track_write(s->mhartid, addr, paddr, val, size);
     return 0;
 }
 
@@ -787,10 +787,10 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
         //*insn = (uint32_t)*((uint16_t*)ptr);
         //*insn |= ((uint32_t)*((uint16_t*)ptr_cross) << 16);
 
-        data1 = track_iread(s->mhartid, addr, paddr      , data1, 16);
+        data1 = track_iread(s->mhartid, addr, paddr,       data1, 16);
         data2 = track_iread(s->mhartid, addr, paddr_cross, data2, 16);
 
-        *insn = data1 | (data2<<16);
+        *insn = data1 | (data2 << 16);
 
         return 0;
     }
@@ -819,9 +819,9 @@ static inline __exception int target_read_insn_u16(RISCVCPUState *s, uint16_t *p
         mem_addend = s->tlb_code[tlb_idx].mem_addend;
         uint32_t data = *(uint16_t *)(mem_addend + (uintptr_t)addr);
 #ifdef PADDR_INLINE
-        *pinsn = track_iread(s->mhartid, addr,s->tlb_code[tlb_idx].paddr_addend + addr,data,16);
+        *pinsn = track_iread(s->mhartid, addr, s->tlb_code[tlb_idx].paddr_addend + addr, data, 16);
 #else
-        *pinsn = track_iread(s->mhartid, addr,s->tlb_code_paddr_addend[tlb_idx] + addr,data,16);
+        *pinsn = track_iread(s->mhartid, addr, s->tlb_code_paddr_addend[tlb_idx] + addr, data, 16);
 #endif
         return 0;
     }
@@ -1954,7 +1954,9 @@ static __exception int raise_interrupt(RISCVCPUState *s)
         return 0;
     irq_num = ctz32(mask);
 #ifdef DUMP_INTERRUPTS
-    fprintf(riscvemu_stderr, "raise_interrupt: irq=%d priv=%d pc=%llx hartid=%d\n", irq_num,s->priv,(unsigned long long)s->pc, (int)s->mhartid);
+    fprintf(riscvemu_stderr,
+            "raise_interrupt: irq=%d priv=%d pc=%llx hartid=%d\n",
+            irq_num, s->priv, (unsigned long long)s->pc, (int)s->mhartid);
 #endif
 
     raise_exception(s, irq_num | CAUSE_INTERRUPT);
@@ -1982,7 +1984,7 @@ static inline RISCVCTFInfo ctf_compute_hint(int rd, int rs1)
 {
     int rd_link  = rd  == 1 || rd  == 5;
     int rs1_link = rs1 == 1 || rs1 == 5;
-    RISCVCTFInfo k = (RISCVCTFInfo)(rd_link*2 + rs1_link + (int)ctf_taken_jalr);
+    RISCVCTFInfo k = (RISCVCTFInfo)(rd_link * 2 + rs1_link + (int)ctf_taken_jalr);
 
     if (k == ctf_taken_jalr_pop_push && rs1 == rd)
         return ctf_taken_jalr_push;
@@ -2033,8 +2035,8 @@ BOOL riscv_cpu_get_power_down(RISCVCPUState *s)
     return s->power_down_flag;
 }
 
-RISCVCPUState *riscv_cpu_init(int hartid,
-                              PhysMemoryMap *mem_map,
+RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
+                              int hartid,
                               const char *validation_terminate_event)
 {
     RISCVCPUState *s;
@@ -2042,7 +2044,7 @@ RISCVCPUState *riscv_cpu_init(int hartid,
 #ifdef USE_GLOBAL_STATE
     s = &riscv_cpu_global_state;
 #else
-    s = (RISCVCPUState *)mallocz(sizeof(*s));
+    s = (RISCVCPUState *)mallocz(sizeof *s);
 #endif
     s->mem_map = mem_map;
     s->pc = BOOT_BASE_ADDR;
@@ -2306,33 +2308,33 @@ static uint32_t create_addi(int rd, uint32_t addr)
 {
     uint32_t pos = addr & 0xFFF;
 
-    return 0x13 | ((rd & 0x1F)<<7) | ((rd & 0x1F)<<15) | ((pos & 0xFFF)<<20);
+    return 0x13 | ((rd & 0x1F) << 7) | ((rd & 0x1F) << 15) | ((pos & 0xFFF) << 20);
 }
 
 static uint32_t create_seti(int rd, uint32_t data)
 {
-    return 0x13 | ((rd & 0x1F)<<7) | ((data & 0xFFF)<<20);
+    return 0x13 | ((rd & 0x1F) << 7) | ((data & 0xFFF) << 20);
 }
 
 static uint32_t create_ld(int rd, int rs1)
 {
-    return 0x3 | ((rd & 0x1F)<<7) | (0x3<<12) | ((rs1 & 0x1F)<<15);
+    return 3 | ((rd & 0x1F) << 7) | (3 << 12) | ((rs1 & 0x1F) << 15);
 }
 
 static uint32_t create_sd(int rs1, int rs2)
 {
-    return 0x23 | ((rs2 & 0x1F)<<20) | (0x3<<12) | ((rs1 & 0x1F)<<15);
+    return 0x23 | ((rs2 & 0x1F) << 20) | (3 << 12) | ((rs1 & 0x1F) << 15);
 }
 
 static uint32_t create_fld(int rd, int rs1)
 {
-    return 0x7 | ((rd & 0x1F)<<7) | (0x3<<12) | ((rs1 & 0x1F)<<15);
+    return 7 | ((rd & 0x1F) << 7) | (0x3<<12) | ((rs1 & 0x1F) << 15);
 }
 
 static void create_csr12_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t csrn, uint16_t val)
 {
-    rom[(*code_pos)++] = create_seti(1,  val & 0xFFF);
-    rom[(*code_pos)++] = create_csrrw(1,  csrn);
+    rom[(*code_pos)++] = create_seti(1, val & 0xFFF);
+    rom[(*code_pos)++] = create_csrrw(1, csrn);
 }
 
 static void create_read_warmup(uint32_t *rom, uint32_t *code_pos, uint32_t *data_pos, uint64_t val)
@@ -2441,15 +2443,15 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     int addr_size;
     uint64_t *addr = llc->traverse(addr_size);
 
-    if (addr_size>(ROM_SIZE/4)) {
-      fprintf(stderr,"LiveCache: truncating boot rom from %d to %d\n",addr_size,ROM_SIZE/4);
-      addr_size = ROM_SIZE/4;
+    if (addr_size > ROM_SIZE / 4) {
+        fprintf(stderr, "LiveCache: truncating boot rom from %d to %d\n", addr_size, ROM_SIZE / 4);
+        addr_size = ROM_SIZE/4;
     }
 
-    for(int i=0;i<addr_size;i++) {
-      uint64_t a = addr[i] & ~0x1ULL;
-      printf("addr:%llx %s\n", (unsigned long long)a, (addr[i]&1)?"ST":"LD");
-      create_read_warmup(rom, &code_pos, &data_pos, a); // treat write like reads for the moment
+    for (int i = 0; i < addr_size; ++i) {
+        uint64_t a = addr[i] & ~0x1ULL;
+        printf("addr:%llx %s\n", (unsigned long long)a, (addr[i] & 1) ? "ST" : "LD");
+        create_read_warmup(rom, &code_pos, &data_pos, a); // treat write like reads for the moment
     }
 #endif
 
@@ -2464,7 +2466,7 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
         create_csr12_recovery(rom, &code_pos, 0x001, s->fflags);
         // Only if fflags, otherwise it would raise an illegal instruction
         create_csr12_recovery(rom, &code_pos, 0x002, s->frm);
-        create_csr12_recovery(rom, &code_pos, 0x003, s->fflags | (s->frm<<5));
+        create_csr12_recovery(rom, &code_pos, 0x003, s->fflags | (s->frm << 5));
 
         // do the FP registers, iff fs is set
         for (int i = 0; i < 32; i++) {

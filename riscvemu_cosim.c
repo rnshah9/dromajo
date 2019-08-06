@@ -217,7 +217,7 @@ static inline uint64_t get_mask(int size)
     return (1 << size) - 1;
 }
 
-// get a bit-slice from the number: num[hi,lo]
+// get a bit-slice from the number: num[hi:lo]
 static inline uint64_t get_range(uint64_t num, int hi, int lo)
 {
     return (num >> lo) & get_mask(hi - lo + 1);
@@ -273,14 +273,14 @@ static void cosim_history(RISCVCPUState *s,
 
         int pc = target_pc >> 1; // Remove lsb (always zero).
         int foldpc = (pc >> 17) ^ pc;
-        int o0 = get_range(emu_ghr0, sz0-1, 0); // old(sz0-1,0)
-        int o1 = get_range(emu_ghr0, 2*sz0-1, sz0) ; // old(2*sz0-1,sz0)
-        int o2 = get_range(emu_ghr0, 2*sz0+szh, 2*sz0); // old(2*sz0+szh,2*sz0)
+        int o0 = get_range(emu_ghr0, sz0-1, 0); // old(sz0-1, 0)
+        int o1 = get_range(emu_ghr0, 2*sz0-1, sz0) ; // old(2*sz0-1, sz0)
+        int o2 = get_range(emu_ghr0, 2*sz0+szh, 2*sz0); // old(2*sz0+szh, 2*sz0)
 
-        int h0  = foldpc & get_mask(sz0); // foldpc(sz0-1,0)
+        int h0  = foldpc & get_mask(sz0); // foldpc(sz0-1, 0)
         int h1  = o0;
-        int h2  = (o1 ^ (o1 >> szh)) & get_mask(szh+1); // (o1 ^ (o1 >> (sz0/2).U))(sz0/2-1,0)
-        int h3  = (o2 ^ (o2 >> 2)) & get_mask(2); // (o2 ^ (o2 >> 2))(1,0)
+        int h2  = (o1 ^ (o1 >> szh)) & get_mask(szh+1); // (o1 ^ (o1 >> (sz0/2).U))(sz0/2-1, 0)
+        int h3  = (o2 ^ (o2 >> 2)) & get_mask(2); // (o2 ^ (o2 >> 2))(1, 0)
         int h10 = get_bit(emu_ghr0, 27) ^ get_bit(emu_ghr0, 26); // fold o9's 2-bits down to 1-bit
 
         emu_ghr1 <<= 1;
@@ -288,7 +288,7 @@ static void cosim_history(RISCVCPUState *s,
 #endif
 
         // min = h0.getWidth + h1.getWidth + h2.getWidth + h3.getWidth + 10
-        // ret := Cat(old(history_length-1, min), h10, old(25,16), h3, h2, h1, h0)
+        // ret := Cat(old(history_length-1, min), h10, old(25, 16), h3, h2, h1, h0)
         emu_ghr0 &= ~((1 << min) - 1);
         emu_ghr0 = \
             (emu_ghr0 << 1) |
@@ -327,8 +327,8 @@ static void cosim_history(RISCVCPUState *s,
  * The `intr_pending` flag is used to communicate that the DUT will
  * take an interrupt in the next cycle.
  */
-int riscvemu_cosim_step(int hartid,
-                        riscvemu_cosim_state_t *riscvemu_cosim_state,
+int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
+                        int                     hartid,
                         uint64_t                dut_pc,
                         uint32_t                dut_insn,
                         uint64_t                dut_wdata,

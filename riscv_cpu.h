@@ -279,7 +279,7 @@ typedef struct RISCVCPUState {
     bool ignore_sbi_shutdown;
 } RISCVCPUState;
 
-RISCVCPUState *riscv_cpu_init(int hartid, PhysMemoryMap *mem_map, const char *term_event);
+RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map, int hartid, const char *term_event);
 void riscv_cpu_end(RISCVCPUState *s);
 int riscv_cpu_interp(RISCVCPUState *s, int n_cycles);
 uint64_t riscv_cpu_get_cycles(RISCVCPUState *s);

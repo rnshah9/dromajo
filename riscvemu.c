@@ -177,8 +177,8 @@ CharacterDevice *console_init(BOOL allow_ctrlc, FILE *stdin, FILE *out)
 {
     term_init(allow_ctrlc);
 
-    CharacterDevice *dev = (CharacterDevice *)mallocz(sizeof(*dev));
-    STDIODevice *s = (STDIODevice *)mallocz(sizeof(*s));
+    CharacterDevice *dev = (CharacterDevice *)mallocz(sizeof *dev);
+    STDIODevice *s = (STDIODevice *)mallocz(sizeof *s);
     s->stdin = stdin;
     s->out = out;
     /* Note: the glibc does not properly tests the return value of
@@ -229,7 +229,6 @@ static int bf_read_async(BlockDevice *bs,
                          BlockDeviceCompletionFunc *cb, void *opaque)
 {
     BlockDeviceFile *bf = (BlockDeviceFile *)bs->opaque;
-    //    fprintf(riscvemu_stderr,"bf_read_async: sector_num=%" PRId64 " n=%d\n", sector_num, n);
 #ifdef DUMP_BLOCK_READ
     {
         static FILE *f;
@@ -319,8 +318,8 @@ static BlockDevice *block_device_init(const char *filename,
     fseek(f, 0, SEEK_END);
     int64_t file_size = ftello(f);
 
-    BlockDevice *bs = (BlockDevice *)mallocz(sizeof(*bs));
-    BlockDeviceFile *bf = (BlockDeviceFile *)mallocz(sizeof(*bf));
+    BlockDevice *bs = (BlockDevice *)mallocz(sizeof *bs);
+    BlockDeviceFile *bf = (BlockDeviceFile *)mallocz(sizeof *bf);
 
     bf->mode = mode;
     bf->nb_sectors = file_size / 512;
@@ -427,7 +426,7 @@ static EthernetDevice *tun_open(const char *ifname)
     }
     fcntl(fd, F_SETFL, O_NONBLOCK);
 
-    EthernetDevice *net = (EthernetDevice *)mallocz(sizeof(*net));
+    EthernetDevice *net = (EthernetDevice *)mallocz(sizeof *net);
     net->mac_addr[0] = 0x02;
     net->mac_addr[1] = 0x00;
     net->mac_addr[2] = 0x00;
@@ -435,7 +434,7 @@ static EthernetDevice *tun_open(const char *ifname)
     net->mac_addr[4] = 0x00;
     net->mac_addr[5] = 0x01;
 
-    TunState *s = (TunState *)mallocz(sizeof(*s));
+    TunState *s = (TunState *)mallocz(sizeof *s);
     s->fd = fd;
     net->opaque = s;
     net->write_packet = tun_write_packet;
@@ -525,11 +524,11 @@ static EthernetDevice *slirp_open(void)
 
 #endif /* CONFIG_SLIRP */
 
-BOOL virt_machine_run(int hartid, VirtMachine *m)
+BOOL virt_machine_run(VirtMachine *m, int hartid)
 {
     RISCVMachine *s = (RISCVMachine *)m;
 
-    (void) virt_machine_get_sleep_duration(hartid, m, MAX_SLEEP_TIME);
+    (void) virt_machine_get_sleep_duration(m, hartid, MAX_SLEEP_TIME);
 
     riscv_cpu_interp64(s->cpu_state[hartid], 1);
 
@@ -546,7 +545,8 @@ BOOL virt_machine_run(int hartid, VirtMachine *m)
 
 void help(void)
 {
-    fprintf(riscvemu_stderr,"riscvemu version " CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard\n"
+    fprintf(riscvemu_stderr, "riscvemu version " CONFIG_VERSION
+            ", Copyright (c) 2016-2017 Fabrice Bellard\n"
            "                             Copyright (c) 2018,2019 Esperanto Technologies\n"
            "usage: riscvemu [options] config_file\n"
            "options are:\n"
@@ -674,17 +674,17 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     for (;;) {
         int option_index = 0;
         static struct option long_options[] = {
-            {"cmdline", required_argument, 0,  'c' },
-            {"ncpus", required_argument, 0,  'n' },
-            {"load",    required_argument, 0,  'l' },
-            {"save",    required_argument, 0,  's' },
-            {"maxinsns",required_argument, 0,  'm' },
-            {"terminate-event", required_argument, 0, 'e'},
-            {"trace   ",required_argument, 0,  't' },
-            {"ignore_sbi_shutdown", required_argument, 0,  'P' },
-            {"memory_size", required_argument, 0,  'M' },
-            {"memory_addr", required_argument, 0,  'A' },
-            {0,         0,                 0,  0 }
+            {"cmdline",                 required_argument, 0,  'c' },
+            {"ncpus",                   required_argument, 0,  'n' },
+            {"load",                    required_argument, 0,  'l' },
+            {"save",                    required_argument, 0,  's' },
+            {"maxinsns",                required_argument, 0,  'm' },
+            {"terminate-event",         required_argument, 0,  'e'},
+            {"trace   ",                required_argument, 0,  't' },
+            {"ignore_sbi_shutdown",     required_argument, 0,  'P' },
+            {"memory_size",             required_argument, 0,  'M' },
+            {"memory_addr",             required_argument, 0,  'A' },
+            {0,                         0,                 0,  0 }
         };
 
         int c = getopt_long(argc, argv, "", long_options, &option_index);
@@ -821,7 +821,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     if (ncpus)
       p->ncpus = ncpus;
     if (p->ncpus>=MAX_CPUS)
-      usage(prog,"ncpus limit reached (MAX_CPUS). Increase MAX_CPUS");
+      usage(prog, "ncpus limit reached (MAX_CPUS).  Increase MAX_CPUS");
 
     if (p->ncpus==0)
       p->ncpus = 1;
@@ -926,7 +926,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     if (s->maxinsns == 0)
         s->maxinsns = UINT64_MAX;
 
-    for(int i=0;i<((RISCVMachine *)s)->ncpus;i++)
+    for (int i = 0; i < ((RISCVMachine *)s)->ncpus; ++i)
       ((RISCVMachine *)s)->cpu_state[i]->ignore_sbi_shutdown = ignore_sbi_shutdown;
 
     virt_machine_free_config(p);

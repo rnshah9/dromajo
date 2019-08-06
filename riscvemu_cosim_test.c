@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 
         if (cosim) {
             int hartid = 0; // FIXME: MULTICORE cosim. Must get hartid from commit
-            int r = riscvemu_cosim_step(hartid, s, insn_addr, insn, wdata,
+            int r = riscvemu_cosim_step(s, hartid, insn_addr, insn, wdata,
                                         0, 0, 0, 0, true);
             if (r) {
                 fprintf(riscvemu_stdout, "Exited with %08x\n", r);

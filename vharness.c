@@ -37,7 +37,7 @@
 #endif
 
 
-int iterate_core(int hartid, VirtMachine *m)
+int iterate_core(VirtMachine *m, int hartid)
 {
     if (m->maxinsns-- <= 0)
         /* Succeed after N instructions without failure. */
@@ -49,13 +49,13 @@ int iterate_core(int hartid, VirtMachine *m)
      * the trace of retired instructions.  Breaking this caused
      * ARCHSIM-74.
      */
-    uint64_t last_pc    = virt_machine_get_pc(hartid, m);
+    uint64_t last_pc    = virt_machine_get_pc(m, hartid);
     int      priv       = riscv_get_priv_level(cpu);
     uint32_t insn_raw   = -1;
     (void) riscv_read_insn(cpu, &insn_raw, last_pc);
-    int      keep_going = virt_machine_run(hartid, m);
+    int      keep_going = virt_machine_run(m, hartid);
 
-    if (last_pc == virt_machine_get_pc(hartid, m))
+    if (last_pc == virt_machine_get_pc(m, hartid))
         return 0;
 
     if (m->trace) {
@@ -74,9 +74,9 @@ int iterate_core(int hartid, VirtMachine *m)
         fprintf(riscvemu_stderr, " exception %d, tval %016lx", cpu->pending_exception,
                 riscv_get_priv_level(cpu) == PRV_M ? cpu->mtval : cpu->stval);
     else if (iregno > 0)
-        fprintf(riscvemu_stderr, " x%2d 0x%016" PRIx64, iregno, virt_machine_get_reg(hartid, m, iregno));
+        fprintf(riscvemu_stderr, " x%2d 0x%016" PRIx64, iregno, virt_machine_get_reg(m, hartid, iregno));
     else if (fregno >= 0)
-        fprintf(riscvemu_stderr, " f%2d 0x%016" PRIx64, fregno, virt_machine_get_fpreg(hartid, m, fregno));
+        fprintf(riscvemu_stderr, " f%2d 0x%016" PRIx64, fregno, virt_machine_get_fpreg(m, hartid, fregno));
 
     putc('\n', riscvemu_stderr);
 
@@ -90,8 +90,8 @@ extern LiveCache *llc;
 int main(int argc, char **argv)
 {
 #ifdef LIVECACHE
-  //llc = new LiveCache("LLC", 1024*1024*32); // 32MB LLC (should be ~2x larger than real)
-  llc = new LiveCache("LLC", 1024*32); // Small 32KB for testing
+    //llc = new LiveCache("LLC", 1024*1024*32); // 32MB LLC (should be ~2x larger than real)
+    llc = new LiveCache("LLC", 1024*32); // Small 32KB for testing
 #endif
 
 #ifdef REGRESS_RISCV_COSIM
@@ -101,7 +101,7 @@ int main(int argc, char **argv)
     if (!costate)
         return 1;
 
-    do ; while (!riscvemu_cosim_step(costate, 0, 0, 0, 0, false));
+    while (!riscvemu_cosim_step(costate, 0, 0, 0, 0, 0, false));
 #else
     VirtMachine *m = virt_machine_main(argc, argv);
 
@@ -109,22 +109,22 @@ int main(int argc, char **argv)
         return 1;
 
     int keep_going;
-    RISCVMachine  *rvm  = (RISCVMachine *)m;
+    RISCVMachine *rvm  = (RISCVMachine *)m;
     do {
         keep_going = 0;
-        for(int i=0;i<rvm->ncpus;i++)
-          keep_going |= iterate_core(i, m);
+        for (int i = 0; i < rvm->ncpus; ++i)
+            keep_going |= iterate_core(m, i);
     } while (keep_going);
 
-    for(int i=0;i<rvm->ncpus;i++) {
-      int benchmark_exit_code = riscv_benchmark_exit_code(((RISCVMachine *)m)->cpu_state[i]);
-      if (benchmark_exit_code != 0){
-        fprintf(riscvemu_stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
-        return 1;
-      }
+    for (int i = 0; i < rvm->ncpus; ++i) {
+        int benchmark_exit_code = riscv_benchmark_exit_code(((RISCVMachine *)m)->cpu_state[i]);
+        if (benchmark_exit_code != 0) {
+            fprintf(riscvemu_stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
+            return 1;
+        }
     }
 
-    fprintf(riscvemu_stderr,"\nPower off.\n");
+    fprintf(riscvemu_stderr, "\nPower off.\n");
 
     virt_machine_end(m);
 #endif
@@ -135,8 +135,8 @@ int main(int argc, char **argv)
     int addr_size;
     uint64_t *addr = llc->traverse(addr_size);
 
-    for(int i=0;i<addr_size;i++) {
-      printf("addr:%llx %s\n", (unsigned long long)addr[i], (addr[i]&1)?"ST":"LD");
+    for (int i = 0; i < addr_size; ++i) {
+        printf("addr:%llx %s\n", (unsigned long long)addr[i], (addr[i] & 1) ? "ST" : "LD");
     }
 #endif
     delete llc;
