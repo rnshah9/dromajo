@@ -180,12 +180,9 @@ static inline void handle_dut_overrides(RISCVCPUState *s,
  * MSB indicates an asynchronous interrupt, synchronous exception
  * otherwise.
  */
-void riscvemu_cosim_raise_trap(int hartid, riscvemu_cosim_state_t *state, int64_t cause)
+void riscvemu_cosim_raise_trap(riscvemu_cosim_state_t *state, int hartid, int64_t cause)
 {
     VirtMachine   *m = (VirtMachine  *)state;
-    //RISCVMachine  *r = (RISCVMachine *)m;
-    //RISCVCPUState *s = r->cpu_state[hartid];
-    //riscv_cpu_set_mip(s, riscv_cpu_get_mip(s) | 1 << cause);
 
     if (cause < 0) {
         assert(m->pending_interrupt == -1); // XXX RTLMAX-434

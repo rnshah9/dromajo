@@ -66,9 +66,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
  * otherwise.
  *
  */
-void riscvemu_cosim_raise_interrupt(int hartid, riscvemu_cosim_state_t *state,
-                                    int cause);
-
+void riscvemu_cosim_raise_trap(riscvemu_cosim_state_t *state, int hartid, int64_t cause);
 #ifdef __cplusplus
 } // extern C
 #endif
