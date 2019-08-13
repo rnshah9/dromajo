@@ -23,6 +23,11 @@
 #include <stdio.h>
 #include <assert.h>
 
+#ifdef LIVECACHE
+#include "LiveCacheCore.h"
+extern LiveCache *llc; // XXX This is horrifying; llc should have been part of the machine state
+#endif
+
 /*
  * riscvemu_cosim_init --
  *
@@ -32,6 +37,11 @@
 riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[])
 {
     VirtMachine *m = virt_machine_main(argc, argv);
+
+#ifdef LIVECACHE
+    //llc = new LiveCache("LLC", 1024*1024*32); // 32MB LLC (should be ~2x larger than real)
+    llc = new LiveCache("LLC", 1024*32); // Small 32KB for testing
+#endif
 
     m->pending_interrupt = -1;
     m->pending_exception = -1;
