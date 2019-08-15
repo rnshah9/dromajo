@@ -1992,6 +1992,26 @@ static inline RISCVCTFInfo ctf_compute_hint(int rd, int rs1)
     return k;
 }
 
+
+/*
+ * While the 32-bit QNAN is defined in softfp.h, we need it here to
+ * pull f_unbox{32,64} out of the fragile macro magic.
+ */
+static const sfloat64 f_qnan32 = 0x7fc00000;
+
+static sfloat64 f_unbox32(sfloat64 r)
+{
+    if ((r & F32_HIGH) != F32_HIGH)
+        return f_qnan32;
+
+    return r;
+}
+
+static sfloat64 f_unbox64(sfloat64 r)
+{
+    return r;
+}
+
 #define XLEN 32
 #include "riscvemu_template.h"
 

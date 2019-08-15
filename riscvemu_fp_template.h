@@ -60,12 +60,7 @@
 */
 
 
-#define isboxed(r) (((r) & F_HIGH) == F_HIGH)
-#define unbox(r) (isboxed(r) ? (r) : F_QNAN)
-#define F_QNAN glue(F_QNAN, F_SIZE)
-static glue(sfloat, F_SIZE) F_QNAN;
-
-
+#define unbox glue(f_unbox, F_SIZE)
 #define FSIGN_MASK glue(FSIGN_MASK, F_SIZE)
 
             case (0x00 << 2) | OPID:
@@ -251,7 +246,7 @@ static glue(sfloat, F_SIZE) F_QNAN;
                         /* Check NaN-boxing of the *explictly* 32-bit float */
                         fp_uint v = read_fp_reg(rs1);
                         if ((v & F32_HIGH) != F32_HIGH)
-                            v = F_QNAN32;
+                            v = f_qnan32;
                         v = cvt_sf32_sf64(v, &s->fflags) | F64_HIGH;
                         write_fp_reg(rd, v);
                     }
@@ -321,8 +316,3 @@ static glue(sfloat, F_SIZE) F_QNAN;
 #undef F_HIGH
 #undef OPID
 #undef FSIGN_MASK
-#undef isboxed
-#undef unbox
-#undef F_QNAN
-#undef F_QNAN32
-
