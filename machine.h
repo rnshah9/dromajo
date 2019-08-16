@@ -210,22 +210,14 @@ BlockDevice *block_device_init_http(const char *url,
 #ifdef __cplusplus
 extern "C" {
 #endif
-void virt_machine_end(VirtMachine *s);
-VirtMachine *virt_machine_main(int argc, char **argv);
-void         virt_machine_serialize(VirtMachine *m, const char *dump_name);
+VirtMachine *virt_machine_main       (int argc, char **argv);
+void         virt_machine_end        (VirtMachine *s);
+void         virt_machine_serialize  (VirtMachine *m, const char *dump_name);
 void         virt_machine_deserialize(VirtMachine *m, const char *dump_name);
-BOOL         virt_machine_run(VirtMachine *m, int hartid);
-//void         virt_machine_dump_regs(VirtMachine *m);
-int          virt_machine_read_insn(VirtMachine *m, uint32_t *insn, uint64_t addr);
-uint64_t     virt_machine_get_pc(VirtMachine *m, int hartid);
-//void         virt_machine_set_pc(VirtMachine *m, uint64_t pc);
-uint64_t     virt_machine_get_reg(VirtMachine *m, int hartid, int rn);
-uint64_t     virt_machine_get_fpreg(VirtMachine *m, int hartid, int rn);
-//uint64_t     virt_machine_get_instret(VirtMachine *m);
-//int          virt_machine_get_priv_level(VirtMachine *m);
-//int          virt_machine_get_most_recently_written_reg(VirtMachine *m, uint64_t *instret_ts);
-//int          virt_machine_get_most_recently_written_fp_reg(VirtMachine *m, uint64_t *instret_ts);
-//int          virt_machine_benchmark_exit_code(VirtMachine *m);
+BOOL         virt_machine_run        (VirtMachine *m, int hartid);
+uint64_t     virt_machine_get_pc     (VirtMachine *m, int hartid);
+uint64_t     virt_machine_get_reg    (VirtMachine *m, int hartid, int rn);
+uint64_t     virt_machine_get_fpreg  (VirtMachine *m, int hartid, int rn);
 #ifdef __cplusplus
 } // extern C
 #endif

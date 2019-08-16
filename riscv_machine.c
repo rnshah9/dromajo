@@ -1204,12 +1204,6 @@ uint64_t virt_machine_get_fpreg(VirtMachine *m, int hartid, int rn)
     return riscv_get_fpreg(s->cpu_state[hartid], rn);
 }
 
-int virt_machine_read_insn(VirtMachine *m, uint32_t *pmem_addend, uint64_t addr)
-{
-    RISCVMachine *s = (RISCVMachine *)m;
-    return riscv_read_insn(s->cpu_state[0], pmem_addend, addr);
-}
-
 const char *virt_machine_get_name(void)
 {
     return "riscv64";
