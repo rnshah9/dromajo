@@ -453,10 +453,14 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
 
     uint64_t emu_mstatus = riscv_cpu_get_mstatus(s);
 
+    /*
+     * XXX We currently do not compare mstatus because DUT's mstatus
+     * varies between pre-commit (all FP instructions) and post-commit
+     * (CSR instructions).
+     */
     if (emu_pc      != dut_pc                           ||
         emu_insn    != dut_insn  && (emu_insn & 3) == 3 || // DUT expands all C instructions
-        emu_wdata   != dut_wdata && emu_wrote_data      ||
-        emu_mstatus != dut_mstatus) {
+        emu_wdata   != dut_wdata && emu_wrote_data) {
 
         fprintf(riscvemu_stderr, "[error] EMU PC %016" PRIx64 ", DUT PC %016" PRIx64 "\n",
                 emu_pc, dut_pc);
