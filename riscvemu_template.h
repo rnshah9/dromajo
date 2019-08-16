@@ -383,7 +383,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     if (target_read_u64(s, &rval, addr))
                         goto mmu_exception;
                     write_fp_reg(rd, rval | F64_HIGH);
-                    s->fs = 3;
                 }
                 break;
 #endif
@@ -430,7 +429,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     if (target_read_u32(s, &rval, addr))
                         goto mmu_exception;
                     write_fp_reg(rd, rval | F32_HIGH);
-                    s->fs = 3;
                 }
                 break;
 #endif
@@ -694,7 +692,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     if (target_read_u64(s, &rval, addr))
                         goto mmu_exception;
                     write_fp_reg(rd, rval | F64_HIGH);
-                    s->fs = 3;
                 }
                 break;
 #endif
@@ -743,7 +740,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
                     if (target_read_u32(s, &rval, addr))
                         goto mmu_exception;
                     write_fp_reg(rd, rval | F32_HIGH);
-                    s->fs = 3;
                 }
                 break;
 #endif
@@ -1660,7 +1656,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             default:
                 goto illegal_insn;
             }
-            s->fs = 3;
             NEXT_INSN;
         case 0x27: /* fp store */
             if (s->fs == 0)
@@ -1723,7 +1718,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             default:
                 goto illegal_insn;
             }
-            s->fs = 3;
             NEXT_INSN;
         case 0x47: /* fmsub */
             if (s->fs == 0)
@@ -1759,7 +1753,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             default:
                 goto illegal_insn;
             }
-            s->fs = 3;
             NEXT_INSN;
         case 0x4b: /* fnmsub */
             if (s->fs == 0)
@@ -1795,7 +1788,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             default:
                 goto illegal_insn;
             }
-            s->fs = 3;
             NEXT_INSN;
         case 0x4f: /* fnmadd */
             if (s->fs == 0)
@@ -1831,7 +1823,6 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             default:
                 goto illegal_insn;
             }
-            s->fs = 3;
             NEXT_INSN;
         case 0x53:
             if (s->fs == 0)

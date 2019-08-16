@@ -57,8 +57,9 @@
 #define read_reg(x)       (s->reg[x])
 
 #define write_fp_reg(x, val) ({s->most_recently_written_fp_reg = (x); \
-                               s->fp_reg_ts[x] = GET_INSN_COUNTER(); \
-                               s->fp_reg[x] = (val);})
+                               s->fp_reg_ts[x] = GET_INSN_COUNTER();  \
+                               s->fp_reg[x] = (val);                  \
+                               s->fs = 3;})
 #define read_fp_reg(x)       (s->fp_reg[x])
 
 /*
