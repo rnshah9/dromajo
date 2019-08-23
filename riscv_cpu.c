@@ -2352,6 +2352,7 @@ static void create_csr12_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t cs
     rom[(*code_pos)++] = create_csrrw(1, csrn);
 }
 
+#ifdef LIVECACHE
 static void create_read_warmup(uint32_t *rom, uint32_t *code_pos, uint32_t *data_pos, uint64_t val)
 {
     uint32_t data_off = sizeof(uint32_t) * (*data_pos - *code_pos);
@@ -2364,6 +2365,7 @@ static void create_read_warmup(uint32_t *rom, uint32_t *code_pos, uint32_t *data
     rom[(*data_pos)++] = val & 0xFFFFFFFF;
     rom[(*data_pos)++] = val >> 32;
 }
+#endif
 
 static void create_csr64_recovery(uint32_t *rom, uint32_t *code_pos, uint32_t *data_pos, uint32_t csrn, uint64_t val)
 {
