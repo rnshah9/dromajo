@@ -165,14 +165,12 @@ static inline void track_write(int mhartid, uint64_t vaddr, uint64_t paddr, uint
 #ifdef LIVECACHE
   llc->write(paddr);
 #endif
-  //fprintf(stderr, "track_write marhtid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
 }
 
 static inline uint64_t track_dread(int mhartid, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
 #ifdef LIVECACHE
   llc->read(paddr);
 #endif
-  //fprintf(stderr, "track_dread mhartid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
 
   return data;
 }
@@ -182,7 +180,6 @@ static inline uint64_t track_iread(int mhartid, uint64_t vaddr, uint64_t paddr, 
   llc->read(paddr);
 #endif
   assert(size==16 || size==32);
-  //fprintf(stderr, "track_iread mhartid:%d vaddr:%llx paddr:%llx data:%llx size:%d\n", mhartid, (long long)vaddr, (long long)paddr, (long long)data, size);
 
   return data;
 }
@@ -784,9 +781,6 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
 
         uint32_t data1 = (uint32_t)*((uint16_t*)ptr);
         uint32_t data2 = (uint32_t)*((uint16_t*)ptr_cross);
-
-        //*insn = (uint32_t)*((uint16_t*)ptr);
-        //*insn |= ((uint32_t)*((uint16_t*)ptr_cross) << 16);
 
         data1 = track_iread(s->mhartid, addr, paddr,       data1, 16);
         data2 = track_iread(s->mhartid, addr, paddr_cross, data2, 16);
@@ -2443,8 +2437,8 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     uint32_t data_pos = 0xB00 / sizeof *rom;
     uint32_t data_pos_start = data_pos;
 
-    if (m->ncpus==1) // FIXME: May be interesting to freeze hartid >= ncpus
-      create_hang_nonzero_hart(rom, &code_pos, &data_pos);
+    if (m->ncpus == 1) // FIXME: May be interesting to freeze hartid >= ncpus
+        create_hang_nonzero_hart(rom, &code_pos, &data_pos);
 
     create_csr64_recovery(rom, &code_pos, &data_pos, 0x7b1, s->pc); // Write to DPC (CSR, 0x7b1)
 
@@ -2715,4 +2709,3 @@ void riscv_cpu_deserialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_n
         }
     }
 }
-
