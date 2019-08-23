@@ -753,7 +753,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
     }
     tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
     ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
-    if (pmp_access_ok(s, addr & ~PG_MASK, PG_MASK + 1, PMPCFG_X)) {
+    if (pmp_access_ok(s, paddr & ~PG_MASK, PG_MASK + 1, PMPCFG_X)) {
         /* All of this page has full execute access so we can bypass
          * the slow PMP checks. */
         s->tlb_code[tlb_idx].vaddr        = addr & ~PG_MASK;
