@@ -211,6 +211,17 @@ static void uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log
     fprintf(riscvemu_stderr, "%s: bad write: addr=0x%x v=0x%x\n", __func__, (int)offset, (int)val);
 }
 
+/* CLINT registers
+ * 0000 msip hart 0
+ * 0004 msip hart 1
+ * 4000 mtimecmp hart 0 lo
+ * 4004 mtimecmp hart 0 hi
+ * 4008 mtimecmp hart 1 lo
+ * 400c mtimecmp hart 1 hi
+ * bff8 mtime lo
+ * bffc mtime hi
+ */
+
 static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
 {
     RISCVMachine *m = (RISCVMachine *)opaque;
@@ -309,20 +320,7 @@ static void plic_update_mip(RISCVMachine *s, int hartid)
     }
 }
 
-/* Copy & paste from qemu include/hw/riscv/virt.h */
-#define PLIC_HART_CONFIG "MS"
-#define PLIC_NUM_SOURCES 127
-#define PLIC_NUM_PRIORITIES 7
-#define PLIC_PRIORITY_BASE 0x04
-#define PLIC_PENDING_BASE 0x1000
-#define PLIC_ENABLE_BASE 0x2000
-#define PLIC_ENABLE_STRIDE 0x80
-#define PLIC_CONTEXT_BASE 0x200000
-#define PLIC_CONTEXT_STRIDE 0x1000
-
-#define PLIC_BITFIELD_WORDS ((PLIC_NUM_SOURCES + 31) >> 5)
-
-static uint32_t plic_priority[PLIC_NUM_SOURCES + 1];
+static uint32_t plic_priority[PLIC_NUM_SOURCES + 1]; // XXX migrate to VirtMachine!
 
 static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
 {

@@ -193,4 +193,17 @@ typedef enum {
     PMPCFG_L       = 0x80,
 } pmpcfg_t;
 
+/* Copy & paste from qemu include/hw/riscv/virt.h */
+#define PLIC_HART_CONFIG      "MS"
+#define PLIC_NUM_SOURCES           127
+#define PLIC_NUM_PRIORITIES          7
+#define PLIC_PRIORITY_BASE           4
+#define PLIC_PENDING_BASE       0x1000
+#define PLIC_ENABLE_BASE        0x2000
+#define PLIC_ENABLE_STRIDE        0x80
+#define PLIC_CONTEXT_BASE     0x200000
+#define PLIC_CONTEXT_STRIDE     0x1000
+
+#define PLIC_BITFIELD_WORDS ((PLIC_NUM_SOURCES + 31) >> 5)
+
 #endif
