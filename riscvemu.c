@@ -699,7 +699,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             break;
 
         case 'n':
-            if (ncpus!=0)
+            if (ncpus != 0)
                 usage(prog, "already had a ncpus set");
             ncpus = atoll(optarg);
             break;
@@ -819,12 +819,12 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         p->ram_size = memory_size_override << 20;
 
     if (ncpus)
-      p->ncpus = ncpus;
+        p->ncpus = ncpus;
     if (p->ncpus>=MAX_CPUS)
-      usage(prog, "ncpus limit reached (MAX_CPUS).  Increase MAX_CPUS");
+        usage(prog, "ncpus limit reached (MAX_CPUS).  Increase MAX_CPUS");
 
-    if (p->ncpus==0)
-      p->ncpus = 1;
+    if (p->ncpus == 0)
+        p->ncpus = 1;
 
     if (cmdline)
         vm_add_cmdline(p, cmdline);
@@ -927,7 +927,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         s->maxinsns = UINT64_MAX;
 
     for (int i = 0; i < ((RISCVMachine *)s)->ncpus; ++i)
-      ((RISCVMachine *)s)->cpu_state[i]->ignore_sbi_shutdown = ignore_sbi_shutdown;
+        ((RISCVMachine *)s)->cpu_state[i]->ignore_sbi_shutdown = ignore_sbi_shutdown;
 
     virt_machine_free_config(p);
 

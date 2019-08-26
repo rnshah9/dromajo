@@ -219,7 +219,7 @@ static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
     assert(size_log2 == 2);
     if (0 <= offset && offset < 0x4000) {
         int hartid = offset >> 2;
-        if (hartid > m->ncpus) {
+        if (m->ncpus <= hartid) {
             fprintf(stderr, "%s: MSIP access for hartid:%d which is beyond ncpus\n", __func__, hartid);
             val = 0;
         } else {
@@ -231,18 +231,15 @@ static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
     } else if (offset == 0xbffc) {
         uint64_t mtime = m->cpu_state[0]->mcycle / RTC_FREQ_DIV;
         val = mtime >> 32;
-    } else if (offset>=0x4000 && offset <0xbff8) {
-        int high = (offset>>2)&1;
-        int hartid = (offset-0x4000)>>3;
-        if (hartid>m->ncpus) {
+    } else if (0x4000 <= offset && offset < 0xbff8) {
+        int hartid = (offset - 0x4000) >> 3;
+        if (m->ncpus <= hartid) {
             fprintf(stderr, "%s: MSIP access for hartid:%d which is beyond ncpus\n", __func__, hartid);
             val = 0;
+        } else if ((offset >> 2) & 1) {
+            val = m->cpu_state[hartid]->timecmp >> 32;
         } else {
-            if (high) {
-                val = m->cpu_state[hartid]->timecmp >> 32;
-            } else {
-                val = m->cpu_state[hartid]->timecmp;
-            }
+            val = m->cpu_state[hartid]->timecmp;
         }
     } else {
         fprintf(stderr, "clint_read to unmanaged address 0x%x\n", CLINT_BASE_ADDR + offset);
@@ -264,14 +261,12 @@ static void clint_write(void *opaque, uint32_t offset, uint32_t val,
     assert(size_log2 == 2);
     if (0 <= offset && offset < 0x4000) {
         int hartid = offset >> 2;
-        if (hartid > m->ncpus) {
+        if (m->ncpus <= hartid) {
             fprintf(stderr, "%s: MSIP access for hartid:%d which is beyond ncpus\n", __func__, hartid);
-        } else {
-            if (val & 1)
-                riscv_cpu_set_mip(m->cpu_state[hartid], MIP_MSIP);
-            else
-                riscv_cpu_reset_mip(m->cpu_state[hartid], MIP_MSIP);
-        }
+        } else if (val & 1)
+            riscv_cpu_set_mip(m->cpu_state[hartid], MIP_MSIP);
+        else
+            riscv_cpu_reset_mip(m->cpu_state[hartid], MIP_MSIP);
     } else if (offset == 0xbff8) {
         uint64_t mtime = m->cpu_state[0]->mcycle / RTC_FREQ_DIV; // WARNING: move mcycle to RISCVMachine
         mtime = (mtime & 0xFFFFFFFF00000000L) + val;
@@ -281,18 +276,15 @@ static void clint_write(void *opaque, uint32_t offset, uint32_t val,
         mtime = (mtime & 0x00000000FFFFFFFFL) + ((uint64_t)val << 32);
         m->cpu_state[0]->mcycle = mtime * RTC_FREQ_DIV;
     } else if (0x4000 <= offset && offset < 0xbff8) {
-        int high = (offset >> 2) & 1;
         int hartid = (offset - 0x4000) >> 3;
-        if (hartid>m->ncpus) {
+        if (m->ncpus <= hartid) {
             fprintf(stderr, "%s: MSIP access for hartid:%d which is beyond ncpus\n", __func__, hartid);
+        } else if ((offset >> 2) & 1) {
+            m->cpu_state[hartid]->timecmp = (m->cpu_state[hartid]->timecmp & 0xffffffff) | ((uint64_t)val << 32);
+            riscv_cpu_reset_mip(m->cpu_state[hartid], MIP_MTIP);
         } else {
-            if (high) {
-                m->cpu_state[hartid]->timecmp = (m->cpu_state[hartid]->timecmp & ~0xffffffff) | val;
-                riscv_cpu_reset_mip(m->cpu_state[hartid], MIP_MTIP);
-            } else {
-                m->cpu_state[hartid]->timecmp = (m->cpu_state[hartid]->timecmp & 0xffffffff) | ((uint64_t)val << 32);
-                riscv_cpu_reset_mip(m->cpu_state[hartid], MIP_MTIP);
-            }
+            m->cpu_state[hartid]->timecmp = (m->cpu_state[hartid]->timecmp & ~0xffffffff) | val;
+            riscv_cpu_reset_mip(m->cpu_state[hartid], MIP_MTIP);
         }
     } else {
         fprintf(stderr, "clint_write to unmanaged address 0x%x\n", CLINT_BASE_ADDR + offset);
@@ -350,7 +342,7 @@ static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
     } else if (PLIC_ENABLE_BASE <= offset && offset <= PLIC_ENABLE_BASE + (PLIC_ENABLE_STRIDE * MAX_CPUS)) {
         int addrid = (offset - PLIC_ENABLE_BASE) / PLIC_ENABLE_STRIDE;
         int hartid = addrid / 2; // PLIC_HART_CONFIG is "MS"
-        if (hartid < s->ncpus) {
+        if (hartid <= s->ncpus) {
             //uint32_t wordid = (offset & (PLIC_ENABLE_STRIDE-1))>>2;
             RISCVCPUState *cpu = s->cpu_state[hartid];
             val = cpu->plic_enable_irq;
@@ -399,7 +391,7 @@ static void plic_write(void *opaque, uint32_t offset, uint32_t val, int size_log
     } else if (PLIC_ENABLE_BASE <= offset && offset <= PLIC_ENABLE_BASE + PLIC_ENABLE_STRIDE * MAX_CPUS) {
         int addrid = (offset - PLIC_ENABLE_BASE) / PLIC_ENABLE_STRIDE;
         int hartid = addrid / 2; // PLIC_HART_CONFIG is "MS"
-        if (hartid < s->ncpus) {
+        if (hartid <= s->ncpus) {
             //uint32_t wordid = (offset & (PLIC_ENABLE_STRIDE - 1)) >> 2;
             RISCVCPUState *cpu = s->cpu_state[hartid];
             cpu->plic_enable_irq = val;
@@ -814,7 +806,7 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
         tab[hartid * 4 + 3] = 11; /* M ext irq */
     }
 
-    fdt_prop_tab_u32(s, "interrupts-extended", tab, 4*m->ncpus);
+    fdt_prop_tab_u32(s, "interrupts-extended", tab, m->ncpus * 4);
 
     plic_phandle = cur_phandle++;
     fdt_prop_u32(s, "phandle", plic_phandle);
@@ -929,7 +921,7 @@ static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len, cons
        Eventually we'll make this code loadable */
 
     *q++ = 0xf1402573;  // start:  csrr   a0, mhartid
-    if (s->ncpus==1) {
+    if (s->ncpus == 1) {
         *q++ = 0x00050663;  //         beqz   a0, 1f
         *q++ = 0x10500073;  // 0:      wfi
         *q++ = 0xffdff06f;  //         j      0b
@@ -991,7 +983,7 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
 
     s->ncpus = p->ncpus;
 
-    if (s->ncpus>MAX_CPUS) {
+    if (MAX_CPUS < s->ncpus) {
         fprintf(stderr, "ERROR: ncpus:%d exceeds maximum MAX_CPU\n", s->ncpus);
         exit(3);
     }
