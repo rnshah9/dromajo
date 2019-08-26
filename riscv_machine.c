@@ -330,16 +330,16 @@ static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
     RISCVMachine *s = (RISCVMachine *)opaque;
 
     assert(size_log2 == 2);
-    if (PLIC_PRIORITY_BASE <= offset && offset <= PLIC_PRIORITY_BASE + (PLIC_NUM_SOURCES << 2)) {
+    if (PLIC_PRIORITY_BASE <= offset && offset < PLIC_PRIORITY_BASE + (PLIC_NUM_SOURCES << 2)) {
         uint32_t irq = ((offset - PLIC_PRIORITY_BASE) >> 2) + 1;
         assert(irq < PLIC_NUM_SOURCES);
         val = plic_priority[irq];
-    } else if (PLIC_PENDING_BASE <= offset && offset <= PLIC_PENDING_BASE + (PLIC_NUM_SOURCES >> 3)) {
+    } else if (PLIC_PENDING_BASE <= offset && offset < PLIC_PENDING_BASE + (PLIC_NUM_SOURCES >> 3)) {
         if (offset == PLIC_PENDING_BASE)
             val = s->plic_pending_irq;
         else
             val = 0;
-    } else if (PLIC_ENABLE_BASE <= offset && offset <= PLIC_ENABLE_BASE + (PLIC_ENABLE_STRIDE * MAX_CPUS)) {
+    } else if (PLIC_ENABLE_BASE <= offset && offset < PLIC_ENABLE_BASE + (PLIC_ENABLE_STRIDE * MAX_CPUS)) {
         int addrid = (offset - PLIC_ENABLE_BASE) / PLIC_ENABLE_STRIDE;
         int hartid = addrid / 2; // PLIC_HART_CONFIG is "MS"
         if (hartid <= s->ncpus) {
@@ -349,7 +349,7 @@ static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
         } else {
             val = 0;
         }
-    } else if (PLIC_CONTEXT_BASE <= offset && offset <= PLIC_CONTEXT_BASE + PLIC_CONTEXT_STRIDE * MAX_CPUS) {
+    } else if (PLIC_CONTEXT_BASE <= offset && offset < PLIC_CONTEXT_BASE + PLIC_CONTEXT_STRIDE * MAX_CPUS) {
         uint32_t hartid = (offset - PLIC_CONTEXT_BASE) / PLIC_CONTEXT_STRIDE;
         uint32_t wordid = (offset & (PLIC_CONTEXT_STRIDE - 1)) >> 2;
         if (wordid == 0) {
@@ -381,14 +381,14 @@ static void plic_write(void *opaque, uint32_t offset, uint32_t val, int size_log
     RISCVMachine *s = (RISCVMachine *)opaque;
 
     assert(size_log2 == 2);
-    if (PLIC_PRIORITY_BASE <= offset && offset <= PLIC_PRIORITY_BASE + (PLIC_NUM_SOURCES << 2)) {
+    if (PLIC_PRIORITY_BASE <= offset && offset < PLIC_PRIORITY_BASE + (PLIC_NUM_SOURCES << 2)) {
         uint32_t irq = ((offset - PLIC_PRIORITY_BASE) >> 2) + 1;
         assert(irq < PLIC_NUM_SOURCES);
         plic_priority[irq] = val & 7;
 
-    } else if (PLIC_PENDING_BASE <= offset && offset <= PLIC_PENDING_BASE + (PLIC_NUM_SOURCES >> 3)) {
+    } else if (PLIC_PENDING_BASE <= offset && offset < PLIC_PENDING_BASE + (PLIC_NUM_SOURCES >> 3)) {
         fprintf(stderr, "plic_write: INVALID pending write to offset=0x%x\n", offset);
-    } else if (PLIC_ENABLE_BASE <= offset && offset <= PLIC_ENABLE_BASE + PLIC_ENABLE_STRIDE * MAX_CPUS) {
+    } else if (PLIC_ENABLE_BASE <= offset && offset < PLIC_ENABLE_BASE + PLIC_ENABLE_STRIDE * MAX_CPUS) {
         int addrid = (offset - PLIC_ENABLE_BASE) / PLIC_ENABLE_STRIDE;
         int hartid = addrid / 2; // PLIC_HART_CONFIG is "MS"
         if (hartid <= s->ncpus) {
@@ -396,7 +396,7 @@ static void plic_write(void *opaque, uint32_t offset, uint32_t val, int size_log
             RISCVCPUState *cpu = s->cpu_state[hartid];
             cpu->plic_enable_irq = val;
         }
-    } else if (PLIC_CONTEXT_BASE <= offset && offset <= PLIC_CONTEXT_BASE + PLIC_CONTEXT_STRIDE * MAX_CPUS) {
+    } else if (PLIC_CONTEXT_BASE <= offset && offset < PLIC_CONTEXT_BASE + PLIC_CONTEXT_STRIDE * MAX_CPUS) {
         uint32_t hartid = (offset - PLIC_CONTEXT_BASE) / PLIC_CONTEXT_STRIDE;
         uint32_t wordid = (offset & (PLIC_CONTEXT_STRIDE - 1)) >> 2;
         if (wordid == 0) {
