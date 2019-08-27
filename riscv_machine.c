@@ -1027,9 +1027,6 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
         irq_init(&s->plic_irq[j], plic_set_irq, s, j);
     }
 
-    // One map. Handle per CPU inside
-    cpu_register_device(s->mem_map, CLINT_BASE_ADDR, CLINT_SIZE, s,
-                        clint_read, clint_write, DEVIO_SIZE32);
     s->htif_tohost_addr = p->htif_base_addr;
 
     s->common.console = p->console;
