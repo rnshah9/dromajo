@@ -1,7 +1,20 @@
+RISCVEMU 20190827 Release Notes
+===============================
+
+  * Fixed handling exceptions when stvec/mtvec set to vectored
+    interrupts
+
+  * Bug in handling of CLINT writes corrected
+
+  * MEMORY_MAP.md now details the memory layout
+
+
 RISCVEMU 20190319 Release Notes
 ===============================
 
 End-user visible Changes since 20190121
+
+   * Relocate PLIC to 0x00_1000_0000 to match SoC
 
    * Sped excution by ~ 8 X
 
