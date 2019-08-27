@@ -1830,6 +1830,8 @@ static void raise_exception2(RISCVCPUState *s, uint64_t cause,
         deleg = 0;
     }
 
+    target_ulong effective_tvec;
+
     if (deleg) {
         s->scause = cause;
         s->sepc = SEPC_TRUNCATE(s->pc);
@@ -1840,10 +1842,7 @@ static void raise_exception2(RISCVCPUState *s, uint64_t cause,
             (s->priv << MSTATUS_SPP_SHIFT);
         s->mstatus &= ~MSTATUS_SIE;
         set_priv(s, PRV_S);
-        if (s->stvec & 1 && cause & CAUSE_INTERRUPT)
-            s->pc = s->stvec - 1 + 4 * s->scause;
-        else
-            s->pc = s->stvec;
+        effective_tvec = s->stvec;
     } else {
         s->mcause = cause;
         s->mepc = MEPC_TRUNCATE(s->pc);
@@ -1863,11 +1862,14 @@ static void raise_exception2(RISCVCPUState *s, uint64_t cause,
             (s->priv << MSTATUS_MPP_SHIFT);
         s->mstatus &= ~MSTATUS_MIE;
         set_priv(s, PRV_M);
-        if (s->mtvec & 1 && cause & CAUSE_INTERRUPT)
-            s->pc = s->mtvec - 1 + 4 * s->mcause;
-        else
-            s->pc = s->mtvec;
+        effective_tvec = s->mtvec;
     }
+
+    int mode = effective_tvec & 3;
+    target_ulong base = effective_tvec & ~3;
+    s->pc = base;
+    if (mode == 1 && cause & CAUSE_INTERRUPT)
+        s->pc += 4 * (cause & ~CAUSE_INTERRUPT);
 }
 
 static void raise_exception(RISCVCPUState *s, uint64_t cause)
