@@ -126,3 +126,7 @@ tags:
 
 bench: riscvemu
 	bash -c "time ./riscvemu --maxinsns 100000000 $(BENCH_WORKLOAD)"
+
+release:
+	git archive HEAD | xz -9 > riscvemu-$(shell date +%Y%m%d)-$(shell git rev-parse --short HEAD).tar.xz
+	git tag release-$(shell date +%Y%m%d)
