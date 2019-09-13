@@ -909,7 +909,13 @@ static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len, cons
     else
         memcpy(get_ram_ptr(s, s->ram_base_addr), buf, buf_len);
 
-    assert(s->ram_base_addr == 0x80000000 || s->ram_base_addr == 0x8000000000);
+    if (!(s->ram_base_addr == 0x80000000 || s->ram_base_addr == 0x8000000000)) {
+        fprintf(riscvemu_stderr,
+                "RISCVEMU currently requires a 0x80000000 or 0x8000000000"
+                " starting address, image assumes 0x%0lx\n",
+                elf64_get_entrypoint(buf));
+        assert(0);
+    }
 
     uint8_t *ram_ptr  = get_ram_ptr(s, ROM_BASE_ADDR);
     uint32_t fdt_addr = (BOOT_BASE_ADDR - ROM_BASE_ADDR) + 256;

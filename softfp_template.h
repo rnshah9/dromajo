@@ -427,6 +427,22 @@ F_UINT fma_sf(F_UINT a, F_UINT b, F_UINT c, RoundingModeEnum rm,
     b_mant = b & MANT_MASK;
     c_mant = c & MANT_MASK;
     if (a_exp == EXP_MASK || b_exp == EXP_MASK || c_exp == EXP_MASK) {
+        /* IEEE 754-2008 spec, section 7.2 part c:
+         *
+         * "fusedMultiplyAdd: fusedMultiplyAdd(0, ∞, c) or
+         * fusedMultiplyAdd(∞, 0, c) unless c is a quiet NaN; if c is
+         * a quiet NaN then it is implementation defined whether the
+         * invalid operation exception is signaled"
+         *
+         * We want to match Spike here.  Spike use John Hauser's
+         * softfloat which ignored c.
+         */
+        if (a_exp == 0 && a_mant == 0 && b_exp == EXP_MASK && b_mant == 0 ||
+            b_exp == 0 && b_mant == 0 && a_exp == EXP_MASK && a_mant == 0) {
+            *pfflags |= FFLAG_INVALID_OP;
+            return F_QNAN;
+        }
+
         if (isnan_sf(a) || isnan_sf(b) || isnan_sf(c)) {
             if (issignan_sf(a) || issignan_sf(b) || issignan_sf(c)) {
                 *pfflags |= FFLAG_INVALID_OP;
