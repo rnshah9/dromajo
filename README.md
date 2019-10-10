@@ -10,7 +10,9 @@
 
 # RISCVEMU - Esperanto Technology's RISC-V Reference Model
 
-RISCVEMU is based on Fabrice Bellard's emulator of the save name [1].  We have substantially modified this to suit our needs as a golden model for co-simulation with Maxion.
+RISCVEMU is based on Fabrice Bellard's emulator of the same name,
+since renamed `TinyEmu' [1].  We have substantially modified this to
+suit our needs as a golden model for co-simulation with ET-Maxion.
 
 ## Building
 
@@ -21,13 +23,18 @@ gcc -O2 -Wall -std=gnu99 -g -Werror -Wno-parentheses -D_FILE_OFFSET_BITS=64 -D_L
 ....
 ```
 
-(We recommend setting the `MAKEFLAGS` environment variable to `-j$(nproc)` for faster builds.)
+(We recommend setting the `MAKEFLAGS` environment variable to
+`-j$(nproc)` for faster builds.)
 
-The resulting artifacts are the `riscvemu` simulator and the `libriscvemu_cosim.a` library with associated `riscvemu_cosim.h` header file.
+The resulting artifacts are the `riscvemu` simulator and the
+`libriscvemu_cosim.a` library with associated `riscvemu_cosim.h`
+header file.
 
 ## Usage
 
-The co-simulation environment will link with the libraries and usage will depend on that, but the `vharness` utility allows for standalone simulation of RISC-V ELF binaries.
+The co-simulation environment will link with the libraries and usage
+will depend on that, but the `vharness` utility allows for standalone
+simulation of RISC-V ELF binaries.
 
 ```
 $ ./riscvemu

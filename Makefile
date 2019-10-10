@@ -42,10 +42,7 @@ LDFLAGS=
 
 bindir=/usr/local/bin
 INSTALL=install
-PROGS=riscvemu libvharness.a libriscvemu_cosim.a riscvemu_cosim_test
-
-# We don't have a large enough shared workload in a known location, so please adjust for your needs
-BENCH_WORKLOAD=../../from-ccelio/bbl-vmlinux-initramfs
+PROGS=riscvemu libriscvemu_cosim.a riscvemu_cosim_test
 
 all: $(PROGS)
 
@@ -62,11 +59,6 @@ riscvemu: vharness.o libriscvemu_cosim.a
 
 riscvemu_cosim_test: riscvemu_cosim_test.o libriscvemu_cosim.a
 	$(CXX) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
-
-# Deprecated
-libvharness.a: vharness.o riscv_cpu64.o riscvemu.o \
-	riscv_machine.o softfp.o $(EMU_OBJS)
-	ar rvs $@ $^
 
 vharness.o: vharness.c
 	$(CXX) $(CXXFLAGS) -DMAX_XLEN=64 -c -o $@ $<
@@ -102,19 +94,6 @@ debug:
 build:
 	mkdir -p build
 
-build/artifacts: | build
-	mkdir -p build/artifacts
-
-regression-artifacts: $(PROGS) | build/artifacts
-	cp riscvemu build/artifacts/
-	xz -f build/artifacts/riscvemu
-
-run-tests: | build/artifacts
-	# FIXME enable all tests under the tests folder
-	+$(MAKE) -C tests OUTPUT_DIR=$$PWD/build linux_boot_tests
-	cp build/*.log build/artifacts/
-
-
 clean:
 	rm -f *.o *.d *~ $(PROGS)
 	rm -rf build
@@ -123,9 +102,6 @@ clean:
 
 tags:
 	etags *.[hc]
-
-bench: riscvemu
-	bash -c "time ./riscvemu --maxinsns 100000000 $(BENCH_WORKLOAD)"
 
 release:
 	git archive HEAD | xz -9 > riscvemu-$(shell date +%Y%m%d)-$(shell git rev-parse --short HEAD).tar.xz

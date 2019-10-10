@@ -674,16 +674,16 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     for (;;) {
         int option_index = 0;
         static struct option long_options[] = {
-            {"cmdline",                 required_argument, 0,  'c' },
-            {"ncpus",                   required_argument, 0,  'n' },
+            {"cmdline",                 required_argument, 0,  'c' }, // CFG
+            {"ncpus",                   required_argument, 0,  'n' }, // CFG
             {"load",                    required_argument, 0,  'l' },
             {"save",                    required_argument, 0,  's' },
-            {"maxinsns",                required_argument, 0,  'm' },
-            {"terminate-event",         required_argument, 0,  'e'},
+            {"maxinsns",                required_argument, 0,  'm' }, // CFG
+            {"terminate-event",         required_argument, 0,  'e' }, // CFG
             {"trace   ",                required_argument, 0,  't' },
-            {"ignore_sbi_shutdown",     required_argument, 0,  'P' },
-            {"memory_size",             required_argument, 0,  'M' },
-            {"memory_addr",             required_argument, 0,  'A' },
+            {"ignore_sbi_shutdown",     required_argument, 0,  'P' }, // CFG
+            {"memory_size",             required_argument, 0,  'M' }, // CFG
+            {"memory_addr",             required_argument, 0,  'A' }, // CFG
             {0,                         0,                 0,  0 }
         };
 
