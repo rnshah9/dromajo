@@ -110,11 +110,11 @@ uint32_t dw_apb_uart_read(void *opaque, uint32_t offset, int size_log2)
 
     switch (offset) {
     case uart_reg_rx_buf: // 0x00
-        if (s->lcr & (1 << bfoUART_LCR_DLAB)) {
+        if (s->lcr & (1 << 7)) {
             res = s->div_latch & 255;
         } else {
             res = s->rbr;
-            s->lsr &= ~(1 << bfoUART_LSR_DR);
+            s->lsr &= ~1;
 
             // XXX more side effects here, opt. drain FIFO when in FIFO mode
             // Read from device maybe
@@ -125,7 +125,7 @@ uint32_t dw_apb_uart_read(void *opaque, uint32_t offset, int size_log2)
         break;
 
     case uart_reg_intren: // 0x04
-        if (s->lcr & (1 << bfoUART_LCR_DLAB)) {
+        if (s->lcr & (1 << 7)) {
             res = s->div_latch >> 8;
         } else {
             res = s->ier;
@@ -135,7 +135,7 @@ uint32_t dw_apb_uart_read(void *opaque, uint32_t offset, int size_log2)
 
     case uart_reg_intrid: // 0x08
         s->iid = 1; // XXX Value After Reset
-        res = (s->fcr & (1 << bfoUART_FCR_FIFO_ENABLE) ? 0xc0 : 0) + s->iid;
+        res = ((s->fcr & 1) ? 0xc0 : 0) + s->iid;
         break;
 
     case uart_reg_linecontrol: // 0x0c
@@ -144,15 +144,15 @@ uint32_t dw_apb_uart_read(void *opaque, uint32_t offset, int size_log2)
 
     case uart_reg_linestatus: // 0x14
         res = s->lsr;
-        s->lsr |= (1 << bfoUART_LSR_TEMT) | (1 << bfoUART_LSR_THRE); // TX empty, Holding Empty
+        s->lsr |= (1 << 6) | (1 << 5); // TX empty, Holding Empty
         s->lsr &= ~30; // Reading clears BI, FE, PE, OE
 
-        if (!(s->lsr & (1 << bfoUART_LSR_DR))) {
+        if (!(s->lsr & 1)) {
             CharacterDevice *cs = s->cs;
             uint8_t buf;
 
             if (cs->read_data(cs->opaque, &buf, 1)) {
-                s->lsr |= 1 << bfoUART_LSR_DR;
+                s->lsr |= 1;
                 s->rbr = buf;
             }
         }
@@ -185,7 +185,7 @@ void dw_apb_uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log
 
     switch (offset) {
     case uart_reg_rx_buf: // 0x00
-        if (s->lcr & (1 << bfoUART_LCR_DLAB)) {
+        if (s->lcr & (1 << 7)) {
             s->div_latch = (s->div_latch & ~255) + val;
             DEBUG("     div latch is now %d\n", s->div_latch);
         } else {
@@ -193,13 +193,13 @@ void dw_apb_uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log
             unsigned char ch = val;
             DEBUG("   TRANSMIT '%c' (0x%02x)\n", val, val);
             cs->write_data(cs->opaque, &ch, 1);
-            s->lsr &= ~(1 << bfoUART_LSR_THRE); // XXX Assumes non-fifo mode
-            s->lsr &= ~(1 << bfoUART_LSR_TEMT);
+            s->lsr &= ~(1 << 5); // XXX Assumes non-fifo mode
+            s->lsr &= ~(1 << 6);
         }
         break;
 
     case uart_reg_intren: // 0x04
-        if (s->lcr & (1 << bfoUART_LCR_DLAB)) {
+        if (s->lcr & (1 << 7)) {
             s->div_latch = (s->div_latch & 255) + val * 256;
             DEBUG("     div latch is now %d\n", s->div_latch);
         } else {
@@ -212,22 +212,22 @@ void dw_apb_uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log
         for (int i = 0; i < 8; ++i)
             if (s->fcr & (1 << i))
                 switch (i) {
-                case bfoUART_FCR_FIFO_ENABLE:
+                case 0:
                     DEBUG("    FIFO enable\n");
                     break;
-                case bfoUART_FCR_RCVR_FIFO_RESET:
+                case 1:
                     DEBUG("    receiver FIFO reset\n");
                     break;
-                case bfoUART_FCR_XMIT_FIFO_RESET:
+                case 2:
                     DEBUG("    transmitter FIFO reset\n");
                     break;
-                case bfoUART_FCR_DMA_MODE:
+                case 3:
                     DEBUG("    dma mode\n");
                     break;
-                case bfoUART_FCR_TX_EMPTY_TRIGGER:
+                case 4:
                     DEBUG("    transmitter empty trigger\n");
                     break;
-                case bfoUART_FCR_RCVR_TRIGGER:
+                case 6:
                     DEBUG("    receiver trigger\n");
                     break;
                 default:

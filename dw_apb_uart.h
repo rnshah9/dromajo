@@ -10,7 +10,6 @@
 
 #include <stdint.h>
 #include "virtio.h"
-#include "DW_apb_uart_private.h"
 
 typedef struct DW_apb_uart_state {
     CharacterDevice       *cs;
