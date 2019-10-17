@@ -2090,7 +2090,6 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
     s->mimpid    = 1;
     s->mhartid   = hartid;
 
-    s->store_repair_addr = ~0;
     s->tselect = 0;
     for (int i = 0; i < MAX_TRIGGERS; ++i) {
         s->tdata1[i] = 2l << 60;

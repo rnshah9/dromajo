@@ -246,11 +246,6 @@ typedef struct RISCVCPUState {
     uint32_t mce_retire_watchdog_init;
 
     target_ulong load_res; /* for atomic LR/SC */
-    uint32_t  store_repair_val32; /* saving previous value of memory so it can be repaired */
-    uint64_t  store_repair_val64;
-    uint128_t store_repair_val128;
-    target_ulong store_repair_addr; /* saving which address to repair */
-    uint64_t last_addr; /* saving previous value of address so it can be repaired */
 
     PhysMemoryMap *mem_map;
     int physical_addr_len;
