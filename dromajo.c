@@ -8,7 +8,7 @@
 // agreement/contract under which the program(s) have been supplied.
 //------------------------------------------------------------------------------
 
-#include "riscvemu.h"
+#include "dromajo.h"
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>

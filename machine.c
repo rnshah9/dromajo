@@ -32,7 +32,7 @@
  * THE SOFTWARE.
  */
 
-#include "riscvemu.h"
+#include "dromajo.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>

@@ -16,11 +16,11 @@
  * Parse the trace output and check that we cosim correctly.
  */
 
-#include "riscvemu.h"
+#include "dromajo.h"
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include "riscvemu_cosim.h"
+#include "dromajo_cosim.h"
 
 void usage(char *progname)
 {

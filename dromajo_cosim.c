@@ -12,8 +12,8 @@
  * API for RISCVEMU-based cosimulation
  */
 
-#include "riscvemu.h"
-#include "riscvemu_cosim.h"
+#include "dromajo.h"
+#include "dromajo_cosim.h"
 #include "cutils.h"
 #include "iomem.h"
 #include "riscv_cpu.h"

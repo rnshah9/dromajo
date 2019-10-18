@@ -8,8 +8,8 @@
 // agreement/contract under which the program(s) have been supplied.
 //------------------------------------------------------------------------------
 
-#ifndef RISCVEMU_H
-#define RISCVEMU_H
+#ifndef DROMAJO_H
+#define DROMAJO_H
 
 #include <stdio.h>
 

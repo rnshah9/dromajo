@@ -9,7 +9,7 @@
 #------------------------------------------------------------------------------
 
 #
-# RISC-V Emulator
+# Dromajo, a RISC-V Emulator (based on Fabrice Bellard's RISCVEMU/TinyEMU)
 #
 # Copyright (c) 2016-2017 Fabrice Bellard
 # Copyright (c) 2018,2019 Esperanto Technology
@@ -42,38 +42,35 @@ LDFLAGS=
 
 bindir=/usr/local/bin
 INSTALL=install
-PROGS=riscvemu libriscvemu_cosim.a riscvemu_cosim_test
+PROGS=dromajo libdromajo_cosim.a dromajo_cosim_test
 
 all: $(PROGS)
 
 EMU_OBJS:=virtio.o pci.o fs.o cutils.o iomem.o dw_apb_uart.o \
-    json.o machine.o elf64.o LiveCache.o
+    json.o machine.o elf64.o LiveCache.o fs_disk.o
 
-RISCVEMU_OBJS:=$(EMU_OBJS) riscvemu.o riscv_machine.o softfp.o riscvemu_main.o
-
-EMU_OBJS+=fs_disk.o
 EMU_LIBS=-lrt
 
-riscvemu: vharness.o libriscvemu_cosim.a
-	$(CXX) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
+dromajo: dromajo.o libdromajo_cosim.a
+	$(CXX) $(LDFLAGS) -o $@ $^ $(DROMAJO_LIBS) $(EMU_LIBS)
 
-riscvemu_cosim_test: riscvemu_cosim_test.o libriscvemu_cosim.a
-	$(CXX) $(LDFLAGS) -o $@ $^ $(RISCVEMU_LIBS) $(EMU_LIBS)
+dromajo_cosim_test: dromajo_cosim_test.o libdromajo_cosim.a
+	$(CXX) $(LDFLAGS) -o $@ $^ $(DROMAJO_LIBS) $(EMU_LIBS)
 
-vharness.o: vharness.c
+dromajo.o: dromajo.c
 	$(CXX) $(CXXFLAGS) -DMAX_XLEN=64 -c -o $@ $<
 
-libriscvemu_cosim.a: riscvemu_cosim.o riscv_cpu64.o riscvemu.o \
+libdromajo_cosim.a: dromajo_cosim.o riscv_cpu64.o dromajo_main.o \
 	riscv_machine.o softfp.o $(EMU_OBJS)
 	ar rvs $@ $^
 
-riscvemu_cosim_test.o: riscvemu_cosim_test.c
+dromajo_cosim_test.o: dromajo_cosim_test.c
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-riscvemu_cosim.o: riscvemu_cosim.c
+dromajo_cosim.o: dromajo_cosim.c
 	$(CXX) $(CXXFLAGS) -DMAX_XLEN=64 -c -o $@ $<
 
-riscvemu.o: riscvemu.c
+dromajo_main.o: dromajo_main.c
 	$(CXX) $(CXXFLAGS) -DCONFIG_CPU_RISCV -c -o $@ $<
 
 riscv_cpu64.o: riscv_cpu.c
@@ -104,5 +101,5 @@ tags:
 	etags *.[hc]
 
 release:
-	git archive HEAD | xz -9 > riscvemu-$(shell date +%Y%m%d)-$(shell git rev-parse --short HEAD).tar.xz
+	git archive HEAD | xz -9 > dromajo-$(shell date +%Y%m%d)-$(shell git rev-parse --short HEAD).tar.xz
 	git tag release-$(shell date +%Y%m%d)

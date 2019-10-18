@@ -33,7 +33,7 @@
  * THE SOFTWARE.
  */
 
-#include "riscvemu.h"
+#include "dromajo.h"
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -2010,10 +2010,10 @@ static sfloat64 f_unbox64(sfloat64 r)
 }
 
 #define XLEN 32
-#include "riscvemu_template.h"
+#include "dromajo_template.h"
 
 #define XLEN 64
-#include "riscvemu_template.h"
+#include "dromajo_template.h"
 
 int riscv_cpu_interp(RISCVCPUState *s, int n_cycles)
 {

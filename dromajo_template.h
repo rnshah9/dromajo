@@ -1815,14 +1815,14 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles)
             switch (imm) {
 
 #define F_SIZE 32
-#include "riscvemu_fp_template.h"
+#include "dromajo_fp_template.h"
 #if FLEN >= 64
 #define F_SIZE 64
-#include "riscvemu_fp_template.h"
+#include "dromajo_fp_template.h"
 #endif
 #if FLEN >= 128
 #define F_SIZE 128
-#include "riscvemu_fp_template.h"
+#include "dromajo_fp_template.h"
 #endif
 
             default:
