@@ -621,6 +621,7 @@ static void usage(const char *prog, const char *msg)
             "       --terminate-event name of the validate event to terminate execution\n"
             "       --trace start trace dump after a number of instructions. Trace disabled by default\n"
             "       --ignore_sbi_shutdown continue simulation even upon seeing the SBI_SHUTDOWN call\n"
+            "       --dump_memories dump memories that could be used to load a cosimulation\n"
             "       --memory_size sets the memory size in MiB (default 256 MiB)\n"
             "       --memory_addr sets the memory start address (default 0x%lx)\n",
             msg, prog, (long)RAM_BASE_ADDR);
@@ -665,6 +666,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     long        memory_size_override = 0;
     uint64_t    memory_addr_override = 0;
     bool        ignore_sbi_shutdown  = false;
+    bool        dump_memories        = false;
 
     riscvemu_stdout = stdout;
     riscvemu_stderr = stderr;
@@ -682,6 +684,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             {"terminate-event",         required_argument, 0,  'e' }, // CFG
             {"trace   ",                required_argument, 0,  't' },
             {"ignore_sbi_shutdown",     required_argument, 0,  'P' }, // CFG
+            {"dump_memories",           required_argument, 0,  'D' }, // CFG
             {"memory_size",             required_argument, 0,  'M' }, // CFG
             {"memory_addr",             required_argument, 0,  'A' }, // CFG
             {0,                         0,                 0,  0 }
@@ -759,6 +762,10 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 
         case 'P':
             ignore_sbi_shutdown = true;
+            break;
+
+        case 'D':
+            dump_memories = true;
             break;
 
         case 'M':
@@ -903,6 +910,7 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     }
 
     p->console = console_init(TRUE, stdin, riscvemu_stdout);
+    p->dump_memories = dump_memories;
 
     p->validation_terminate_event = terminate_event;
 

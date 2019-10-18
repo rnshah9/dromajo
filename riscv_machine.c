@@ -59,6 +59,8 @@
 //#define DUMP_HTIF
 //#define DUMP_PLIC
 
+#define USE_SIFIVE_UART
+
 #define PLIC_BASE_ADDR          0x10000000
 #define PLIC_SIZE                0x2000000
 #define PLIC_HART_BASE          0x00200000
@@ -909,9 +911,9 @@ static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len, cons
     else
         memcpy(get_ram_ptr(s, s->ram_base_addr), buf, buf_len);
 
-    if (!(s->ram_base_addr == 0x80000000 || s->ram_base_addr == 0x8000000000)) {
+    if (!(s->ram_base_addr == 0x80000000 || s->ram_base_addr == 0x8000000000 || s->ram_base_addr == 0xC000000000)) {
         fprintf(riscvemu_stderr,
-                "RISCVEMU currently requires a 0x80000000 or 0x8000000000"
+                "RISCVEMU currently requires a 0x80000000 or 0x8000000000 or 0xC000000000"
                 " starting address, image assumes 0x%0lx\n",
                 elf64_get_entrypoint(buf));
         assert(0);
@@ -939,9 +941,16 @@ static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len, cons
     *q++ = 0x60300413;  //         li     s0, 1539
     *q++ = 0x7b041073;  //         csrw   dcsr, s0
     *q++ = 0x0010041b;  //         addiw  s0, zero, 1
-    *q++ = 0x02741413;  //         slli   s0, s0, 39
-    if (s->ram_base_addr == 0x80000000)
-        q[-1] = 0x01f41413; //     slli s0, s0, 31
+    if (s->ram_base_addr == 0xC000000000) {
+      *q++ = 0x0030041b;  //         addiw  s0, zero, 3
+      *q++ = 0x02641413;  //         slli   s0, s0, 38
+    }else{
+      *q++ = 0x0010041b;  //         addiw  s0, zero, 1
+      if (s->ram_base_addr == 0x80000000)
+        *q++ = 0x01f41413; //     slli s0, s0, 31
+      else
+        *q++ = 0x02741413;  //         slli   s0, s0, 39
+    }
     *q++ = 0x7b141073;  //         csrw   dpc, s0
     *q++ = 0x7b200073;  //         dret
 
@@ -1112,6 +1121,21 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
 
     s->mmio_start = p->mmio_start;
     s->mmio_end   = p->mmio_end;
+
+    if (p->dump_memories) {
+      FILE *fd = fopen("BootRAM.hex", "w+");
+      if (fd==0) {
+        fprintf(stderr, "ERROR: could not create BootRAM.hex\n");
+        exit(-3);
+      }
+
+      uint8_t *ram_ptr  = get_ram_ptr(s, ROM_BASE_ADDR);
+      for(int i=0;i<ROM_SIZE/4;++i) {
+        uint32_t *q_base = (uint32_t *)(ram_ptr + (BOOT_BASE_ADDR - ROM_BASE_ADDR));
+        fprintf(fd,"@%06x %08x\n",i, q_base[i]);
+      }
+      fclose(fd);
+    }
 
     return (VirtMachine *)s;
 }
