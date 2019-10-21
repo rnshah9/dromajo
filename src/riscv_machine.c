@@ -127,20 +127,20 @@ static void uart_update_irq(SiFiveUARTState *s)
         cond = 1;
     }
     if (cond) {
-        fprintf(riscvemu_stderr, "uart_update_irq: FIXME we should raise IRQ saying that there is new data\n");
+        fprintf(dromajo_stderr, "uart_update_irq: FIXME we should raise IRQ saying that there is new data\n");
     }
 }
 
 static uint32_t mmio_read(void *opaque, uint32_t offset, int size_log2)
 {
-    fprintf(riscvemu_stderr, "mmio_read: offset=%x size_log2=%d\n", offset, size_log2);
+    fprintf(dromajo_stderr, "mmio_read: offset=%x size_log2=%d\n", offset, size_log2);
 
     return 0;
 }
 
 static void mmio_write(void *opaque, uint32_t offset, uint32_t val, int size_log2)
 {
-    fprintf(riscvemu_stderr, "mmio_write: offset=%x size_log2=%d val=%x\n", offset, size_log2, val);
+    fprintf(dromajo_stderr, "mmio_write: offset=%x size_log2=%d val=%x\n", offset, size_log2, val);
 }
 
 static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
@@ -148,7 +148,7 @@ static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
     SiFiveUARTState *s = (SiFiveUARTState *)opaque;
 
 #ifdef DUMP_UART
-    fprintf(riscvemu_stderr, "uart_read: offset=%x size_log2=%d\n", offset, size_log2);
+    fprintf(dromajo_stderr, "uart_read: offset=%x size_log2=%d\n", offset, size_log2);
 #endif
     switch (offset) {
     case SIFIVE_UART_RXFIFO: {
@@ -157,7 +157,7 @@ static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
         int ret = cs->read_data(cs->opaque, &r, 1);
         if (ret) {
 #ifdef DUMP_UART
-            fprintf(riscvemu_stderr, "uart_read: val=%x\n", r);
+            fprintf(dromajo_stderr, "uart_read: val=%x\n", r);
 #endif
             return r;
         }
@@ -177,7 +177,7 @@ static uint32_t uart_read(void *opaque, uint32_t offset, int size_log2)
         return s->div;
     }
 
-    fprintf(riscvemu_stderr, "%s: bad read: offset=0x%x\n", __func__, (int)offset);
+    fprintf(dromajo_stderr, "%s: bad read: offset=0x%x\n", __func__, (int)offset);
     return 0;
 }
 
@@ -188,7 +188,7 @@ static void uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log
     unsigned char ch = val;
 
 #ifdef DUMP_UART
-    fprintf(riscvemu_stderr, "uart_write: offset=%x val=%x size_log2=%d\n", offset, val, size_log2);
+    fprintf(dromajo_stderr, "uart_write: offset=%x val=%x size_log2=%d\n", offset, val, size_log2);
 #endif
 
     switch (offset) {
@@ -210,7 +210,7 @@ static void uart_write(void *opaque, uint32_t offset, uint32_t val, int size_log
         return;
     }
 
-    fprintf(riscvemu_stderr, "%s: bad write: addr=0x%x v=0x%x\n", __func__, (int)offset, (int)val);
+    fprintf(dromajo_stderr, "%s: bad write: addr=0x%x v=0x%x\n", __func__, (int)offset, (int)val);
 }
 
 /* CLINT registers
@@ -260,7 +260,7 @@ static uint32_t clint_read(void *opaque, uint32_t offset, int size_log2)
     }
 
 #ifdef DUMP_CLINT
-    fprintf(riscvemu_stderr, "clint_read: offset=%x val=%x\n", offset, val);
+    fprintf(dromajo_stderr, "clint_read: offset=%x val=%x\n", offset, val);
 #endif
 
     return val;
@@ -305,7 +305,7 @@ static void clint_write(void *opaque, uint32_t offset, uint32_t val,
     }
 
 #ifdef DUMP_CLINT
-    fprintf(riscvemu_stderr, "clint_write: offset=%x val=%x\n", offset, val);
+    fprintf(dromajo_stderr, "clint_write: offset=%x val=%x\n", offset, val);
 #endif
 }
 
@@ -370,7 +370,7 @@ static uint32_t plic_read(void *opaque, uint32_t offset, int size_log2)
         val = 0;
     }
 #ifdef DUMP_PLIC
-    fprintf(riscvemu_stderr, "plic_read: offset=%x val=%x\n", offset, val);
+    fprintf(dromajo_stderr, "plic_read: offset=%x val=%x\n", offset, val);
 #endif
 
     return val;
@@ -415,7 +415,7 @@ static void plic_write(void *opaque, uint32_t offset, uint32_t val, int size_log
         fprintf(stderr, "plic_write: ERROR: unexpected offset=%x val=%x\n", offset, val);
     }
 #ifdef DUMP_PLIC
-    fprintf(riscvemu_stderr, "plic_write: offset=%x val=%x\n", offset, val);
+    fprintf(dromajo_stderr, "plic_write: offset=%x val=%x\n", offset, val);
 #endif
 }
 
@@ -710,8 +710,8 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
     fdt_begin_node(s, "");
     fdt_prop_u32(s, "#address-cells", 2);
     fdt_prop_u32(s, "#size-cells", 2);
-    fdt_prop_str(s, "compatible", "ucbbar,riscvemu-bar_dev");
-    fdt_prop_str(s, "model", "ucbbar,riscvemu-bare");
+    fdt_prop_str(s, "compatible", "ucbbar,dromajo-bar_dev");
+    fdt_prop_str(s, "model", "ucbbar,dromajo-bare");
 
     /* CPU list */
     fdt_begin_node(s, "cpus");
@@ -772,7 +772,7 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
     fdt_prop_u32(s, "#address-cells", 2);
     fdt_prop_u32(s, "#size-cells", 2);
     fdt_prop_tab_str(s, "compatible",
-                     "ucbbar,riscvemu-bar-soc", "simple-bus", NULL);
+                     "ucbbar,dromajo-bar-soc", "simple-bus", NULL);
     fdt_prop(s, "ranges", NULL, 0);
 
     fdt_begin_node_num(s, "clint", CLINT_BASE_ADDR);
@@ -863,7 +863,7 @@ static int riscv_build_fdt(RISCVMachine *m, uint8_t *dst, const char *cmd_line)
 #if 0
     {
         FILE *f;
-        f = fopen("/tmp/riscvemu.dtb", "wb");
+        f = fopen("/tmp/dromajo.dtb", "wb");
         fwrite(dst, 1, size, f);
         fclose(f);
     }
@@ -899,8 +899,8 @@ static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len, cons
         // XXX if the ELF is given in the config file, then we don't get to set memory base based on that.
 
         if (elf64_get_entrypoint(buf) != s->ram_base_addr) {
-            fprintf(riscvemu_stderr,
-                    "RISCVEMU currently requires a 0x%lx starting address, image assumes 0x%0lx\n",
+            fprintf(dromajo_stderr,
+                    "DROMAJO currently requires a 0x%lx starting address, image assumes 0x%0lx\n",
                     s->ram_base_addr,
                     elf64_get_entrypoint(buf));
             return 1;
@@ -912,8 +912,8 @@ static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len, cons
         memcpy(get_ram_ptr(s, s->ram_base_addr), buf, buf_len);
 
     if (!(s->ram_base_addr == 0x80000000 || s->ram_base_addr == 0x8000000000 || s->ram_base_addr == 0xC000000000)) {
-        fprintf(riscvemu_stderr,
-                "RISCVEMU currently requires a 0x80000000 or 0x8000000000 or 0xC000000000"
+        fprintf(dromajo_stderr,
+                "DROMAJO currently requires a 0x80000000 or 0x8000000000 or 0xC000000000"
                 " starting address, image assumes 0x%0lx\n",
                 elf64_get_entrypoint(buf));
         assert(0);
@@ -1161,7 +1161,7 @@ void virt_machine_serialize(VirtMachine *s1, const char *dump_name)
     RISCVMachine *m = (RISCVMachine *)s1;
     RISCVCPUState *s = m->cpu_state[0]; // FIXME: MULTICORE
 
-    fprintf(riscvemu_stderr, "plic: %x %x timecmp=%llx\n",
+    fprintf(dromajo_stderr, "plic: %x %x timecmp=%llx\n",
             m->plic_pending_irq, m->plic_served_irq, (unsigned long long)s->timecmp);
 
     assert(m->ncpus == 1); // FIXME: riscv_cpu_serialize must be patched for multicore

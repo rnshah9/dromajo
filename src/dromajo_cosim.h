@@ -9,11 +9,11 @@
 //------------------------------------------------------------------------------
 
 /*
- * API for RISCVEMU-based cosimulation
+ * API for Dromajo-based cosimulation
  */
 
-#ifndef _RISCVEMU_COSIM_H
-#define _RISCVEMU_COSIM_H 1
+#ifndef _DROMAJO_COSIM_H
+#define _DROMAJO_COSIM_H 1
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -21,18 +21,18 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef struct riscvemu_cosim_state_st riscvemu_cosim_state_t;
+typedef struct dromajo_cosim_state_st dromajo_cosim_state_t;
 
 /*
- * riscvemu_cosim_init --
+ * dromajo_cosim_init --
  *
  * Creates and initialize the state of the RISC-V ISA golden model
  * Returns NULL upon failure.
  */
-riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[]);
+dromajo_cosim_state_t *dromajo_cosim_init(int argc, char *argv[]);
 
 /*
- * riscvemu_cosim_step --
+ * dromajo_cosim_step --
  *
  * executes exactly one instruction in the golden model and returns
  * zero if the supplied expected values match and execution should
@@ -47,7 +47,7 @@ riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[]);
  * with the expected values.
  *
  */
-int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
+int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
                         int                     hartid,
                         uint64_t                dut_pc,
                         uint32_t                dut_insn,
@@ -59,14 +59,14 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                         bool                    check);
 
 /*
- * riscvemu_cosim_raise_trap --
+ * dromajo_cosim_raise_trap --
  *
  * DUT raises a trap (exception or interrupt) and provides the cause.
  * MSB indicates an asynchronous interrupt, synchronous exception
  * otherwise.
  *
  */
-void riscvemu_cosim_raise_trap(riscvemu_cosim_state_t *state, int hartid, int64_t cause);
+void dromajo_cosim_raise_trap(dromajo_cosim_state_t *state, int hartid, int64_t cause);
 #ifdef __cplusplus
 } // extern C
 #endif

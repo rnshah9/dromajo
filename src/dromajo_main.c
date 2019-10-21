@@ -72,8 +72,8 @@
 #endif
 #include "elf64.h"
 
-FILE *riscvemu_stdout;
-FILE *riscvemu_stderr;
+FILE *dromajo_stdout;
+FILE *dromajo_stderr;
 
 typedef struct {
     FILE *stdin, *out;
@@ -141,10 +141,10 @@ static int console_read(void *opaque, uint8_t *buf, int len)
             s->console_esc_state = 0;
             switch (ch) {
             case 'x':
-                fprintf(riscvemu_stderr, "Terminated\n");
+                fprintf(dromajo_stderr, "Terminated\n");
                 exit(0);
             case 'h':
-                fprintf(riscvemu_stderr, "\n"
+                fprintf(dromajo_stderr, "\n"
                         "C-b h   print this help\n"
                         "C-b x   exit emulator\n"
                         "C-b C-b send C-b\n");
@@ -412,7 +412,7 @@ static EthernetDevice *tun_open(const char *ifname)
 
     fd = open("/dev/net/tun", O_RDWR);
     if (fd < 0) {
-        fprintf(riscvemu_stderr, "Error: could not open /dev/net/tun\n");
+        fprintf(dromajo_stderr, "Error: could not open /dev/net/tun\n");
         return NULL;
     }
     memset(&ifr, 0, sizeof(ifr));
@@ -420,7 +420,7 @@ static EthernetDevice *tun_open(const char *ifname)
     pstrcpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
     ret = ioctl(fd, TUNSETIFF, (void *) &ifr);
     if (ret != 0) {
-        fprintf(riscvemu_stderr, "Error: could not configure /dev/net/tun\n");
+        fprintf(dromajo_stderr, "Error: could not configure /dev/net/tun\n");
         close(fd);
         return NULL;
     }
@@ -500,7 +500,7 @@ static EthernetDevice *slirp_open(void)
     int restricted = 0;
 
     if (slirp_state) {
-        fprintf(riscvemu_stderr, "Only a single slirp instance is allowed\n");
+        fprintf(dromajo_stderr, "Only a single slirp instance is allowed\n");
         return NULL;
     }
     net = mallocz(sizeof(*net));
@@ -545,10 +545,10 @@ BOOL virt_machine_run(VirtMachine *m, int hartid)
 
 void help(void)
 {
-    fprintf(riscvemu_stderr, "riscvemu version " CONFIG_VERSION
+    fprintf(dromajo_stderr, "dromajo version " CONFIG_VERSION
             ", Copyright (c) 2016-2017 Fabrice Bellard\n"
            "                             Copyright (c) 2018,2019 Esperanto Technologies\n"
-           "usage: riscvemu [options] config_file\n"
+           "usage: dromajo [options] config_file\n"
            "options are:\n"
            "-m ram_size       set the RAM size in MB\n"
            "-rw               allow write access to the disk image (default=snapshot)\n"
@@ -568,7 +568,7 @@ void launch_alternate_executable(char **argv)
     const char *p, *exename;
     int len;
 
-    snprintf(new_exename, sizeof(new_exename), "riscvemu64");
+    snprintf(new_exename, sizeof(new_exename), "dromajo64");
     exename = argv[0];
     p = strrchr(exename, '/');
     if (p) {
@@ -577,7 +577,7 @@ void launch_alternate_executable(char **argv)
         len = 0;
     }
     if (len + strlen(new_exename) > sizeof(filename) - 1) {
-        fprintf(riscvemu_stderr, "%s: filename too long\n", exename);
+        fprintf(dromajo_stderr, "%s: filename too long\n", exename);
         exit(1);
     }
     memcpy(filename, exename, len);
@@ -608,7 +608,7 @@ static BOOL net_poll_cb(void *arg)
 
 static void usage(const char *prog, const char *msg)
 {
-    fprintf(riscvemu_stderr,
+    fprintf(dromajo_stderr,
             "error: %s\n"
             CONFIG_VERSION ", Copyright (c) 2016-2017 Fabrice Bellard,"
             " Copyright (c) 2018,2019 Esperanto Technologies\n"
@@ -668,8 +668,8 @@ VirtMachine *virt_machine_main(int argc, char **argv)
     bool        ignore_sbi_shutdown  = false;
     bool        dump_memories        = false;
 
-    riscvemu_stdout = stdout;
-    riscvemu_stderr = stderr;
+    dromajo_stdout = stdout;
+    dromajo_stderr = stderr;
 
     optind = 0;
 
@@ -740,11 +740,11 @@ VirtMachine *virt_machine_main(int argc, char **argv)
                     }
                 }
                 if (unknown_event) {
-                    fprintf(riscvemu_stderr, "Unknown terminate event \"%s\" \n", optarg);
-                    fprintf(riscvemu_stderr, "Valid termination events: \n");
+                    fprintf(dromajo_stderr, "Unknown terminate event \"%s\" \n", optarg);
+                    fprintf(dromajo_stderr, "Valid termination events: \n");
                     for (unsigned int j = 0; j < countof(validation_events); ++j) {
                         if (validation_events[j].terminate) {
-                            fprintf(riscvemu_stderr, "\t\"%s\"\n",
+                            fprintf(dromajo_stderr, "\t\"%s\"\n",
                                     validation_events[j].name);
                         }
                     }
@@ -810,8 +810,8 @@ VirtMachine *virt_machine_main(int argc, char **argv)
             exit(1);
         }
 
-        riscvemu_stdout = log_out;
-        riscvemu_stderr = log_out;
+        dromajo_stdout = log_out;
+        dromajo_stderr = log_out;
     }
 
 
@@ -871,14 +871,14 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 #endif
         {
 #if defined(__APPLE__)
-            fprintf(riscvemu_err, "Filesystem access not supported yet\n");
+            fprintf(dromajo_err, "Filesystem access not supported yet\n");
             exit(1);
 #else
             char *fname;
             fname = get_file_path(p->cfg_filename, path);
             fs = fs_disk_init(fname);
             if (!fs) {
-                fprintf(riscvemu_stderr, "%s: must be a directory\n", fname);
+                fprintf(dromajo_stderr, "%s: must be a directory\n", fname);
                 exit(1);
             }
             free(fname);
@@ -903,13 +903,13 @@ VirtMachine *virt_machine_main(int argc, char **argv)
         } else
 #endif
         {
-            fprintf(riscvemu_stderr, "Unsupported network driver '%s'\n",
+            fprintf(dromajo_stderr, "Unsupported network driver '%s'\n",
                     p->tab_eth[i].driver);
             exit(1);
         }
     }
 
-    p->console = console_init(TRUE, stdin, riscvemu_stdout);
+    p->console = console_init(TRUE, stdin, dromajo_stdout);
     p->dump_memories = dump_memories;
 
     p->validation_terminate_event = terminate_event;

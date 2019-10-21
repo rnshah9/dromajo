@@ -9,7 +9,7 @@
 //------------------------------------------------------------------------------
 
 /*
- * Test bench for riscvemu_cosim API
+ * Test bench for dromajo_cosim API
  *
  * Copyright (c) 2018,2019 Esperanto Technologies
  *
@@ -26,7 +26,7 @@ void usage(char *progname)
 {
     fprintf(stderr,
             "Usage:\n"
-            "  %s cosim $trace $riscvemuargs ...\n"
+            "  %s cosim $trace $dromajoargs ...\n"
             "  %s read $trace\n",
             progname, progname);
     exit(EXIT_FAILURE);
@@ -56,14 +56,14 @@ int main(int argc, char *argv[])
         usage(progname);
     }
 
-    riscvemu_cosim_state_t *s = NULL;
+    dromajo_cosim_state_t *s = NULL;
     if (cosim) {
-        /* Prep args for riscvemu_cosim_init */
+        /* Prep args for dromajo_cosim_init */
         argc -= 2;
         argv += 2;
         argv[0] = progname;
 
-        s = riscvemu_cosim_init(argc, argv);
+        s = dromajo_cosim_init(argc, argv);
         if (!s)
             usage(progname);
     }
@@ -82,16 +82,16 @@ int main(int argc, char *argv[])
 
         switch (got) {
         case 3:
-            fprintf(riscvemu_stdout, "%d %016lx %08x                           DASM(%08x)\n",
+            fprintf(dromajo_stdout, "%d %016lx %08x                           DASM(%08x)\n",
                    priv, insn_addr, insn, insn);
             break;
 
-        case 5: fprintf(riscvemu_stdout, "%d %016lx %08x [x%-2d <- %016lx] DASM(%08x)\n",
+        case 5: fprintf(dromajo_stdout, "%d %016lx %08x [x%-2d <- %016lx] DASM(%08x)\n",
                        priv, insn_addr, insn, rd, wdata, insn);
             break;
 
         default:
-            fprintf(riscvemu_stderr, "%s:%d: couldn't parse %s\n",
+            fprintf(dromajo_stderr, "%s:%d: couldn't parse %s\n",
                     trace_name, lineno, buf);
             goto fail;
 
@@ -102,10 +102,10 @@ int main(int argc, char *argv[])
 
         if (cosim) {
             int hartid = 0; // FIXME: MULTICORE cosim. Must get hartid from commit
-            int r = riscvemu_cosim_step(s, hartid, insn_addr, insn, wdata,
+            int r = dromajo_cosim_step(s, hartid, insn_addr, insn, wdata,
                                         0, 0, 0, 0, true);
             if (r) {
-                fprintf(riscvemu_stdout, "Exited with %08x\n", r);
+                fprintf(dromajo_stdout, "Exited with %08x\n", r);
                 goto fail;
             }
         }
@@ -115,12 +115,12 @@ done:
     free(s);
 
     if (exit_code == EXIT_SUCCESS)
-        fprintf(riscvemu_stdout, "\nSUCCESS, PASSED, GOOD!\n");
+        fprintf(dromajo_stdout, "\nSUCCESS, PASSED, GOOD!\n");
     else
-        fprintf(riscvemu_stdout, "\nFAIL!\n");
+        fprintf(dromajo_stdout, "\nFAIL!\n");
 
-    if (riscvemu_stdout != stdout)
-        fclose(riscvemu_stdout);
+    if (dromajo_stdout != stdout)
+        fclose(dromajo_stdout);
 
     exit(exit_code);
 

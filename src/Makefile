@@ -33,16 +33,18 @@
 # THE SOFTWARE.
 #
 
+VERSION=Dromajo-0.1
+
 CXX=g++
 CFLAGS_OPT=-Ofast
 CXXFLAGS=$(CFLAGS_OPT) -Wall -std=c++11 -g -Werror -Wno-parentheses -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -MMD
-CXXFLAGS+=-D_GNU_SOURCE -DCONFIG_VERSION=\"$(shell cat VERSION)\"
+CXXFLAGS+=-D_GNU_SOURCE -DCONFIG_VERSION=\"$(VERSION)\"
 #CXXFLAGS+=-DLIVECACHE
 LDFLAGS=
 
 bindir=/usr/local/bin
 INSTALL=install
-PROGS=dromajo libdromajo_cosim.a dromajo_cosim_test
+PROGS=dromajo libdromajo_cosim.a
 
 all: $(PROGS)
 

@@ -58,7 +58,7 @@ void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    vfprintf(riscvemu_stderr, fmt, ap);
+    vfprintf(dromajo_stderr, fmt, ap);
     va_end(ap);
 }
 
@@ -435,7 +435,7 @@ int load_file(uint8_t **pbuf, const char *filename)
     fseek(f, 0, SEEK_SET);
     uint8_t *buf = (uint8_t *)malloc(size);
     if (fread(buf, 1, size, f) != size) {
-        fprintf(riscvemu_stderr, "%s: read error\n", filename);
+        fprintf(dromajo_stderr, "%s: read error\n", filename);
         exit(1);
     }
     fclose(f);
@@ -448,7 +448,7 @@ static void config_load_file_cb(void *opaque, int err, void *data, size_t size)
 {
     VMConfigLoadState *s = opaque;
 
-    //    fprintf(riscvemu_stdout, "err=%d data=%p size=%ld\n", err, data, size);
+    //    fprintf(dromajo_stdout, "err=%d data=%p size=%ld\n", err, data, size);
     if (err < 0) {
         vm_error("Error %d while loading file\n", -err);
         exit(1);

@@ -9,7 +9,7 @@
 //------------------------------------------------------------------------------
 
 /*
- * API for RISCVEMU-based cosimulation
+ * API for Dromajo-based cosimulation
  */
 
 #include "dromajo.h"
@@ -29,12 +29,12 @@ extern LiveCache *llc; // XXX This is horrifying; llc should have been part of t
 #endif
 
 /*
- * riscvemu_cosim_init --
+ * dromajo_cosim_init --
  *
  * Creates and initialize the state of the RISC-V ISA golden model
  * Returns NULL upon failure.
  */
-riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[])
+dromajo_cosim_state_t *dromajo_cosim_init(int argc, char *argv[])
 {
     VirtMachine *m = virt_machine_main(argc, argv);
 
@@ -46,7 +46,7 @@ riscvemu_cosim_state_t *riscvemu_cosim_init(int argc, char *argv[])
     m->pending_interrupt = -1;
     m->pending_exception = -1;
 
-    return (riscvemu_cosim_state_t *)m;
+    return (dromajo_cosim_state_t *)m;
 }
 
 static bool is_store_conditional(uint32_t insn)
@@ -168,26 +168,26 @@ static inline void handle_dut_overrides(RISCVCPUState *s,
         return;
 
     if (is_mmio_load(s, reg, offset, mmio_start, mmio_end)) {
-        //fprintf(riscvemu_stderr, "Overriding mmio c.lw (%lx)\n", addr);
+        //fprintf(dromajo_stderr, "Overriding mmio c.lw (%lx)\n", addr);
         riscv_set_reg(s, rd, dut_wdata);
     }
 }
 
 /*
- * riscvemu_cosim_raise_trap --
+ * dromajo_cosim_raise_trap --
  *
  * DUT raises a trap (exception or interrupt) and provides the cause.
  * MSB indicates an asynchronous interrupt, synchronous exception
  * otherwise.
  */
-void riscvemu_cosim_raise_trap(riscvemu_cosim_state_t *state, int hartid, int64_t cause)
+void dromajo_cosim_raise_trap(dromajo_cosim_state_t *state, int hartid, int64_t cause)
 {
     VirtMachine   *m = (VirtMachine  *)state;
 
     if (cause < 0) {
         assert(m->pending_interrupt == -1); // XXX RTLMAX-434
         m->pending_interrupt = cause & 63;
-        fprintf(riscvemu_stderr, "DUT raised interrupt %d\n", m->pending_interrupt);
+        fprintf(dromajo_stderr, "DUT raised interrupt %d\n", m->pending_interrupt);
     } else {
         m->pending_exception = cause;
     }
@@ -231,11 +231,11 @@ static void cosim_history(RISCVCPUState *s,
 
     /* Step 1: Compare GHR betweeen EMU and DUT. */
 
-    //fprintf(riscvemu_stderr, "   [emu] GHR %016"PRIx64"%016"PRIx64"\n", emu_ghr1, emu_ghr0);
-    //fprintf(riscvemu_stderr, "   [dut] GHR %016"PRIx64"%016"PRIx64"\n", dut_ghr1, dut_ghr0);
+    //fprintf(dromajo_stderr, "   [emu] GHR %016"PRIx64"%016"PRIx64"\n", emu_ghr1, emu_ghr0);
+    //fprintf(dromajo_stderr, "   [dut] GHR %016"PRIx64"%016"PRIx64"\n", dut_ghr1, dut_ghr0);
 
     if (dut_ghr0 != emu_ghr0 || dut_ghr1 != emu_ghr1) {
-        fprintf(riscvemu_stderr, "[error] EMU GHR %016" PRIx64 "%016" PRIx64 " != DUT GHR %016" PRIx64 "%016" PRIx64 "\n",
+        fprintf(dromajo_stderr, "[error] EMU GHR %016" PRIx64 "%016" PRIx64 " != DUT GHR %016" PRIx64 "%016" PRIx64 "\n",
                 emu_ghr1, emu_ghr0, dut_ghr1, dut_ghr0);
         *exit_code = 0x1FFF;
     }
@@ -307,7 +307,7 @@ static void cosim_history(RISCVCPUState *s,
 }
 
 /*
- * riscvemu_cosim_step --
+ * dromajo_cosim_step --
  *
  * executes exactly one instruction in the golden model and returns
  * zero if the supplied expected values match and execution should
@@ -324,7 +324,7 @@ static void cosim_history(RISCVCPUState *s,
  * The `intr_pending` flag is used to communicate that the DUT will
  * take an interrupt in the next cycle.
  */
-int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
+int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
                         int                     hartid,
                         uint64_t                dut_pc,
                         uint32_t                dut_insn,
@@ -335,7 +335,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                         uint64_t                dut_mstatus,
                         bool                    check)
 {
-    VirtMachine   *m = (VirtMachine  *)riscvemu_cosim_state;
+    VirtMachine   *m = (VirtMachine  *)dromajo_cosim_state;
     RISCVMachine  *r = (RISCVMachine *)m;
     RISCVCPUState *s = r->cpu_state[hartid];
     uint64_t emu_pc, emu_wdata = 0;
@@ -389,7 +389,7 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
             /* ARCHSIM-301: On the DUT, the interrupt can race the exception.
                Let's try to match that behavior */
 
-            fprintf(riscvemu_stderr, "DUT also raised exception %d\n", m->pending_exception);
+            fprintf(dromajo_stderr, "DUT also raised exception %d\n", m->pending_exception);
             riscv_cpu_interp64(s, 1); // Advance into the exception
 
             int cause = s->priv == PRV_S ? s->scause : s->mcause;
@@ -400,9 +400,9 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                 /* Unfortunately, handling the error case is awkward,
                  * so we just exit from here */
 
-                fprintf(riscvemu_stderr, "%d 0x%016" PRIx64 " ", emu_priv, emu_pc);
-                fprintf(riscvemu_stderr, "(0x%08x) ", emu_insn);
-                fprintf(riscvemu_stderr,
+                fprintf(dromajo_stderr, "%d 0x%016" PRIx64 " ", emu_priv, emu_pc);
+                fprintf(dromajo_stderr, "(0x%08x) ", emu_insn);
+                fprintf(dromajo_stderr,
                         "[error] EMU %cCAUSE %d != DUT %cCAUSE %d\n",
                         priv, cause, priv, m->pending_exception);
 
@@ -428,25 +428,25 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
                              emu_priv, emu_pc, emu_insn, emu_wdata, dut_wdata);
 
     if (verbose) {
-        fprintf(riscvemu_stderr, "%d 0x%016" PRIx64 " ", emu_priv, emu_pc);
-        fprintf(riscvemu_stderr, "(0x%08x) ", emu_insn);
+        fprintf(dromajo_stderr, "%d 0x%016" PRIx64 " ", emu_priv, emu_pc);
+        fprintf(dromajo_stderr, "(0x%08x) ", emu_insn);
     }
 
     if (iregno > 0) {
         emu_wdata = riscv_get_reg(s, iregno);
         emu_wrote_data = 1;
         if (verbose)
-            fprintf(riscvemu_stderr, "x%-2d 0x%016" PRIx64, iregno, emu_wdata);
+            fprintf(dromajo_stderr, "x%-2d 0x%016" PRIx64, iregno, emu_wdata);
     } else if (fregno >= 0) {
         emu_wdata = riscv_get_fpreg(s, fregno);
         emu_wrote_data = 1;
         if (verbose)
-            fprintf(riscvemu_stderr, "f%-2d 0x%016" PRIx64, fregno, emu_wdata);
+            fprintf(dromajo_stderr, "f%-2d 0x%016" PRIx64, fregno, emu_wdata);
     } else
-        fprintf(riscvemu_stderr, "                      ");
+        fprintf(dromajo_stderr, "                      ");
 
     if (verbose)
-        fprintf(riscvemu_stderr, " DASM(0x%08x)\n", emu_insn);
+        fprintf(dromajo_stderr, " DASM(0x%08x)\n", emu_insn);
 
     if (!check)
         return 0;
@@ -462,16 +462,16 @@ int riscvemu_cosim_step(riscvemu_cosim_state_t *riscvemu_cosim_state,
         emu_insn    != dut_insn  && (emu_insn & 3) == 3 || // DUT expands all C instructions
         emu_wdata   != dut_wdata && emu_wrote_data) {
 
-        fprintf(riscvemu_stderr, "[error] EMU PC %016" PRIx64 ", DUT PC %016" PRIx64 "\n",
+        fprintf(dromajo_stderr, "[error] EMU PC %016" PRIx64 ", DUT PC %016" PRIx64 "\n",
                 emu_pc, dut_pc);
-        fprintf(riscvemu_stderr, "[error] EMU INSN %08x, DUT INSN %08x\n",
+        fprintf(dromajo_stderr, "[error] EMU INSN %08x, DUT INSN %08x\n",
                 emu_insn, dut_insn);
         if (emu_wrote_data)
-            fprintf(riscvemu_stderr, "[error] EMU WDATA %016" PRIx64 ", DUT WDATA %016" PRIx64 "\n",
+            fprintf(dromajo_stderr, "[error] EMU WDATA %016" PRIx64 ", DUT WDATA %016" PRIx64 "\n",
                     emu_wdata, dut_wdata);
-        fprintf(riscvemu_stderr, "[error] EMU MSTATUS %08" PRIx64 ", DUT MSTATUS %08" PRIx64 "\n",
+        fprintf(dromajo_stderr, "[error] EMU MSTATUS %08" PRIx64 ", DUT MSTATUS %08" PRIx64 "\n",
                 emu_mstatus, dut_mstatus);
-        fprintf(riscvemu_stderr, "[error] DUT pending exception %d pending interrupt %d\n",
+        fprintf(dromajo_stderr, "[error] DUT pending exception %d pending interrupt %d\n",
                 m->pending_exception, m->pending_interrupt);
         exit_code = 0x1FFF;
     }

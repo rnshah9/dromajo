@@ -31,9 +31,9 @@
 #include "riscv_cpu.h"
 #include "LiveCacheCore.h"
 
-//#define REGRESS_RISCV_COSIM 1
-#ifdef REGRESS_RISCV_COSIM
-#include "riscvemu_cosim.h"
+//#define REGRESS_COSIM 1
+#ifdef REGRESS_COSIM
+#include "dromajo_cosim.h"
 #endif
 
 
@@ -63,7 +63,7 @@ int iterate_core(VirtMachine *m, int hartid)
         return keep_going;
     }
 
-    fprintf(riscvemu_stderr, "%d %d 0x%016" PRIx64 " (0x%08x)", hartid, priv, last_pc,
+    fprintf(dromajo_stderr, "%d %d 0x%016" PRIx64 " (0x%08x)", hartid, priv, last_pc,
             (insn_raw & 3) == 3 ? insn_raw : (uint16_t) insn_raw);
 
     uint64_t dummy1, dummy2;
@@ -71,14 +71,14 @@ int iterate_core(VirtMachine *m, int hartid)
     int fregno = riscv_get_most_recently_written_fp_reg(cpu, &dummy2);
 
     if (cpu->pending_exception != -1)
-        fprintf(riscvemu_stderr, " exception %d, tval %016lx", cpu->pending_exception,
+        fprintf(dromajo_stderr, " exception %d, tval %016lx", cpu->pending_exception,
                 riscv_get_priv_level(cpu) == PRV_M ? cpu->mtval : cpu->stval);
     else if (iregno > 0)
-        fprintf(riscvemu_stderr, " x%2d 0x%016" PRIx64, iregno, virt_machine_get_reg(m, hartid, iregno));
+        fprintf(dromajo_stderr, " x%2d 0x%016" PRIx64, iregno, virt_machine_get_reg(m, hartid, iregno));
     else if (fregno >= 0)
-        fprintf(riscvemu_stderr, " f%2d 0x%016" PRIx64, fregno, virt_machine_get_fpreg(m, hartid, fregno));
+        fprintf(dromajo_stderr, " f%2d 0x%016" PRIx64, fregno, virt_machine_get_fpreg(m, hartid, fregno));
 
-    putc('\n', riscvemu_stderr);
+    putc('\n', dromajo_stderr);
 
     return keep_going;
 }
@@ -94,14 +94,14 @@ int main(int argc, char **argv)
     llc = new LiveCache("LLC", 1024*32); // Small 32KB for testing
 #endif
 
-#ifdef REGRESS_RISCV_COSIM
-    riscvemu_cosim_state_t *costate = 0;
-    costate = riscvemu_cosim_init(argc, argv);
+#ifdef REGRESS_COSIM
+    dromajo_cosim_state_t *costate = 0;
+    costate = dromajo_cosim_init(argc, argv);
 
     if (!costate)
         return 1;
 
-    while (!riscvemu_cosim_step(costate, 0, 0, 0, 0, 0, false));
+    while (!dromajo_cosim_step(costate, 0, 0, 0, 0, 0, false));
 #else
     VirtMachine *m = virt_machine_main(argc, argv);
 
@@ -119,12 +119,12 @@ int main(int argc, char **argv)
     for (int i = 0; i < rvm->ncpus; ++i) {
         int benchmark_exit_code = riscv_benchmark_exit_code(((RISCVMachine *)m)->cpu_state[i]);
         if (benchmark_exit_code != 0) {
-            fprintf(riscvemu_stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
+            fprintf(dromajo_stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
             return 1;
         }
     }
 
-    fprintf(riscvemu_stderr, "\nPower off.\n");
+    fprintf(dromajo_stderr, "\nPower off.\n");
 
     virt_machine_end(m);
 #endif

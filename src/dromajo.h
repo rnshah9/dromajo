@@ -13,7 +13,7 @@
 
 #include <stdio.h>
 
-extern FILE *riscvemu_stdout;
-extern FILE *riscvemu_stderr;
+extern FILE *dromajo_stdout;
+extern FILE *dromajo_stderr;
 
 #endif

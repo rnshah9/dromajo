@@ -1,6 +1,0 @@
-*.o
-*.d
-*.a
-riscvemu
-TAGS
-/riscvemu_cosim_test
