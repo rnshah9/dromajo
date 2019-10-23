@@ -2681,7 +2681,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
         fprintf(dromajo_stderr, "ERROR: could not checkpoint when running inside the ROM\n");
         exit(-4);
     } else if (s->pc == BOOT_BASE_ADDR && boot_ram) {
-        fprintf(dromajo_stderr, "NOTE: using the default dromajo room\n");
+        fprintf(dromajo_stderr, "NOTE: using the default dromajo ROM\n");
         serialize_memory(boot_ram->phys_mem, boot_ram->size, f_name);
     } else {
         fprintf(dromajo_stderr, "ERROR: unexpected PC address 0x%llx\n", (long long)s->pc);
