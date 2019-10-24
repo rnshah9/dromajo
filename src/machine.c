@@ -51,7 +51,7 @@
 #ifdef CONFIG_FS_NET
 #include "fs_wget.h"
 #endif
-#include "riscv_cpu.h"
+#include "riscv_machine.h"
 #include "elf64.h"
 
 void __attribute__((format(printf, 1, 2))) vm_error(const char *fmt, ...)

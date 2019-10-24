@@ -16,7 +16,6 @@
 #include "dromajo_cosim.h"
 #include "cutils.h"
 #include "iomem.h"
-#include "riscv_cpu.h"
 #include "riscv_machine.h"
 #include <inttypes.h>
 #include <stdbool.h>

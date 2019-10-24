@@ -28,7 +28,7 @@
 #include "cutils.h"
 #include "iomem.h"
 #include "virtio.h"
-#include "riscv_cpu.h"
+#include "riscv_machine.h"
 #include "LiveCacheCore.h"
 
 //#define REGRESS_COSIM 1
@@ -46,8 +46,7 @@ int iterate_core(RISCVMachine *m, int hartid)
     RISCVCPUState *cpu = m->cpu_state[hartid];
 
     /* Instruction that raises exceptions should be marked as such in
-     * the trace of retired instructions.  Breaking this caused
-     * ARCHSIM-74.
+     * the trace of retired instructions.
      */
     uint64_t last_pc    = virt_machine_get_pc(m, hartid);
     int      priv       = riscv_get_priv_level(cpu);

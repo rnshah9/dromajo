@@ -155,6 +155,7 @@ typedef enum {
 } RISCVCTFInfo;
 
 typedef struct RISCVCPUState {
+    RISCVMachine *machine;
     target_ulong pc;
     target_ulong reg[32];
     /* Co-simulation sometimes need to see the value of a register
@@ -274,7 +275,7 @@ typedef struct RISCVCPUState {
     bool ignore_sbi_shutdown;
 } RISCVCPUState;
 
-RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map, int hartid, const char *term_event);
+RISCVCPUState *riscv_cpu_init(RISCVMachine *machine, int hartid, const char *term_event);
 void riscv_cpu_end(RISCVCPUState *s);
 int riscv_cpu_interp(RISCVCPUState *s, int n_cycles);
 uint64_t riscv_cpu_get_cycles(RISCVCPUState *s);
@@ -311,8 +312,8 @@ void riscv_set_debug_mode(RISCVCPUState *s, bool on);
 int riscv_benchmark_exit_code(RISCVCPUState *s);
 
 #include "riscv_machine.h"
-void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_name);
-void riscv_cpu_deserialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_name);
+void riscv_cpu_serialize(RISCVCPUState *s, const char *dump_name);
+void riscv_cpu_deserialize(RISCVCPUState *s, const char *dump_name);
 
 int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval, target_ulong addr, int size_log2);
 int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr, mem_uint_t val, int size_log2);

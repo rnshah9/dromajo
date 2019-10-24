@@ -47,7 +47,6 @@
 
 #include "cutils.h"
 #include "iomem.h"
-#include "riscv_cpu.h"
 #include "riscv_machine.h"
 #include "dw_apb_uart.h"
 #include "elf64.h"
@@ -1002,7 +1001,7 @@ RISCVMachine *virt_machine_init(const VirtMachineParams *p)
     }
 
     for (int i = 0; i < s->ncpus; ++i) {
-        s->cpu_state[i] = riscv_cpu_init(s->mem_map, i, p->validation_terminate_event);
+        s->cpu_state[i] = riscv_cpu_init(s, i, p->validation_terminate_event);
     }
 
     /* RAM */
@@ -1162,7 +1161,7 @@ void virt_machine_serialize(RISCVMachine *m, const char *dump_name)
             m->plic_pending_irq, m->plic_served_irq, (unsigned long long)s->timecmp);
 
     assert(m->ncpus == 1); // FIXME: riscv_cpu_serialize must be patched for multicore
-    riscv_cpu_serialize(s, m, dump_name);
+    riscv_cpu_serialize(s, dump_name);
 }
 
 void virt_machine_deserialize(RISCVMachine *m, const char *dump_name)
@@ -1170,7 +1169,7 @@ void virt_machine_deserialize(RISCVMachine *m, const char *dump_name)
     RISCVCPUState *s = m->cpu_state[0]; // FIXME: MULTICORE
 
     assert(m->ncpus == 1); // FIXME: riscv_cpu_serialize must be patched for multicore
-    riscv_cpu_deserialize(s, m, dump_name);
+    riscv_cpu_deserialize(s, dump_name);
 }
 
 int virt_machine_get_sleep_duration(RISCVMachine *m, int hartid, int ms_delay)

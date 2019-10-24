@@ -46,7 +46,7 @@
 
 #include "cutils.h"
 #include "iomem.h"
-#include "riscv_cpu.h"
+#include "riscv_machine.h"
 #include "LiveCacheCore.h"
 
 // NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
@@ -1244,6 +1244,9 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
 
     default:
     invalid_csr:
+        if (s->machine->hooks.csr_read)
+            return s->machine->hooks.csr_read(s, csr, pval);
+
 #ifdef DUMP_INVALID_CSR
         /* the 'time' counter is usually emulated */
         if (csr != 0xc01 && csr != 0xc81) {
@@ -1760,6 +1763,9 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         break;
 
     default:
+        if (s->machine->hooks.csr_write)
+            return s->machine->hooks.csr_write(s, csr, val);
+
     invalid_csr:
 #ifdef DUMP_INVALID_CSR
         fprintf(dromajo_stderr, "csr_write: invalid CSR=0x%x\n", csr);
@@ -2045,12 +2051,12 @@ BOOL riscv_cpu_get_power_down(RISCVCPUState *s)
     return s->power_down_flag;
 }
 
-RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
-                              int hartid,
+RISCVCPUState *riscv_cpu_init(RISCVMachine *machine, int hartid,
                               const char *validation_terminate_event)
 {
     RISCVCPUState *s = (RISCVCPUState *)mallocz(sizeof *s);
-    s->mem_map = mem_map;
+    s->machine = machine;
+    s->mem_map = machine->mem_map;
     s->pc = BOOT_BASE_ADDR;
     s->priv = PRV_M;
     s->mstatus = ((uint64_t)2 << MSTATUS_UXL_SHIFT) |
@@ -2411,7 +2417,7 @@ static void create_hang_nonzero_hart(uint32_t *rom, uint32_t *code_pos, uint32_t
                                       // 1:
 }
 
-static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
+static void create_boot_rom(RISCVCPUState *s, const char *file)
 {
     uint32_t rom[ROM_SIZE / 4];
     memset(rom, 0, sizeof rom);
@@ -2425,7 +2431,7 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     uint32_t data_pos = 0xB00 / sizeof *rom;
     uint32_t data_pos_start = data_pos;
 
-    if (m->ncpus == 1) // FIXME: May be interesting to freeze hartid >= ncpus
+    if (s->machine->ncpus == 1) // FIXME: May be interesting to freeze hartid >= ncpus
         create_hang_nonzero_hart(rom, &code_pos, &data_pos);
 
     create_csr64_recovery(rom, &code_pos, &data_pos, 0x7b1, s->pc); // Write to DPC (CSR, 0x7b1)
@@ -2562,7 +2568,7 @@ static void create_boot_rom(RISCVCPUState *s, RISCVMachine *m, const char *file)
     serialize_memory(rom, ROM_SIZE, file);
 }
 
-void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_name)
+void riscv_cpu_serialize(RISCVCPUState *s, const char *dump_name)
 {
     FILE *conf_fd = 0;
     size_t n = strlen(dump_name) + 64;
@@ -2638,7 +2644,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
             assert(!boot_ram);
             boot_ram = pr;
 
-        } else if (pr->is_ram && pr->addr == m->ram_base_addr) {
+        } else if (pr->is_ram && pr->addr == s->machine->ram_base_addr) {
 
             assert(!main_ram_found);
             main_ram_found = 1;
@@ -2661,7 +2667,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
 
     if (s->priv != 3 || ROM_BASE_ADDR + ROM_SIZE < s->pc) {
         fprintf(dromajo_stderr, "NOTE: creating a new boot rom\n");
-        create_boot_rom(s, m, f_name);
+        create_boot_rom(s, f_name);
     } else if (BOOT_BASE_ADDR < s->pc) {
         fprintf(dromajo_stderr, "ERROR: could not checkpoint when running inside the ROM\n");
         exit(-4);
@@ -2674,7 +2680,7 @@ void riscv_cpu_serialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_nam
     }
 }
 
-void riscv_cpu_deserialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_name)
+void riscv_cpu_deserialize(RISCVCPUState *s, const char *dump_name)
 {
     for (int i = s->mem_map->n_phys_mem_range - 1; i >= 0; --i) {
         PhysMemoryRange *pr = &s->mem_map->phys_mem_range[i];
@@ -2687,7 +2693,7 @@ void riscv_cpu_deserialize(RISCVCPUState *s, RISCVMachine *m, const char *dump_n
 
             deserialize_memory(pr->phys_mem, pr->size, boot_name);
 
-        } else if (pr->is_ram && pr->addr == m->ram_base_addr) {
+        } else if (pr->is_ram && pr->addr == s->machine->ram_base_addr) {
 
             size_t n = strlen(dump_name) + 64;
             char *main_name = (char *)alloca(n);

@@ -13,11 +13,20 @@
 
 #include "virtio.h"
 #include "machine.h"
+#include "riscv_cpu.h"
 
 #define MAX_CPUS  8
 
+/* Hooks */
+typedef struct RISCVMachineHooks {
+    /* Returns -1 if invalid CSR, 0 if OK. */
+    int (*csr_read) (RISCVCPUState *s, uint32_t csr, uint64_t *pval);
+    int (*csr_write)(RISCVCPUState *s, uint32_t csr, uint64_t   val);
+} RISCVMachineHooks;
+
 struct RISCVMachine {
     VirtMachine common;
+    RISCVMachineHooks hooks;
     PhysMemoryMap *mem_map;
     RISCVCPUState *cpu_state[MAX_CPUS];
     int      ncpus;
