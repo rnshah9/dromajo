@@ -16,7 +16,7 @@ make install
 To run one of the benchmarks with trace enabled
 
 ```
-../riscvemu --trace 0 riscv-tests-root/share/riscv-tests/isa/rv64ua-p-amoadd_d
+../dromajo --trace 0 riscv-tests-root/share/riscv-tests/isa/rv64ua-p-amoadd_d
 ```
 
 
@@ -58,11 +58,11 @@ To boot Linux (login:root password:root)
 
 ```
 cp opensbi-0.5/build/platform/dromajo/firmware/fw_payload.bin .
-../riscvemu ./boot.cfg
+../dromajo ./boot.cfg
 ```
 
 To boot a SMT 4
 
 ```
-../riscvemu --ncpus 4 ./boot.cfg
+../dromajo --ncpus 4 ./boot.cfg
 ```
