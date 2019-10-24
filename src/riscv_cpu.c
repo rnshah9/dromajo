@@ -77,10 +77,6 @@
 // Maxion PMPADDR CSRs only have 38-bits
 #define PMPADDR_MASK	0x3fffffffff
 
-#ifdef USE_GLOBAL_STATE
-static RISCVCPUState riscv_cpu_global_state;
-#endif
-
 #ifdef CONFIG_LOGFILE
 static FILE *log_file;
 
@@ -2017,9 +2013,6 @@ static sfloat64 f_unbox64(sfloat64 r)
 
 int riscv_cpu_interp(RISCVCPUState *s, int n_cycles)
 {
-#ifdef USE_GLOBAL_STATE
-    s = &riscv_cpu_global_state;
-#endif
     return riscv_cpu_interp64(s, n_cycles);
 }
 
@@ -2056,13 +2049,7 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
                               int hartid,
                               const char *validation_terminate_event)
 {
-    RISCVCPUState *s;
-
-#ifdef USE_GLOBAL_STATE
-    s = &riscv_cpu_global_state;
-#else
-    s = (RISCVCPUState *)mallocz(sizeof *s);
-#endif
+    RISCVCPUState *s = (RISCVCPUState *)mallocz(sizeof *s);
     s->mem_map = mem_map;
     s->pc = BOOT_BASE_ADDR;
     s->priv = PRV_M;
@@ -2115,9 +2102,7 @@ RISCVCPUState *riscv_cpu_init(PhysMemoryMap *mem_map,
 
 void riscv_cpu_end(RISCVCPUState *s)
 {
-#ifdef USE_GLOBAL_STATE
     free(s);
-#endif
 }
 
 void riscv_set_pc(RISCVCPUState *s, uint64_t val)
