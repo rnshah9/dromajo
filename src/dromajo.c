@@ -37,13 +37,13 @@
 #endif
 
 
-int iterate_core(VirtMachine *m, int hartid)
+int iterate_core(RISCVMachine *m, int hartid)
 {
-    if (m->maxinsns-- <= 0)
+    if (m->common.maxinsns-- <= 0)
         /* Succeed after N instructions without failure. */
         return 0;
 
-    RISCVCPUState *cpu = ((RISCVMachine *)m)->cpu_state[hartid];
+    RISCVCPUState *cpu = m->cpu_state[hartid];
 
     /* Instruction that raises exceptions should be marked as such in
      * the trace of retired instructions.  Breaking this caused
@@ -58,8 +58,8 @@ int iterate_core(VirtMachine *m, int hartid)
     if (last_pc == virt_machine_get_pc(m, hartid))
         return 0;
 
-    if (m->trace) {
-        --m->trace;
+    if (m->common.trace) {
+        --m->common.trace;
         return keep_going;
     }
 
@@ -103,21 +103,20 @@ int main(int argc, char **argv)
 
     while (!dromajo_cosim_step(costate, 0, 0, 0, 0, 0, false));
 #else
-    VirtMachine *m = virt_machine_main(argc, argv);
+    RISCVMachine *m = virt_machine_main(argc, argv);
 
     if (!m)
         return 1;
 
     int keep_going;
-    RISCVMachine *rvm  = (RISCVMachine *)m;
     do {
         keep_going = 0;
-        for (int i = 0; i < rvm->ncpus; ++i)
+        for (int i = 0; i < m->ncpus; ++i)
             keep_going |= iterate_core(m, i);
     } while (keep_going);
 
-    for (int i = 0; i < rvm->ncpus; ++i) {
-        int benchmark_exit_code = riscv_benchmark_exit_code(((RISCVMachine *)m)->cpu_state[i]);
+    for (int i = 0; i < m->ncpus; ++i) {
+        int benchmark_exit_code = riscv_benchmark_exit_code(m->cpu_state[i]);
         if (benchmark_exit_code != 0) {
             fprintf(dromajo_stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
             return 1;

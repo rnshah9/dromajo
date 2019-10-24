@@ -36,15 +36,15 @@ extern LiveCache *llc; // XXX This is horrifying; llc should have been part of t
  */
 dromajo_cosim_state_t *dromajo_cosim_init(int argc, char *argv[])
 {
-    VirtMachine *m = virt_machine_main(argc, argv);
+    RISCVMachine *m = virt_machine_main(argc, argv);
 
 #ifdef LIVECACHE
     //llc = new LiveCache("LLC", 1024*1024*32); // 32MB LLC (should be ~2x larger than real)
     llc = new LiveCache("LLC", 1024*32); // Small 32KB for testing
 #endif
 
-    m->pending_interrupt = -1;
-    m->pending_exception = -1;
+    m->common.pending_interrupt = -1;
+    m->common.pending_exception = -1;
 
     return (dromajo_cosim_state_t *)m;
 }
@@ -325,18 +325,17 @@ static void cosim_history(RISCVCPUState *s,
  * take an interrupt in the next cycle.
  */
 int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
-                        int                     hartid,
-                        uint64_t                dut_pc,
-                        uint32_t                dut_insn,
-                        uint64_t                dut_wdata,
-                        int                     dut_ghr_ena,
-                        uint64_t                dut_ghr0,  // ghistory[63: 0]
-                        uint64_t                dut_ghr1,  // ghistory[89:64]
-                        uint64_t                dut_mstatus,
-                        bool                    check)
+                       int                    hartid,
+                       uint64_t               dut_pc,
+                       uint32_t               dut_insn,
+                       uint64_t               dut_wdata,
+                       int                    dut_ghr_ena,
+                       uint64_t               dut_ghr0,  // ghistory[63: 0]
+                       uint64_t               dut_ghr1,  // ghistory[89:64]
+                       uint64_t               dut_mstatus,
+                       bool                   check)
 {
-    VirtMachine   *m = (VirtMachine  *)dromajo_cosim_state;
-    RISCVMachine  *r = (RISCVMachine *)m;
+    RISCVMachine  *r = (RISCVMachine *)dromajo_cosim_state;
     RISCVCPUState *s = r->cpu_state[hartid];
     uint64_t emu_pc, emu_wdata = 0;
     int      emu_priv;
@@ -348,11 +347,11 @@ int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
     int      iregno, fregno;
 
     /* Succeed after N instructions without failure. */
-    if (m->maxinsns == 0) {
+    if (r->common.maxinsns == 0) {
         return 1;
     }
 
-    m->maxinsns--;
+    r->common.maxinsns--;
 
     if (riscv_terminated(s)) {
         return 1;
@@ -385,16 +384,16 @@ int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
             break;
         }
 
-        if (m->pending_interrupt != -1 && m->pending_exception != -1) {
+        if (r->common.pending_interrupt != -1 && r->common.pending_exception != -1) {
             /* ARCHSIM-301: On the DUT, the interrupt can race the exception.
                Let's try to match that behavior */
 
-            fprintf(dromajo_stderr, "DUT also raised exception %d\n", m->pending_exception);
+            fprintf(dromajo_stderr, "DUT also raised exception %d\n", r->common. pending_exception);
             riscv_cpu_interp64(s, 1); // Advance into the exception
 
             int cause = s->priv == PRV_S ? s->scause : s->mcause;
 
-            if (m->pending_exception != cause) {
+            if (r->common.pending_exception != cause) {
                 char priv = s->priv["US?M"];
 
                 /* Unfortunately, handling the error case is awkward,
@@ -404,17 +403,17 @@ int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
                 fprintf(dromajo_stderr, "(0x%08x) ", emu_insn);
                 fprintf(dromajo_stderr,
                         "[error] EMU %cCAUSE %d != DUT %cCAUSE %d\n",
-                        priv, cause, priv, m->pending_exception);
+                        priv, cause, priv, r->common.pending_exception);
 
                 return 0x1FFF;
             }
         }
 
-        if (m->pending_interrupt != -1)
-            riscv_cpu_set_mip(s, riscv_cpu_get_mip(s) | 1 << m->pending_interrupt);
+        if (r->common.pending_interrupt != -1)
+            riscv_cpu_set_mip(s, riscv_cpu_get_mip(s) | 1 << r->common.pending_interrupt);
 
-        m->pending_interrupt = -1;
-        m->pending_exception = -1;
+        r->common.pending_interrupt = -1;
+        r->common.pending_exception = -1;
 
         if (riscv_cpu_interp64(s, 1) != 0) {
             iregno = riscv_get_most_recently_written_reg(s, &dummy1);
@@ -472,7 +471,7 @@ int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
         fprintf(dromajo_stderr, "[error] EMU MSTATUS %08" PRIx64 ", DUT MSTATUS %08" PRIx64 "\n",
                 emu_mstatus, dut_mstatus);
         fprintf(dromajo_stderr, "[error] DUT pending exception %d pending interrupt %d\n",
-                m->pending_exception, m->pending_interrupt);
+                r->common.pending_exception, r->common.pending_interrupt);
         exit_code = 0x1FFF;
     }
 

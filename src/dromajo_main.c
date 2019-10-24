@@ -524,11 +524,9 @@ static EthernetDevice *slirp_open(void)
 
 #endif /* CONFIG_SLIRP */
 
-BOOL virt_machine_run(VirtMachine *m, int hartid)
+BOOL virt_machine_run(RISCVMachine *s, int hartid)
 {
-    RISCVMachine *s = (RISCVMachine *)m;
-
-    (void) virt_machine_get_sleep_duration(m, hartid, MAX_SLEEP_TIME);
+    (void) virt_machine_get_sleep_duration(s, hartid, MAX_SLEEP_TIME);
 
     riscv_cpu_interp64(s->cpu_state[hartid], 1);
 
@@ -540,7 +538,7 @@ BOOL virt_machine_run(VirtMachine *m, int hartid)
             return false;
     }
 
-    return !riscv_terminated(s->cpu_state[hartid]) && m->maxinsns > 0;
+    return !riscv_terminated(s->cpu_state[hartid]) && s->common.maxinsns > 0;
 }
 
 void help(void)
@@ -652,7 +650,7 @@ static bool load_elf_and_fake_the_config(VirtMachineParams *p, const char *path)
     return false;
 }
 
-VirtMachine *virt_machine_main(int argc, char **argv)
+RISCVMachine *virt_machine_main(int argc, char **argv)
 {
     const char *prog               = argv[0];
     const char *snapshot_load_name = 0;
@@ -914,36 +912,39 @@ VirtMachine *virt_machine_main(int argc, char **argv)
 
     p->validation_terminate_event = terminate_event;
 
-    VirtMachine *s = virt_machine_init(p);
+    RISCVMachine *s = virt_machine_init(p);
     if (!s)
         return NULL;
 
     // Overwrite the value specified in the configuration file
     if (snapshot_load_name) {
-        s->snapshot_load_name = snapshot_load_name;
+        s->common.snapshot_load_name = snapshot_load_name;
     }
-    s->snapshot_save_name = snapshot_save_name;
-    s->trace              = trace;
+
+    s->common.snapshot_save_name = snapshot_save_name;
+    s->common.trace              = trace;
+
     // Allow the command option argument to overwrite the value
     // specified in the configuration file
     if (maxinsns > 0) {
-        s->maxinsns = maxinsns;
+        s->common.maxinsns = maxinsns;
     }
+
     // If not value is specified in the configuration or the command line
     // then run indefinitely
-    if (s->maxinsns == 0)
-        s->maxinsns = UINT64_MAX;
+    if (s->common.maxinsns == 0)
+        s->common.maxinsns = UINT64_MAX;
 
-    for (int i = 0; i < ((RISCVMachine *)s)->ncpus; ++i)
-        ((RISCVMachine *)s)->cpu_state[i]->ignore_sbi_shutdown = ignore_sbi_shutdown;
+    for (int i = 0; i < s->ncpus; ++i)
+        s->cpu_state[i]->ignore_sbi_shutdown = ignore_sbi_shutdown;
 
     virt_machine_free_config(p);
 
-    if (s->net)
-        s->net->device_set_carrier(s->net, TRUE);
+    if (s->common.net)
+        s->common.net->device_set_carrier(s->common.net, TRUE);
 
-    if (s->snapshot_load_name)
-        virt_machine_deserialize(s, s->snapshot_load_name);
+    if (s->common.snapshot_load_name)
+        virt_machine_deserialize(s, s->common.snapshot_load_name);
 
     return s;
 }

@@ -16,7 +16,7 @@
 
 #define MAX_CPUS  8
 
-typedef struct RISCVMachine {
+struct RISCVMachine {
     VirtMachine common;
     PhysMemoryMap *mem_map;
     RISCVCPUState *cpu_state[MAX_CPUS];
@@ -39,7 +39,7 @@ typedef struct RISCVMachine {
     /* MMIO range (for co-simulation only) */
     uint64_t mmio_start;
     uint64_t mmio_end;
-} RISCVMachine;
+};
 
 #define CLINT_BASE_ADDR 0x02000000
 #define CLINT_SIZE      0x000c0000

@@ -977,12 +977,12 @@ void virt_machine_set_defaults(VirtMachineParams *p)
     p->ram_base_addr     = RAM_BASE_ADDR;
 }
 
-VirtMachine *virt_machine_init(const VirtMachineParams *p)
+RISCVMachine *virt_machine_init(const VirtMachineParams *p)
 {
     VIRTIODevice *blk_dev;
     int irq_num, i;
     VIRTIOBusDef vbus_s, *vbus = &vbus_s;
-    RISCVMachine *s = (RISCVMachine *)mallocz(sizeof(*s));
+    RISCVMachine *s = (RISCVMachine *)mallocz(sizeof *s);
 
     s->ram_size = p->ram_size;
     s->ram_base_addr = p->ram_base_addr;
@@ -1137,15 +1137,13 @@ VirtMachine *virt_machine_init(const VirtMachineParams *p)
       fclose(fd);
     }
 
-    return (VirtMachine *)s;
+    return s;
 }
 
-void virt_machine_end(VirtMachine *s1)
+void virt_machine_end(RISCVMachine *s)
 {
-    RISCVMachine *s = (RISCVMachine *)s1;
-
-    if (s1->snapshot_save_name)
-        virt_machine_serialize(s1, s1->snapshot_save_name);
+    if (s->common.snapshot_save_name)
+        virt_machine_serialize(s, s->common.snapshot_save_name);
 
     /* XXX: stop all */
     for (int i = 0; i < s->ncpus; ++i) {
@@ -1156,9 +1154,8 @@ void virt_machine_end(VirtMachine *s1)
     free(s);
 }
 
-void virt_machine_serialize(VirtMachine *s1, const char *dump_name)
+void virt_machine_serialize(RISCVMachine *m, const char *dump_name)
 {
-    RISCVMachine *m = (RISCVMachine *)s1;
     RISCVCPUState *s = m->cpu_state[0]; // FIXME: MULTICORE
 
     fprintf(dromajo_stderr, "plic: %x %x timecmp=%llx\n",
@@ -1168,18 +1165,16 @@ void virt_machine_serialize(VirtMachine *s1, const char *dump_name)
     riscv_cpu_serialize(s, m, dump_name);
 }
 
-void virt_machine_deserialize(VirtMachine *s1, const char *dump_name)
+void virt_machine_deserialize(RISCVMachine *m, const char *dump_name)
 {
-    RISCVMachine *m = (RISCVMachine *)s1;
     RISCVCPUState *s = m->cpu_state[0]; // FIXME: MULTICORE
 
     assert(m->ncpus == 1); // FIXME: riscv_cpu_serialize must be patched for multicore
     riscv_cpu_deserialize(s, m, dump_name);
 }
 
-int virt_machine_get_sleep_duration(VirtMachine *s1, int hartid, int ms_delay)
+int virt_machine_get_sleep_duration(RISCVMachine *m, int hartid, int ms_delay)
 {
-    RISCVMachine *m = (RISCVMachine *)s1;
     RISCVCPUState *s = m->cpu_state[hartid];
     int64_t ms_delay1;
 
@@ -1203,21 +1198,18 @@ int virt_machine_get_sleep_duration(VirtMachine *s1, int hartid, int ms_delay)
     return ms_delay;
 }
 
-uint64_t virt_machine_get_pc(VirtMachine *m, int hartid)
+uint64_t virt_machine_get_pc(RISCVMachine *s, int hartid)
 {
-    RISCVMachine *s = (RISCVMachine *)m;
     return riscv_get_pc(s->cpu_state[hartid]);
 }
 
-uint64_t virt_machine_get_reg(VirtMachine *m, int hartid, int rn)
+uint64_t virt_machine_get_reg(RISCVMachine *s, int hartid, int rn)
 {
-    RISCVMachine *s = (RISCVMachine *)m;
     return riscv_get_reg(s->cpu_state[hartid], rn);
 }
 
-uint64_t virt_machine_get_fpreg(VirtMachine *m, int hartid, int rn)
+uint64_t virt_machine_get_fpreg(RISCVMachine *s, int hartid, int rn)
 {
-    RISCVMachine *s = (RISCVMachine *)m;
     return riscv_get_fpreg(s->cpu_state[hartid], rn);
 }
 
@@ -1226,22 +1218,20 @@ const char *virt_machine_get_name(void)
     return "riscv64";
 }
 
-void vm_send_key_event(VirtMachine *s1, BOOL is_down, uint16_t key_code)
+void vm_send_key_event(RISCVMachine *s, BOOL is_down, uint16_t key_code)
 {
-    RISCVMachine *s = (RISCVMachine *)s1;
     if (s->keyboard_dev) {
         virtio_input_send_key_event(s->keyboard_dev, is_down, key_code);
     }
 }
 
-BOOL vm_mouse_is_absolute(VirtMachine *s)
+BOOL vm_mouse_is_absolute(RISCVMachine *s)
 {
     return TRUE;
 }
 
-void vm_send_mouse_event(VirtMachine *s1, int dx, int dy, int dz, unsigned buttons)
+void vm_send_mouse_event(RISCVMachine *s, int dx, int dy, int dz, unsigned buttons)
 {
-    RISCVMachine *s = (RISCVMachine *)s1;
     if (s->mouse_dev) {
         virtio_input_send_mouse_event(s->mouse_dev, dx, dy, dz, buttons);
     }
