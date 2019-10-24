@@ -63,10 +63,8 @@
 #include "fs_utils.h"
 #include "fs_wget.h"
 #endif
-#ifdef CONFIG_CPU_RISCV
 #include "riscv_cpu.h"
 #include "validation_events.h"
-#endif
 #ifdef CONFIG_SLIRP
 #include "slirp/libslirp.h"
 #endif

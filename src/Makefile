@@ -59,24 +59,9 @@ dromajo: dromajo.o libdromajo_cosim.a
 dromajo_cosim_test: dromajo_cosim_test.o libdromajo_cosim.a
 	$(CXX) $(LDFLAGS) -o $@ $^ $(DROMAJO_LIBS) $(EMU_LIBS)
 
-dromajo.o: dromajo.c
-	$(CXX) $(CXXFLAGS) -DMAX_XLEN=64 -c -o $@ $<
-
-libdromajo_cosim.a: dromajo_cosim.o riscv_cpu64.o dromajo_main.o \
+libdromajo_cosim.a: dromajo_cosim.o riscv_cpu.o dromajo_main.o \
 	riscv_machine.o softfp.o $(EMU_OBJS)
 	ar rvs $@ $^
-
-dromajo_cosim_test.o: dromajo_cosim_test.c
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-
-dromajo_cosim.o: dromajo_cosim.c
-	$(CXX) $(CXXFLAGS) -DMAX_XLEN=64 -c -o $@ $<
-
-dromajo_main.o: dromajo_main.c
-	$(CXX) $(CXXFLAGS) -DCONFIG_CPU_RISCV -c -o $@ $<
-
-riscv_cpu64.o: riscv_cpu.c
-	$(CXX) $(CXXFLAGS) -DMAX_XLEN=64 -c -o $@ $<
 
 install: $(PROGS)
 	$(INSTALL) -m755 $(PROGS) "$(DESTDIR)$(bindir)"
