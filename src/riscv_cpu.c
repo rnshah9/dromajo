@@ -1208,36 +1208,6 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
         val = s->csr_pmpaddr[csr - CSR_PMPADDR(0)];
         break;
 
-    case CSR_ET_PREFETCH:
-    case CSR_ET_FLUSHVAR:
-    case CSR_ET_FLUSHVAW:
-    case CSR_ET_FLUSHALL:
-
-    case CSR_ET_VALIDATION0:
-    case CSR_ET_VALIDATION1:
-        val = 0;
-        break;
-
-    case CSR_ET_MCE_ENABLE_MASK:
-        val = s->mce_enable_mask;
-        break;
-
-    case CSR_ET_MCE_INJECT_MASK:
-        val = s->mce_inject_mask;
-        break;
-
-    case CSR_ET_MCE_FETCH_WATCHDOG_INIT:
-        val = s->mce_fetch_watchdog_init;
-        break;
-
-    case CSR_ET_MCE_MEMORY_WATCHDOG_INIT:
-        val = s->mce_memory_watchdog_init;
-        break;
-
-    case CSR_ET_MCE_RETIRE_WATCHDOG_INIT:
-        val = s->mce_retire_watchdog_init;
-        break;
-
     default:
     invalid_csr:
         if (s->machine->hooks.csr_read)
