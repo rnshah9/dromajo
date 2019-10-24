@@ -15,6 +15,10 @@
 #include "machine.h"
 #include "riscv_cpu.h"
 
+#ifdef LIVECACHE
+#include "LiveCacheCore.h"
+#endif
+
 #define MAX_CPUS  8
 
 /* Hooks */
@@ -28,6 +32,9 @@ struct RISCVMachine {
     VirtMachine common;
     RISCVMachineHooks hooks;
     PhysMemoryMap *mem_map;
+#ifdef LIVECACHE
+    LiveCache *llc;
+#endif
     RISCVCPUState *cpu_state[MAX_CPUS];
     int      ncpus;
     uint64_t ram_size;

@@ -153,29 +153,25 @@ static void dump_regs(RISCVCPUState *s)
 #endif
 }
 
+static inline void track_write(RISCVCPUState *s, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
 #ifdef LIVECACHE
-LiveCache *llc=0;
-#endif
-
-static inline void track_write(int mhartid, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
-#ifdef LIVECACHE
-  llc->write(paddr);
+    s->machine->llc->write(paddr);
 #endif
 }
 
-static inline uint64_t track_dread(int mhartid, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+static inline uint64_t track_dread(RISCVCPUState *s, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
 #ifdef LIVECACHE
-  llc->read(paddr);
+  s->machine->llc->read(paddr);
 #endif
 
   return data;
 }
 
-static inline uint64_t track_iread(int mhartid, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
+static inline uint64_t track_iread(RISCVCPUState *s, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
 #ifdef LIVECACHE
-  llc->read(paddr);
+  s->machine->llc->read(paddr);
 #endif
-  assert(size==16 || size==32);
+  assert(size == 16 || size == 32);
 
   return data;
 }
@@ -238,7 +234,7 @@ get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t p
             *fail = true;                                               \
             return;                                                     \
         }                                                               \
-        track_write(s->mhartid, paddr, paddr, val, size);               \
+        track_write(s, paddr, paddr, val, size);                        \
         *(uint_type *)(pr->phys_mem + (uintptr_t)(paddr - pr->addr)) = val; \
         *fail = false;                                                  \
     }                                                                   \
@@ -253,7 +249,7 @@ get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t p
         }                                                               \
         uint_type pval = *(uint_type *)(pr->phys_mem +                  \
                                         (uintptr_t)(paddr - pr->addr)); \
-        pval = track_dread(s->mhartid, paddr, paddr, pval, size);       \
+        pval = track_dread(s, paddr, paddr, pval, size);                \
         *fail = false;                                                  \
         return pval;                                                    \
     }
@@ -276,7 +272,7 @@ PHYS_MEM_READ_WRITE(64, uint64_t)
         if (likely(s->tlb_read[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
             uint64_t data = *(uint_type *)(s->tlb_read[tlb_idx].mem_addend + (uintptr_t)addr); \
             uint64_t paddr = s->tlb_read_paddr_addend[tlb_idx] + addr;  \
-            *pval = track_dread(s->mhartid, addr, paddr, data, size);   \
+            *pval = track_dread(s, addr, paddr, data, size);            \
             return 0;                                                   \
         }                                                               \
                                                                         \
@@ -300,7 +296,7 @@ PHYS_MEM_READ_WRITE(64, uint64_t)
         if (likely(s->tlb_write[tlb_idx].vaddr == (addr & ~(PG_MASK & ~((size / 8) - 1))))) { \
             *(uint_type *)(s->tlb_write[tlb_idx].mem_addend + (uintptr_t)addr) = val; \
             uint64_t paddr = s->tlb_write_paddr_addend[tlb_idx] + addr;  \
-            track_write(s->mhartid, addr, paddr, val, size);            \
+            track_write(s, addr, paddr, val, size);                     \
             return 0;                                                   \
         }                                                               \
                                                                         \
@@ -603,7 +599,7 @@ no_inline int riscv_cpu_read_memory(RISCVCPUState *s, mem_uint_t *pval,
             }
         }
     }
-    *pval = track_dread(s->mhartid, addr, paddr, ret, size);
+    *pval = track_dread(s, addr, paddr, ret, size);
     return 0;
 }
 
@@ -705,7 +701,7 @@ no_inline int riscv_cpu_write_memory(RISCVCPUState *s, target_ulong addr,
             }
         }
     }
-    track_write(s->mhartid, addr, paddr, val, size);
+    track_write(s, addr, paddr, val, size);
     return 0;
 }
 
@@ -778,8 +774,8 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
         uint32_t data1 = (uint32_t)*((uint16_t*)ptr);
         uint32_t data2 = (uint32_t)*((uint16_t*)ptr_cross);
 
-        data1 = track_iread(s->mhartid, addr, paddr,       data1, 16);
-        data2 = track_iread(s->mhartid, addr, paddr_cross, data2, 16);
+        data1 = track_iread(s, addr, paddr,       data1, 16);
+        data2 = track_iread(s, addr, paddr_cross, data2, 16);
 
         *insn = data1 | (data2 << 16);
 
@@ -794,7 +790,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
         assert(0);
     }
 
-    *insn = track_iread(s->mhartid, addr, paddr, *insn, size);
+    *insn = track_iread(s, addr, paddr, *insn, size);
 
     return 0;
 }
@@ -810,9 +806,9 @@ static inline __exception int target_read_insn_u16(RISCVCPUState *s, uint16_t *p
         mem_addend = s->tlb_code[tlb_idx].mem_addend;
         uint32_t data = *(uint16_t *)(mem_addend + (uintptr_t)addr);
 #ifdef PADDR_INLINE
-        *pinsn = track_iread(s->mhartid, addr, s->tlb_code[tlb_idx].paddr_addend + addr, data, 16);
+        *pinsn = track_iread(s, addr, s->tlb_code[tlb_idx].paddr_addend + addr, data, 16);
 #else
-        *pinsn = track_iread(s->mhartid, addr, s->tlb_code_paddr_addend[tlb_idx] + addr, data, 16);
+        *pinsn = track_iread(s, addr, s->tlb_code_paddr_addend[tlb_idx] + addr, data, 16);
 #endif
         return 0;
     }
@@ -2450,7 +2446,7 @@ static void create_boot_rom(RISCVCPUState *s, const char *file)
 
 #ifdef LIVECACHE
     int addr_size;
-    uint64_t *addr = llc->traverse(addr_size);
+    uint64_t *addr = s->machine->llc->traverse(addr_size);
 
     if (addr_size > ROM_SIZE / 4) {
         fprintf(stderr, "LiveCache: truncating boot rom from %d to %d\n", addr_size, ROM_SIZE / 4);

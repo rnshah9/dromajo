@@ -82,17 +82,8 @@ int iterate_core(RISCVMachine *m, int hartid)
     return keep_going;
 }
 
-#ifdef LIVECACHE
-extern LiveCache *llc;
-#endif
-
 int main(int argc, char **argv)
 {
-#ifdef LIVECACHE
-    //llc = new LiveCache("LLC", 1024*1024*32); // 32MB LLC (should be ~2x larger than real)
-    llc = new LiveCache("LLC", 1024*32); // Small 32KB for testing
-#endif
-
 #ifdef REGRESS_COSIM
     dromajo_cosim_state_t *costate = 0;
     costate = dromajo_cosim_init(argc, argv);
@@ -103,6 +94,11 @@ int main(int argc, char **argv)
     while (!dromajo_cosim_step(costate, 0, 0, 0, 0, 0, false));
 #else
     RISCVMachine *m = virt_machine_main(argc, argv);
+
+#ifdef LIVECACHE
+    //m->llc = new LiveCache("LLC", 1024*1024*32); // 32MB LLC (should be ~2x larger than real)
+    m->llc = new LiveCache("LLC", 1024*32); // Small 32KB for testing
+#endif
 
     if (!m)
         return 1;
@@ -131,13 +127,13 @@ int main(int argc, char **argv)
 #if 0
     // LiveCache Dump
     int addr_size;
-    uint64_t *addr = llc->traverse(addr_size);
+    uint64_t *addr = m->llc->traverse(addr_size);
 
     for (int i = 0; i < addr_size; ++i) {
         printf("addr:%llx %s\n", (unsigned long long)addr[i], (addr[i] & 1) ? "ST" : "LD");
     }
 #endif
-    delete llc;
+    delete m->llc;
 #endif
 
     return 0;

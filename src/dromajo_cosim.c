@@ -22,11 +22,6 @@
 #include <stdio.h>
 #include <assert.h>
 
-#ifdef LIVECACHE
-#include "LiveCacheCore.h"
-extern LiveCache *llc; // XXX This is horrifying; llc should have been part of the machine state
-#endif
-
 /*
  * dromajo_cosim_init --
  *
@@ -38,8 +33,8 @@ dromajo_cosim_state_t *dromajo_cosim_init(int argc, char *argv[])
     RISCVMachine *m = virt_machine_main(argc, argv);
 
 #ifdef LIVECACHE
-    //llc = new LiveCache("LLC", 1024*1024*32); // 32MB LLC (should be ~2x larger than real)
-    llc = new LiveCache("LLC", 1024*32); // Small 32KB for testing
+    //m->llc = new LiveCache("LLC", 1024*1024*32); // 32MB LLC (should be ~2x larger than real)
+    m->llc = new LiveCache("LLC", 1024*32); // Small 32KB for testing
 #endif
 
     m->common.pending_interrupt = -1;

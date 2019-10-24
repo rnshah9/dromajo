@@ -58,7 +58,6 @@
 #include "cutils.h"
 #include "iomem.h"
 #include "virtio.h"
-//#include "machine.h"
 #ifdef CONFIG_FS_NET
 #include "fs_utils.h"
 #include "fs_wget.h"
