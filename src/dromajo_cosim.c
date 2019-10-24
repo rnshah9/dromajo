@@ -168,7 +168,6 @@ static inline void handle_dut_overrides(RISCVCPUState *s,
         return;
 
     if (is_mmio_load(s, reg, offset, mmio_start, mmio_end)) {
-        //fprintf(dromajo_stderr, "Overriding mmio c.lw (%lx)\n", addr);
         riscv_set_reg(s, rd, dut_wdata);
     }
 }
@@ -185,124 +184,11 @@ void dromajo_cosim_raise_trap(dromajo_cosim_state_t *state, int hartid, int64_t 
     VirtMachine   *m = (VirtMachine  *)state;
 
     if (cause < 0) {
-        assert(m->pending_interrupt == -1); // XXX RTLMAX-434
+        assert(m->pending_interrupt == -1);
         m->pending_interrupt = cause & 63;
         fprintf(dromajo_stderr, "DUT raised interrupt %d\n", m->pending_interrupt);
     } else {
         m->pending_exception = cause;
-    }
-}
-
-/* cosim_history --
- *
- * Simulate up to 128 bits of global history. Currently requires
- * a manual description of a single hashing function to compare
- * against.
- *
- */
-
-// get a bit from the number: num[idx]
-static inline uint64_t get_bit(uint64_t num, int idx)
-{
-    return (num >> idx) & 1;
-}
-
-// generate a bit mask
-static inline uint64_t get_mask(int size)
-{
-    assert(size != 64);
-    return (1 << size) - 1;
-}
-
-// get a bit-slice from the number: num[hi:lo]
-static inline uint64_t get_range(uint64_t num, int hi, int lo)
-{
-    return (num >> lo) & get_mask(hi - lo + 1);
-}
-
-static void cosim_history(RISCVCPUState *s,
-                          uint64_t       dut_pc,
-                          uint64_t       dut_ghr0,  // ghistory[63: 0]
-                          uint64_t       dut_ghr1,  // ghistory[89:64]
-                          int           *exit_code)
-{
-    // keeping simulated state here as statics is pretty disgusting
-    static uint64_t emu_ghr0, emu_ghr1;
-
-    /* Step 1: Compare GHR betweeen EMU and DUT. */
-
-    //fprintf(dromajo_stderr, "   [emu] GHR %016"PRIx64"%016"PRIx64"\n", emu_ghr1, emu_ghr0);
-    //fprintf(dromajo_stderr, "   [dut] GHR %016"PRIx64"%016"PRIx64"\n", dut_ghr1, dut_ghr0);
-
-    if (dut_ghr0 != emu_ghr0 || dut_ghr1 != emu_ghr1) {
-        fprintf(dromajo_stderr, "[error] EMU GHR %016" PRIx64 "%016" PRIx64 " != DUT GHR %016" PRIx64 "%016" PRIx64 "\n",
-                emu_ghr1, emu_ghr0, dut_ghr1, dut_ghr0);
-        *exit_code = 0x1FFF;
-    }
-
-    uint64_t emu_ghr0_old = emu_ghr0;
-
-    /* Step 2: Compute GHR for the *next* instruction. */
-
-    RISCVCTFInfo info;
-    uint64_t target_pc;
-
-    riscv_get_ctf_info(s, &info);
-    riscv_get_ctf_target(s, &target_pc);
-
-    /* Cosimulate the global branch history */
-    if (info != ctf_nop) {
-        // NB, cft is on the just executed instruction, thus insn_addr is the previous pc
-#if 0
-        // a very simple hash function; easy for debugging.
-        int histlen = 90;
-        int shamt = 4;
-        emu_ghr1 <<= shamt;
-        emu_ghr1 |= emu_ghr0 >> (64-shamt);
-        emu_ghr0 = emu_ghr0 << shamt | ((target_pc >> 0) & 0xf);
-#endif
-#if 1
-        // Hard-coded hash function from maxion.
-        int histlen = 90; // must be < 128 for cosim reasons.
-        int sz0 = 6; // must be even.
-        int szh = sz0/2;
-        int min = (2*sz0 + szh + 13);
-
-        int pc = target_pc >> 1; // Remove lsb (always zero).
-        int foldpc = (pc >> 17) ^ pc;
-        int o0 = get_range(emu_ghr0, sz0-1, 0); // old(sz0-1, 0)
-        int o1 = get_range(emu_ghr0, 2*sz0-1, sz0) ; // old(2*sz0-1, sz0)
-        int o2 = get_range(emu_ghr0, 2*sz0+szh, 2*sz0); // old(2*sz0+szh, 2*sz0)
-
-        int h0  = foldpc & get_mask(sz0); // foldpc(sz0-1, 0)
-        int h1  = o0;
-        int h2  = (o1 ^ (o1 >> szh)) & get_mask(szh+1); // (o1 ^ (o1 >> (sz0/2).U))(sz0/2-1, 0)
-        int h3  = (o2 ^ (o2 >> 2)) & get_mask(2); // (o2 ^ (o2 >> 2))(1, 0)
-        int h10 = get_bit(emu_ghr0, 27) ^ get_bit(emu_ghr0, 26); // fold o9's 2-bits down to 1-bit
-
-        emu_ghr1 <<= 1;
-        emu_ghr1 |= get_bit(emu_ghr0, 63);
-#endif
-
-        // min = h0.getWidth + h1.getWidth + h2.getWidth + h3.getWidth + 10
-        // ret := Cat(old(history_length-1, min), h10, old(25, 16), h3, h2, h1, h0)
-        emu_ghr0 &= ~((1 << min) - 1);
-        emu_ghr0 = \
-            (emu_ghr0 << 1) |
-            (h10 << (2*sz0 + szh + 13)) |
-            (get_range(emu_ghr0_old, 25, 16) << (2*sz0 + szh + 3)) |
-            (h3 << (2*sz0 + szh + 1)) |
-            (h2 << 2*sz0) |
-            (h1 << sz0) |
-            (h0);
-
-        // Clear out high-order bits, based on hard-coded history length.
-        if (histlen <= 64) {
-            emu_ghr1 = 0;
-            emu_ghr0 &= (1L << histlen) - 1;
-        } else {
-            emu_ghr1 &= (1L << (histlen-64)) - 1;
-        }
     }
 }
 
@@ -329,9 +215,6 @@ int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
                        uint64_t               dut_pc,
                        uint32_t               dut_insn,
                        uint64_t               dut_wdata,
-                       int                    dut_ghr_ena,
-                       uint64_t               dut_ghr0,  // ghistory[63: 0]
-                       uint64_t               dut_ghr1,  // ghistory[89:64]
                        uint64_t               dut_mstatus,
                        bool                   check)
 {
@@ -479,11 +362,6 @@ int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
 
     if (exit_code == 0)
         riscv_cpu_sync_regs(s);
-
-    if (!dut_ghr_ena)
-        return exit_code;
-
-    cosim_history(s, dut_pc, dut_ghr0, dut_ghr1, &exit_code);
 
     return exit_code;
 }

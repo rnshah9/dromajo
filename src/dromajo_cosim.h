@@ -37,9 +37,9 @@ dromajo_cosim_state_t *dromajo_cosim_init(int argc, char *argv[]);
  * executes exactly one instruction in the golden model and returns
  * zero if the supplied expected values match and execution should
  * continue.  A non-zero value signals termination with the exit code
- * being the upper bits (ie., all but LSB).  Caveat: the DUT provides
- * the instructions bit after expansion, so this is only matched on
- * non-compressed instruction.
+ * being the upper bits (ie., all but LSB).  Caveat: the DUT is
+ * assumed to provide the instructions bit after expansion, so this is
+ * only matched on non-compressed instruction.
  *
  * There are a number of situations where the model cannot match the
  * DUT, such as loads from IO devices, interrupts, and CSRs cycle,
@@ -48,15 +48,12 @@ dromajo_cosim_state_t *dromajo_cosim_init(int argc, char *argv[]);
  *
  */
 int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
-                        int                     hartid,
-                        uint64_t                dut_pc,
-                        uint32_t                dut_insn,
-                        uint64_t                dut_wdata,
-                        int                     dut_ghr_ena,
-                        uint64_t                dut_ghr0,  // ghistory[63: 0]
-                        uint64_t                dut_ghr1,  // ghistory[89:64]
-                        uint64_t                mstatus,
-                        bool                    check);
+                       int                    hartid,
+                       uint64_t               dut_pc,
+                       uint32_t               dut_insn,
+                       uint64_t               dut_wdata,
+                       uint64_t               mstatus,
+                       bool                   check);
 
 /*
  * dromajo_cosim_raise_trap --
