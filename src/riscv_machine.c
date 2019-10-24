@@ -1001,7 +1001,7 @@ RISCVMachine *virt_machine_init(const VirtMachineParams *p)
     }
 
     for (int i = 0; i < s->ncpus; ++i) {
-        s->cpu_state[i] = riscv_cpu_init(s, i, p->validation_terminate_event);
+        s->cpu_state[i] = riscv_cpu_init(s, i);
     }
 
     /* RAM */

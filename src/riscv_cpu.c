@@ -1143,15 +1143,6 @@ static int csr_read(RISCVCPUState *s, target_ulong *pval, uint32_t csr,
     case 0xf11:
         val = s->mvendorid;
         break;
-    case CSR_ET_MCIP:
-        val = 0x0; // perf counter overflows. DUT will override.
-        break;
-    case CSR_ET_SCIP:
-        val = 0x0; // perf counter overflows. DUT will override.
-        break;
-    case CSR_ET_UCIP:
-        val = 0x0; // perf counter overflows. DUT will override.
-        break;
     case 0x323:
     case 0x324:
     case 0x325:
@@ -1248,54 +1239,6 @@ static int get_insn_rm(RISCVCPUState *s, unsigned int rm)
 }
 #endif
 
-static void handle_write_validation1(RISCVCPUState *s, target_ulong val)
-{
-    if (val < 256) {// upper bits zero is the expected
-        fputc((char)val, dromajo_stdout);
-        return;
-    }
-
-    target_ulong cmd_payload = val & PAYLOAD_MASK;
-    switch (val >> CMD_OFFSET) {
-    // Valid only for dromajo64
-    case VALIDATION_CMD_LINUX:
-        if (cmd_payload == LINUX_CMD_VALUE_INVALID
-            || cmd_payload >= LINUX_CMD_VALUE_NUM) {
-            fprintf(dromajo_stderr, "ET UNKNOWN linux command=%" PR_target_ulong "\n",
-                    cmd_payload);
-        }
-        break;
-    case VALIDATION_CMD_BENCH:
-        if (cmd_payload == BENCH_CMD_VALUE_INVALID
-            || cmd_payload >= BENCH_CMD_VALUE_NUM) {
-            fprintf(dromajo_stderr, "ET UNKNOWN benchmark command=%" PR_target_ulong "\n",
-                    cmd_payload);
-        }
-        break;
-
-    case VALIDATION_CMD_EXIT_CODE:
-        s->benchmark_exit_code = cmd_payload;
-        break;
-
-    default:
-        fprintf(dromajo_stderr, "ET UNKNOWN validation1 command=%llx\n", (long long)val);
-    }
-
-    for (unsigned int i = 0; i < countof(validation_events); ++i) {
-        if (val == validation_events[i].value
-            && validation_events[i].terminate
-            && s->terminating_event != NULL
-            && strcmp(validation_events[i].name, s->terminating_event) == 0) {
-            s->terminate_simulation = TRUE;
-            fprintf(dromajo_stderr, "ET terminating validation event: %s encountered.",
-                    s->terminating_event);
-            fprintf(dromajo_stderr, " Instructions committed: %lli \n",
-                    (long long)s->minstret);
-            break;
-        }
-    }
-}
-
 static void unpack_pmpaddrs(RISCVCPUState *s)
 {
     uint8_t cfg;
@@ -1351,23 +1294,6 @@ static void unpack_pmpaddrs(RISCVCPUState *s)
     }
 
     tlb_flush_all(s); // The TLB partically caches PMP decisions
-
-#if 0
-    for (int i = 0; i < s->pmp_n; ++i) {
-        cfg = s->pmpcfg[i];
-        fprintf(dromajo_stderr,
-                "PMP%d [%016lx; %016lx) %c %c %c %c %s\n",
-                i, s->pmp[i].lo, s->pmp[i].hi,
-                " L"[!!(cfg & PMPCFG_L)],
-                " X"[!!(cfg & PMPCFG_X)],
-                " W"[!!(cfg & PMPCFG_W)],
-                " R"[!!(cfg & PMPCFG_R)],
-
-                (cfg & PMPCFG_A_MASK) == PMPCFG_A_TOR ? "TOR" :
-                (cfg & PMPCFG_A_MASK) == PMPCFG_A_NA4 ? "NA4" :
-                (cfg & PMPCFG_A_MASK) == PMPCFG_A_NAPOT ? "NAPOT" : "?");
-    }
-#endif
 }
 
 /* return -1 if invalid CSR, 0 if OK, -2 if CSR raised an exception,
@@ -1564,13 +1490,6 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mhpmevent[csr & 0x1F] = val & (HPM_EVENT_SETMASK | HPM_EVENT_EVENTMASK);
         break;
 
-    case CSR_ET_MCIP:
-    case CSR_ET_SCIP:
-    case CSR_ET_UCIP:
-        // Do nothing: perf counter overflow cosim relies on DUT overrides.
-        break;
-
-
     case CSR_PMPCFG(0): // NB: 1 and 3 are _illegal_ in RV64
     case CSR_PMPCFG(2): {
         assert(PMP_N % 8 == 0);
@@ -1621,55 +1540,6 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         unpack_pmpaddrs(s);
         break;
 
-    case CSR_ET_PREFETCH:
-    case CSR_ET_FLUSHALL:
-        // Ignore it
-        break;
-
-    case CSR_ET_FLUSHVAR: {
-        target_ulong paddr;
-        int err = riscv_cpu_get_phys_addr(s, val, ACCESS_READ, &paddr);
-        if (err || !pmp_access_ok(s, paddr, 1, PMPCFG_R)) {
-            s->pending_tval = val;
-            s->pending_exception = err == -1
-                ? CAUSE_LOAD_PAGE_FAULT : CAUSE_FAULT_LOAD;
-            return -2;
-        }
-        break;
-    }
-
-    case CSR_ET_FLUSHVAW: {
-        target_ulong paddr;
-        int err = riscv_cpu_get_phys_addr(s, val, ACCESS_WRITE, &paddr);
-        if (err || !pmp_access_ok(s, paddr, 1, PMPCFG_W)) {
-            s->pending_tval = val;
-            s->pending_exception = err == -1
-                ? CAUSE_STORE_PAGE_FAULT : CAUSE_FAULT_STORE;
-            return -2;
-        }
-        break;
-    }
-
-    case CSR_ET_VALIDATION0: // Esperanto validation0 register
-        if ((val >> 12) == 0xDEAD0) // Begin
-            fprintf(dromajo_stderr, "ET validation mhartid=%d begin code=%llx\n", (int)s->mhartid, (long long)val & 0xFFF);
-        else if ((val >> 12) == 0x1FEED) {
-            fprintf(dromajo_stderr, "ET validation mhartid=%d PASS code=%llx\n", (int)s->mhartid, (long long)val & 0xFFF);
-            s->terminate_simulation = TRUE;
-            break;
-        } else if ((val >> 12) == 0x50BAD) {
-            fprintf(dromajo_stderr, "ET validation mhartid=%d FAIL code=%llx\n", (int)s->mhartid, (long long)val & 0xFFF);
-            s->terminate_simulation = TRUE;
-            break;
-        } else
-            fprintf(dromajo_stderr, "ET UNKNOWN mhartid=%d command=%llx code=%llx\n", (int)s->mhartid, (long long)val >> 12,
-                    (long long)(val & 0xFFF));
-        break;
-
-    case CSR_ET_VALIDATION1: // Esperanto validation1 register
-        handle_write_validation1(s, val);
-        break;
-
     case 0xb00: /* mcycle */
         s->mcycle = val;
         break;
@@ -1706,26 +1576,6 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
     case 0xb1e:
     case 0xb1f:
         // Allow, but ignore to write to performance counters mhpmcounter
-        break;
-
-    case CSR_ET_MCE_ENABLE_MASK:
-        s->mce_enable_mask = val & ET_MCE_MASK_BITS;
-        break;
-
-    case CSR_ET_MCE_INJECT_MASK:
-        s->mce_inject_mask = val & ET_MCE_MASK_BITS;
-        break;
-
-    case CSR_ET_MCE_FETCH_WATCHDOG_INIT:
-        s->mce_fetch_watchdog_init = val & ET_MCE_WATCHDOG_BITS;
-        break;
-
-    case CSR_ET_MCE_MEMORY_WATCHDOG_INIT:
-        s->mce_memory_watchdog_init = val & ET_MCE_WATCHDOG_BITS;
-        break;
-
-    case CSR_ET_MCE_RETIRE_WATCHDOG_INIT:
-        s->mce_retire_watchdog_init = val & ET_MCE_WATCHDOG_BITS;
         break;
 
     default:
@@ -2017,8 +1867,7 @@ BOOL riscv_cpu_get_power_down(RISCVCPUState *s)
     return s->power_down_flag;
 }
 
-RISCVCPUState *riscv_cpu_init(RISCVMachine *machine, int hartid,
-                              const char *validation_terminate_event)
+RISCVCPUState *riscv_cpu_init(RISCVMachine *machine, int hartid)
 {
     RISCVCPUState *s = (RISCVCPUState *)mallocz(sizeof *s);
     s->machine = machine;
@@ -2055,16 +1904,7 @@ RISCVCPUState *riscv_cpu_init(RISCVMachine *machine, int hartid,
         s->tdata2[i] = ~(target_ulong)0;
     }
 
-    s->mce_enable_mask          = ET_MCE_ENABLE_MASK_RESET;
-    s->mce_inject_mask          = ET_MCE_INJECT_MASK_RESET;
-    s->mce_fetch_watchdog_init  = ET_MCE_FETCH_WATCHDOG_INIT_RESET;
-    s->mce_memory_watchdog_init = ET_MCE_MEMORY_WATCHDOG_INIT_RESET;
-    s->mce_retire_watchdog_init = ET_MCE_RETIRE_WATCHDOG_INIT_RESET;
-
     tlb_init(s);
-
-    // Initialize valiation event info
-    s->terminating_event = validation_terminate_event;
 
     // Exit code of the user-space benchmark app
     s->benchmark_exit_code = 0;

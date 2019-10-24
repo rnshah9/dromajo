@@ -239,13 +239,6 @@ typedef struct RISCVCPUState {
 
     uint32_t plic_enable_irq;
 
-    // ET MCE registers (just bits, nothing happens on these)
-    uint32_t mce_enable_mask;
-    uint32_t mce_inject_mask;
-    uint32_t mce_fetch_watchdog_init;
-    uint32_t mce_memory_watchdog_init;
-    uint32_t mce_retire_watchdog_init;
-
     target_ulong load_res; /* for atomic LR/SC */
 
     PhysMemoryMap *mem_map;
@@ -260,8 +253,6 @@ typedef struct RISCVCPUState {
     target_ulong tlb_code_paddr_addend[TLB_SIZE];
 #endif
 
-    // User specified, command line argument terminating event
-    const char *terminating_event;
     // Benchmark return value
     uint64_t benchmark_exit_code;
 
@@ -275,7 +266,7 @@ typedef struct RISCVCPUState {
     bool ignore_sbi_shutdown;
 } RISCVCPUState;
 
-RISCVCPUState *riscv_cpu_init(RISCVMachine *machine, int hartid, const char *term_event);
+RISCVCPUState *riscv_cpu_init(RISCVMachine *machine, int hartid);
 void riscv_cpu_end(RISCVCPUState *s);
 int riscv_cpu_interp(RISCVCPUState *s, int n_cycles);
 uint64_t riscv_cpu_get_cycles(RISCVCPUState *s);

@@ -135,10 +135,7 @@ static inline void handle_dut_overrides(RISCVCPUState *s,
     if (opcode == 0x73 && rd != 0 &&
         (0xB00 <= csrno && csrno < 0xB20 ||
          0xC00 <= csrno && csrno < 0xC20 ||
-         (csrno == CSR_ET_MCIP ||
-          csrno == CSR_ET_SCIP ||
-          csrno == CSR_ET_UCIP ||
-          csrno == 0x344 /* mip */ ||
+         (csrno == 0x344 /* mip */ ||
           csrno == 0x144 /* sip */)))
         riscv_set_reg(s, rd, dut_wdata);
 
