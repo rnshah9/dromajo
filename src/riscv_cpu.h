@@ -264,6 +264,9 @@ typedef struct RISCVCPUState {
     uint64_t timecmp;
 
     bool ignore_sbi_shutdown;
+
+    /* Extension state, not used by Dromajo itself */
+    void *ext_cpu_state;
 } RISCVCPUState;
 
 RISCVCPUState *riscv_cpu_init(RISCVMachine *machine, int hartid);
@@ -332,4 +335,8 @@ int riscv_cpu_get_phys_addr(RISCVCPUState *s,
 
 uint64_t riscv_cpu_get_mstatus(RISCVCPUState* s);
 
+bool riscv_cpu_pmp_access_ok(RISCVCPUState *s,
+                             uint64_t paddr,
+                             size_t size,
+                             pmpcfg_t perm);
 #endif

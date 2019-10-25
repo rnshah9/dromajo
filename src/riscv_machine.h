@@ -55,6 +55,9 @@ struct RISCVMachine {
     /* MMIO range (for co-simulation only) */
     uint64_t mmio_start;
     uint64_t mmio_end;
+
+    /* Extension state, not used by Dromajo itself */
+    void *ext_state;
 };
 
 #define CLINT_BASE_ADDR 0x02000000

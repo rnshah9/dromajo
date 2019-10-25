@@ -185,8 +185,8 @@ static inline uint64_t track_iread(RISCVCPUState *s, uint64_t vaddr, uint64_t pa
  * system reset.  In effect, PMP can grant permissions to S and U
  * modes, which by default have none, and can revoke permissions from
  * M-mode, which by default has full permissions." */
-static bool inline
-pmp_access_ok(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t perm)
+bool
+riscv_cpu_pmp_access_ok(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t perm)
 {
     int priv;
 
@@ -218,7 +218,7 @@ pmp_access_ok(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t perm)
 static inline PhysMemoryRange *
 get_phys_mem_range_pmp(RISCVCPUState *s, uint64_t paddr, size_t size, pmpcfg_t perm)
 {
-    if (!pmp_access_ok(s, paddr, size, perm))
+    if (!riscv_cpu_pmp_access_ok(s, paddr, size, perm))
         return NULL;
     else
         return get_phys_mem_range(s->mem_map, paddr);
@@ -742,7 +742,7 @@ static no_inline __exception int target_read_insn_slow(RISCVCPUState *s,
     }
     tlb_idx = (addr >> PG_SHIFT) & (TLB_SIZE - 1);
     ptr = pr->phys_mem + (uintptr_t)(paddr - pr->addr);
-    if (pmp_access_ok(s, paddr & ~PG_MASK, PG_MASK + 1, PMPCFG_X)) {
+    if (riscv_cpu_pmp_access_ok(s, paddr & ~PG_MASK, PG_MASK + 1, PMPCFG_X)) {
         /* All of this page has full execute access so we can bypass
          * the slow PMP checks. */
         s->tlb_code[tlb_idx].vaddr        = addr & ~PG_MASK;

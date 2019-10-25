@@ -11,6 +11,7 @@
 #ifndef DROMAJO_H
 #define DROMAJO_H
 
+#include "riscv_machine.h"
 #include <stdio.h>
 
 extern FILE *dromajo_stdout;
