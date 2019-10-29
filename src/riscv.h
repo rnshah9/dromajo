@@ -60,8 +60,8 @@
 #define CAUSE_LOAD_PAGE_FAULT     0xd
 #define CAUSE_STORE_PAGE_FAULT    0xf
 
-#define SCAUSE_MASK     0x800000000000001full // Maxion has 5 writable bits+MSB
-#define MCAUSE_MASK     0x80000000000000ffull // Maxion has 8 writable bits+MSB
+#define SCAUSE_MASK     0x800000000000001full // 5 writable bits+MSB
+#define MCAUSE_MASK     0x80000000000000ffull // 8 writable bits+MSB
 #define CAUSE_INTERRUPT 0x8000000000000000ull
 
 #define PRV_U 0

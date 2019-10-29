@@ -42,7 +42,7 @@
 // to validation CSR 1
 
 #define CMD_OFFSET 56
-// Maxion owns commands 128 upwards
+// commands 128 upwards
 #define CMD_PREFIX 0x80ULL
 #define CMD_MASK (~CMD_PREFIX & 0xFF)
 #define PAYLOAD_OFFSET 0

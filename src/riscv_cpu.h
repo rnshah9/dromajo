@@ -119,18 +119,18 @@ typedef uint128_t mem_uint_t;
 #define SATP_MASK ((15ULL << 60) | (((1ULL << ASID_BITS) - 1) << 44) | ((1ULL << 44) - 1))
 
 #ifndef MAX_TRIGGERS
-#define MAX_TRIGGERS 1 // As of right now, Maxion implements one trigger register
+#define MAX_TRIGGERS 1 // As of right now, one trigger register
 #endif
 
 /* HPM masks
 
-   Maxion follows Rocket here; the lower 8-bits are reserved in any
+   Follows Rocket here; the lower 8-bits are reserved in any
    HPM event selector to identify an "event-setid" i.e. with 8-bits we
    can define 256-possible event-sets.  An event-set can contain 56
    possible events, i.e. 64-8, where each bit represents the mask for
    a particular event in an event-set.
 
-   Maxion currently has 7 event-sets and not all 56-events are
+   Dromajo currently has 7 event-sets and not all 56-events are
    implemented for each set.
 */
 #define HPM_EVENT_SETMASK	0x00000007

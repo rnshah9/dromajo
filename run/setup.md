@@ -1,7 +1,7 @@
 
-Instructions to create some tests for dromajo
+# Instructions to create some tests for dromajo
 
-Baremetal riscv-tests
+## Baremetal riscv-tests
 
 ```
 git clone https://github.com/riscv/riscv-tests
@@ -16,13 +16,12 @@ make install
 To run one of the benchmarks with trace enabled
 
 ```
-../dromajo --trace 0 riscv-tests-root/share/riscv-tests/isa/rv64ua-p-amoadd_d
+../src/dromajo --trace 0 riscv-tests-root/share/riscv-tests/isa/rv64ua-p-amoadd_d
 ```
 
+## Linux with buildroot
 
-# Linux with buildroot
-
-Get a trivial buildroot
+### Get a trivial buildroot
 
 ```
 wget https://github.com/buildroot/buildroot/archive/2019.08.1.tar.gz
@@ -33,7 +32,7 @@ make -j16
 ```
 
 
-Get the Linux kernel up and running
+### Get the Linux kernel up and running
 
 ```
 https://github.com/torvalds/linux/archive/v5.3.tar.gz
@@ -43,7 +42,7 @@ cd linux-5.3
 make -j16 ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu-
 ```
 
-openSBI
+### openSBI
 
 ```
 export CROSS_COMPILE=riscv64-unknown-elf-
@@ -54,15 +53,16 @@ cd opensbi-0.5
 make PLATFORM=dromajo FW_PAYLOAD_PATH=../linux-5.3/arch/riscv/boot/Image
 ```
 
-To boot Linux (login:root password:root)
+### To boot Linux (login:root password:root)
 
 ```
 cp opensbi-0.5/build/platform/dromajo/firmware/fw_payload.bin .
-../dromajo ./boot.cfg
+../src/dromajo ./boot.cfg
 ```
 
-To boot a SMT 4
+### To boot a 4 multicore
 
 ```
-../dromajo --ncpus 4 ./boot.cfg
+../src/dromajo --ncpus 4 ./boot.cfg
 ```
+

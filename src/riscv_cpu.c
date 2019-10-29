@@ -63,7 +63,7 @@
 #define read_fp_reg(x)       (s->fp_reg[x])
 
 /*
- * Maxion/Boom/Rocket doesn't implement all bits in all CSRs but
+ * Boom/Rocket doesn't implement all bits in all CSRs but
  * stores Sv+1, that, is 49 bits and reads are sign-extended from bit
  * 49 onwards.  For the emulator we achieve this by keeping the
  * register canonical on writes (as opposed to reads).
@@ -74,7 +74,7 @@
 #define SEPC_TRUNCATE   CANONICAL_S49
 #define STVAL_TRUNCATE  CANONICAL_S49
 
-// Maxion PMPADDR CSRs only have 38-bits
+// PMPADDR CSRs only have 38-bits
 #define PMPADDR_MASK	0x3fffffffff
 
 #ifdef CONFIG_LOGFILE
@@ -1331,7 +1331,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mie = s->mie & ~mask | val & mask;
         break;
     case 0x105:
-        // RTLMAX-178, Maxion enforces 256-byte alignment for vectored interrupts
+        // enforce 256-byte alignment for vectored interrupts
         if (val & 1) val &= ~255 + 1;
         s->stvec = val & ~2;
         break;
@@ -1374,7 +1374,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         /* We don't support changing misa */
         break;
     case 0x302: {
-        target_ulong mask = 0xB109; // matching Spike and Maxion
+        target_ulong mask = 0xB109; // matching Spike
         s->medeleg = s->medeleg & ~mask | val & mask;
         break;
     }
@@ -1387,7 +1387,7 @@ static int csr_write(RISCVCPUState *s, uint32_t csr, target_ulong val)
         s->mie = s->mie & ~mask | val & mask;
         break;
     case 0x305:
-        // RTLMAX-178, Maxion enforces 256-byte alignment for vectored interrupts
+        // enforce 256-byte alignment for vectored interrupts
         if (val & 1) val &= ~255 + 1;
         s->mtvec = val & ((1ull << s->physical_addr_len) - 3); // mtvec[1] === 0
         break;
@@ -1892,8 +1892,7 @@ RISCVCPUState *riscv_cpu_init(RISCVMachine *machine, int hartid)
 #endif
     s->misa |= MCPUID_C;
 
-    /* Match Maxion */
-    s->mvendorid = 11 * 128 + 101; // Esperanto JEDEC number 101 in bank 11
+    s->mvendorid = 11 * 128 + 101; // Esperanto JEDEC number 101 in bank 11 (Change for your own)
     s->marchid   = (1ULL << 63) | 2;
     s->mimpid    = 1;
     s->mhartid   = hartid;
