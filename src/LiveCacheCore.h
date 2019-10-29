@@ -50,12 +50,12 @@
 #include <strings.h>
 
 //-------------------------------------------------------------
-#define RRIP_M 4 // max value = 2^M   | 4 | 8   | 16   |
+#define RRIP_M       4 // max value = 2^M   | 4 | 8   | 16   |
 //-------------------------------------------------------------
-#define DISTANT_REF 3  // 2^M - 1           | 3 | 7   | 15  |
-#define IMM_REF 1      // nearimm<imm<dist  | 1 | 1-6 | 1-14|
-#define NEAR_IMM_REF 0 // 0                 | 0 | 0   | 0   |
-#define LONG_REF 1     // 2^M - 2           | 1 | 6   | 14  |
+#define DISTANT_REF  3 // 2^M - 1           | 3 | 7   | 15   |
+#define IMM_REF      1 // nearimm<imm<dist  | 1 | 1-6 | 1-14 |
+#define NEAR_IMM_REF 0 // 0                 | 0 | 0   | 0    |
+#define LONG_REF     1 // 2^M - 2           | 1 | 6   | 14   |
 //-------------------------------------------------------------
 
 static inline uint32_t roundUpPower2(uint32_t x) {

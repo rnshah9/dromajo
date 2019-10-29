@@ -8,9 +8,10 @@
 // agreement/contract under which the program(s) have been supplied.
 //------------------------------------------------------------------------------
 
-/* Implementation independent ISA definitions -- most of this comes
- * straight from the specifications + a tiny bit of Esperanto value
- * add. */
+/*
+ * Implementation independent ISA definitions -- most of this comes
+ * straight from the specifications.
+ */
 
 #ifndef RISCV_H
 #define RISCV_H

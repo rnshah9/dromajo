@@ -65,9 +65,8 @@ int iterate_core(RISCVMachine *m, int hartid)
     fprintf(dromajo_stderr, "%d %d 0x%016" PRIx64 " (0x%08x)", hartid, priv, last_pc,
             (insn_raw & 3) == 3 ? insn_raw : (uint16_t) insn_raw);
 
-    uint64_t dummy1, dummy2;
-    int iregno = riscv_get_most_recently_written_reg(cpu, &dummy1);
-    int fregno = riscv_get_most_recently_written_fp_reg(cpu, &dummy2);
+    int iregno = riscv_get_most_recently_written_reg(cpu);
+    int fregno = riscv_get_most_recently_written_fp_reg(cpu);
 
     if (cpu->pending_exception != -1)
         fprintf(dromajo_stderr, " exception %d, tval %016lx", cpu->pending_exception,

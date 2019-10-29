@@ -10,7 +10,7 @@
 
 /*
  * Simple PCI bus driver
- * 
+ *
  * Copyright (c) 2017 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

@@ -124,9 +124,6 @@ typedef struct {
     /* kernel, bios and other auxiliary files */
     VMFileEntry files[VM_FILE_COUNT];
 
-    /* validation terminate event */
-    const char* validation_terminate_event;
-
     /* maximum increment of instructions to execute */
     uint64_t maxinsns;
 
@@ -143,7 +140,7 @@ typedef struct {
 
     char    *logfile; // If non-zero, all output goes here, stderr and stdout
 
-    bool        dump_memories;
+    bool dump_memories;
 } VirtMachineParams;
 
 typedef struct VirtMachine {

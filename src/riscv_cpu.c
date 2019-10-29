@@ -51,13 +51,11 @@
 
 // NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
 #define write_reg(x, val) ({s->most_recently_written_reg = (x); \
-                           s->reg_ts[x] = GET_INSN_COUNTER();   \
                            s->reg_prior[x] = s->reg[x]; \
                            s->reg[x] = (val);})
 #define read_reg(x)       (s->reg[x])
 
 #define write_fp_reg(x, val) ({s->most_recently_written_fp_reg = (x); \
-                               s->fp_reg_ts[x] = GET_INSN_COUNTER();  \
                                s->fp_reg[x] = (val);                  \
                                s->fs = 3;})
 #define read_fp_reg(x)       (s->fp_reg[x])
@@ -2021,24 +2019,14 @@ int riscv_get_priv_level(RISCVCPUState *s)
     return s->priv;
 }
 
-int riscv_get_most_recently_written_reg(RISCVCPUState *s,
-                                        uint64_t *instret_ts)
+int riscv_get_most_recently_written_reg(RISCVCPUState *s)
 {
-    int regno = s->most_recently_written_reg;
-    if (instret_ts)
-        *instret_ts = s->reg_ts[regno];
-
-    return regno;
+    return s->most_recently_written_reg;
 }
 
-int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
-                                           uint64_t *instret_ts)
+int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s)
 {
-    int regno = s->most_recently_written_fp_reg;
-    if (instret_ts)
-        *instret_ts = s->fp_reg_ts[regno];
-
-    return regno;
+    return s->most_recently_written_fp_reg;
 }
 
 int riscv_benchmark_exit_code(RISCVCPUState *s)

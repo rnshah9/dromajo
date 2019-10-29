@@ -217,7 +217,6 @@ int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
     bool     emu_wrote_data = false;
     int      exit_code = 0;
     bool     verbose = true;
-    uint64_t dummy1, dummy2;
     int      iregno, fregno;
 
     /* Succeed after N instructions without failure. */
@@ -259,10 +258,10 @@ int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
         }
 
         if (r->common.pending_interrupt != -1 && r->common.pending_exception != -1) {
-            /* ARCHSIM-301: On the DUT, the interrupt can race the exception.
+            /* On the DUT, the interrupt can race the exception.
                Let's try to match that behavior */
 
-            fprintf(dromajo_stderr, "DUT also raised exception %d\n", r->common. pending_exception);
+            fprintf(dromajo_stderr, "DUT also raised exception %d\n", r->common.pending_exception);
             riscv_cpu_interp64(s, 1); // Advance into the exception
 
             int cause = s->priv == PRV_S ? s->scause : s->mcause;
@@ -290,8 +289,8 @@ int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
         r->common.pending_exception = -1;
 
         if (riscv_cpu_interp64(s, 1) != 0) {
-            iregno = riscv_get_most_recently_written_reg(s, &dummy1);
-            fregno = riscv_get_most_recently_written_fp_reg(s, &dummy2);
+            iregno = riscv_get_most_recently_written_reg(s);
+            fregno = riscv_get_most_recently_written_fp_reg(s);
             break;
         }
     }

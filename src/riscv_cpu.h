@@ -36,7 +36,6 @@
  */
 
 #include "riscv.h"
-#include "validation_events.h"
 #include <stdbool.h>
 
 #define ROM_SIZE       0x00001000
@@ -161,14 +160,10 @@ typedef struct RISCVCPUState {
     /* Co-simulation sometimes need to see the value of a register
      * prior to the just excuted instruction. */
     target_ulong reg_prior[32];
-    /* reg_ts[x] is the timestamp (in executed instructions) of the most
-     * recent definition of the register. */
-    uint64_t reg_ts[32];
     int most_recently_written_reg;
 
 #if FLEN > 0
     fp_uint fp_reg[32];
-    uint64_t fp_reg_ts[32];
     int most_recently_written_fp_reg;
     uint32_t fflags;
     uint8_t frm;
@@ -292,10 +287,8 @@ void riscv_repair_csr(RISCVCPUState *s, uint32_t reg_num, uint64_t csr_num,
                       uint64_t csr_val);
 void riscv_cpu_sync_regs(RISCVCPUState *s);
 int riscv_get_priv_level(RISCVCPUState *s);
-int riscv_get_most_recently_written_reg(RISCVCPUState *s,
-                                        uint64_t *instret_ts);
-int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s,
-                                           uint64_t *instret_ts);
+int riscv_get_most_recently_written_reg(RISCVCPUState *s);
+int riscv_get_most_recently_written_fp_reg(RISCVCPUState *s);
 void riscv_get_ctf_info(RISCVCPUState *s, RISCVCTFInfo *info);
 void riscv_get_ctf_target(RISCVCPUState *s, uint64_t *target);
 

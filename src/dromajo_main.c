@@ -63,7 +63,6 @@
 #include "fs_wget.h"
 #endif
 #include "riscv_machine.h"
-#include "validation_events.h"
 #ifdef CONFIG_SLIRP
 #include "slirp/libslirp.h"
 #endif
@@ -655,7 +654,6 @@ RISCVMachine *virt_machine_main(int argc, char **argv)
     const char *path               = NULL;
     const char *cmdline            = NULL;
     long        ncpus              = 0;
-    const char *terminate_event    = NULL;
     uint64_t    maxinsns           = 0;
     uint64_t    trace              = UINT64_MAX;
     long        memory_size_override = 0;
@@ -676,7 +674,6 @@ RISCVMachine *virt_machine_main(int argc, char **argv)
             {"load",                    required_argument, 0,  'l' },
             {"save",                    required_argument, 0,  's' },
             {"maxinsns",                required_argument, 0,  'm' }, // CFG
-            {"terminate-event",         required_argument, 0,  'e' }, // CFG
             {"trace   ",                required_argument, 0,  't' },
             {"ignore_sbi_shutdown",     required_argument, 0,  'P' }, // CFG
             {"dump_memories",           required_argument, 0,  'D' }, // CFG
@@ -718,35 +715,6 @@ RISCVMachine *virt_machine_main(int argc, char **argv)
             if (maxinsns)
                 usage(prog, "already had a max instructions");
             maxinsns = (uint64_t) atoll(optarg);
-            break;
-
-        case 'e':
-            {
-                BOOL unknown_event = TRUE;
-                if (terminate_event) {
-                    usage(prog, "already had a terminate event");
-                }
-                for (unsigned int i = 0; i < countof(validation_events); ++i) {
-                    if (validation_events[i].terminate
-                        && strcmp(validation_events[i].name, optarg) != 0)
-                    {
-                        unknown_event = FALSE;
-                        break;
-                    }
-                }
-                if (unknown_event) {
-                    fprintf(dromajo_stderr, "Unknown terminate event \"%s\" \n", optarg);
-                    fprintf(dromajo_stderr, "Valid termination events: \n");
-                    for (unsigned int j = 0; j < countof(validation_events); ++j) {
-                        if (validation_events[j].terminate) {
-                            fprintf(dromajo_stderr, "\t\"%s\"\n",
-                                    validation_events[j].name);
-                        }
-                    }
-                    usage(prog, "unknown terminate event");
-                }
-                terminate_event = strdup(optarg);
-            }
             break;
 
         case 't':
@@ -906,8 +874,6 @@ RISCVMachine *virt_machine_main(int argc, char **argv)
 
     p->console = console_init(TRUE, stdin, dromajo_stdout);
     p->dump_memories = dump_memories;
-
-    p->validation_terminate_event = terminate_event;
 
     RISCVMachine *s = virt_machine_init(p);
     if (!s)
