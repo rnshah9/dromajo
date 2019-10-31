@@ -1,16 +1,17 @@
+# Example things on run on Dromajo
 
-# Instructions to create some tests for dromajo
+## Bare-metal riscv-tests (~ 2 min)
 
-## Baremetal riscv-tests
+Assumption: you have the `riscv64-unknown-elf-` (Newlib) toolchain.
 
 ```
-git clone https://github.com/riscv/riscv-tests
+git clone --recursive https://github.com/riscv/riscv-tests
 cd riscv-tests
-git submodule update --init --recursive
 autoconf
 ./configure --prefix=${PWD}/../riscv-tests-root/
 make
 make install
+cd ..
 ```
 
 To run one of the benchmarks with trace enabled
@@ -21,48 +22,46 @@ To run one of the benchmarks with trace enabled
 
 ## Linux with buildroot
 
-### Get a trivial buildroot
+### Get a trivial buildroot (~ 23 min)
 
 ```
-wget https://github.com/buildroot/buildroot/archive/2019.08.1.tar.gz
-tar xzvf 2019.08.1.tar.gz
-cp config-buildroot-2019.08.1 buildroot-2019.08.01/.config
-cd buildroot-2019.08.01
-make -j16
+wget -nc https://github.com/buildroot/buildroot/archive/2019.08.1.tar.gz
+tar xzf 2019.08.1.tar.gz
+cp config-buildroot-2019.08.1 buildroot-2019.08.1/.config
+make -j16 -C buildroot-2019.08.1
 ```
 
 
-### Get the Linux kernel up and running
+### Get the Linux kernel up and running (~ 3 min)
+
+Assumption: you have the `riscv64-linux-gnu-` (GlibC) toolchain.
 
 ```
-https://github.com/torvalds/linux/archive/v5.3.tar.gz
-tar xzvf v5.3.tar.gz
+wget -nc https://github.com/torvalds/linux/archive/v5.3.tar.gz
+tar xzf v5.3.tar.gz
 cp config-linux-5.3 linux-5.3/.config
-cd linux-5.3
-make -j16 ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu-
+make -C linux-5.3 -j16 ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu-
 ```
 
-### openSBI
+### openSBI (~ ? min)
 
 ```
 export CROSS_COMPILE=riscv64-unknown-elf-
-wget https://github.com/riscv/opensbi/archive/v0.5.tar.gz
-tar xzvf v0.5.tar.gz
+wget -nc https://github.com/riscv/opensbi/archive/v0.5.tar.gz
+tar xzf v0.5.tar.gz
 tar xzCf opensbi-0.5 opensbi.dromajo.tar.gz
-cd opensbi-0.5
-make PLATFORM=dromajo FW_PAYLOAD_PATH=../linux-5.3/arch/riscv/boot/Image
+make -C opensbi-0.5 PLATFORM=dromajo FW_PAYLOAD_PATH=../linux-5.3/arch/riscv/boot/Image
 ```
 
 ### To boot Linux (login:root password:root)
 
 ```
 cp opensbi-0.5/build/platform/dromajo/firmware/fw_payload.bin .
-../src/dromajo ./boot.cfg
+../src/dromajo boot.cfg
 ```
 
-### To boot a 4 multicore
+### To boot a quad-core RISC-V CPU
 
 ```
-../src/dromajo --ncpus 4 ./boot.cfg
+../src/dromajo --ncpus 4 boot.cfg
 ```
-
