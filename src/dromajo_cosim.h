@@ -32,6 +32,13 @@ typedef struct dromajo_cosim_state_st dromajo_cosim_state_t;
 dromajo_cosim_state_t *dromajo_cosim_init(int argc, char *argv[]);
 
 /*
+ * dromajo_cosim_fini --
+ *
+ * Destroys the states and releases the resources
+ */
+void dromajo_cosim_fini(dromajo_cosim_state_t *state);
+
+/*
  * dromajo_cosim_step --
  *
  * executes exactly one instruction in the golden model and returns

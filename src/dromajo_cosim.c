@@ -43,6 +43,11 @@ dromajo_cosim_state_t *dromajo_cosim_init(int argc, char *argv[])
     return (dromajo_cosim_state_t *)m;
 }
 
+void dromajo_cosim_fini(dromajo_cosim_state_t *state)
+{
+    virt_machine_end((RISCVMachine *)state);
+}
+
 static bool is_store_conditional(uint32_t insn)
 {
     int opcode = insn & 0x7f, funct3 = insn >> 12 & 7;
@@ -197,9 +202,6 @@ void dromajo_cosim_raise_trap(dromajo_cosim_state_t *state, int hartid, int64_t 
  * DUT, such as loads from IO devices, interrupts, and CSRs cycle,
  * time, and instret.  For all these cases the model will override
  * with the expected values.
- *
- * The `intr_pending` flag is used to communicate that the DUT will
- * take an interrupt in the next cycle.
  */
 int dromajo_cosim_step(dromajo_cosim_state_t *dromajo_cosim_state,
                        int                    hartid,

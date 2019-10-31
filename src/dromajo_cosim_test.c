@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
     }
 
 done:
-    free(s);
+    dromajo_cosim_fini(s);
 
     if (exit_code == EXIT_SUCCESS)
         fprintf(dromajo_stdout, "\nSUCCESS, PASSED, GOOD!\n");

@@ -91,6 +91,7 @@ int main(int argc, char **argv)
         return 1;
 
     while (!dromajo_cosim_step(costate, 0, 0, 0, 0, 0, false));
+    dromajo_cosim_fini(costate);
 #else
     RISCVMachine *m = virt_machine_main(argc, argv);
 
