@@ -39,4 +39,3 @@ usage: ./dromajo [--load snapshot_name] [--save snapshot_name] [--maxinsns N] [-
 ./dromajo path/to/your/coremark.riscv
 ...
 ```
-
