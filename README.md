@@ -1,9 +1,22 @@
 
-# dromajo - Esperanto Technology's RISC-V Reference Model
+# Dromajo - Esperanto Technology's RISC-V Reference Model
 
-dromajo is based on Fabrice Bellard's emulator named RISCVEMU,
-since renamed `TinyEmu' [1].  Esperanto Technology has substantially modified
-this to suit our needs as a golden model for co-simulation verification.
+Functional verification is key to have a strong RISC-V ecosystem.
+Esperanto is releasing Dromajo to help the RISC-V community.  Dromajo
+is the Esperanto translation for an emu bird. It is a RISC-V RV64GC
+emulator designed for RTL co-simulation.  This is the emulator used
+for cosimulation inside Esperanto, but it is designed with a simple
+API that can be leveraged to other RTL RISC-V cores.
+
+Dromajo enables executing application (such as benchmarks running on
+Linux) under fast software simulation, generating checkpoints after a
+given number of cycles, and resuming such checkpoints for HW/SW
+co-simulation.  This has proven to be a very powerful way to capture
+bugs, especially in combination with randomized tests.
+
+Dromajo's semantic model is based on Fabrice Bellard's RISCVEMU (later
+renamed TinyEMU), but extensively verified, bug-fixed, and enhanced to
+take it to ISA 2.3/priv 1.11.
 
 ## Building
 
