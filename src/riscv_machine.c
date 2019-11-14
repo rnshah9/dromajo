@@ -893,15 +893,16 @@ static void load_elf_image(RISCVMachine *s, const uint8_t *image, size_t image_l
 }
 
 /* Return non-zero on failure */
-static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len, const char *cmd_line)
+static int load_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len)
 {
-    if (buf_len > s->ram_size) {
-        vm_error("Kernel too big\n");
+    if (s->ram_size <= buf_len) {
+        vm_error("Kernel image is too large for the available memory\n");
         return 1;
     }
 
     if (elf64_is_riscv64(buf, buf_len)) {
-        // XXX if the ELF is given in the config file, then we don't get to set memory base based on that.
+        // Note, if the ELF is given in the config file, then we don't
+        // get to set memory base based on that.
 
         if (elf64_get_entrypoint(buf) != s->ram_base_addr) {
             fprintf(dromajo_stderr,
@@ -912,21 +913,28 @@ static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len, cons
         }
 
         load_elf_image(s, buf, buf_len);
-    }
-    else
+    } else
         memcpy(get_ram_ptr(s, s->ram_base_addr), buf, buf_len);
 
-    if (!(s->ram_base_addr == 0x80000000 || s->ram_base_addr == 0x8000000000 || s->ram_base_addr == 0xC000000000)) {
-        fprintf(dromajo_stderr,
-                "DROMAJO currently requires a 0x80000000 or 0x8000000000 or 0xC000000000"
-                " starting address, image assumes 0x%0lx\n",
-                elf64_get_entrypoint(buf));
-        assert(0);
-    }
+    return 0;
+}
 
+static int setup_bootrom(RISCVMachine *s, const char *cmd_line)
+{
     uint8_t *ram_ptr  = get_ram_ptr(s, ROM_BASE_ADDR);
     uint32_t fdt_addr = (BOOT_BASE_ADDR - ROM_BASE_ADDR) + 256;
     uint32_t *q       = (uint32_t *)(ram_ptr + (BOOT_BASE_ADDR - ROM_BASE_ADDR));
+
+    if (s->ram_base_addr !=   0x80000000 &&
+        s->ram_base_addr != 0x8000000000 &&
+        s->ram_base_addr != 0xC000000000) {
+
+        fprintf(dromajo_stderr,
+                "DROMAJO currently requires a 0x80000000 or 0x8000000000 or 0xC000000000"
+                " starting address, can't use 0x%0lx\n", s->ram_base_addr);
+
+        return 1;
+    }
 
     /* KEEP THIS IN SYNC WITH boom-template/bootrom/cosim/cosim.S
        Eventually we'll make this code loadable */
@@ -949,7 +957,7 @@ static int copy_kernel(RISCVMachine *s, const uint8_t *buf, size_t buf_len, cons
     if (s->ram_base_addr == 0xC000000000) {
       *q++ = 0x0030041b;  //         addiw  s0, zero, 3
       *q++ = 0x02641413;  //         slli   s0, s0, 38
-    }else{
+    } else {
       *q++ = 0x0010041b;  //         addiw  s0, zero, 1
       if (s->ram_base_addr == 0x80000000)
         *q++ = 0x01f41413; //     slli s0, s0, 31
@@ -1111,35 +1119,38 @@ RISCVMachine *virt_machine_init(const VirtMachineParams *p)
             s->virtio_count++;
         } else {
             vm_error("unsupported input device: %s\n", p->input_device);
-            exit(1);
+            return NULL;
         }
     }
 
     if (!p->files[VM_FILE_BIOS].buf) {
         vm_error("No bios given\n");
         return NULL;
-    } else if (copy_kernel(s,
-                           p->files[VM_FILE_BIOS].buf,
-                           p->files[VM_FILE_BIOS].len,
-                           p->cmdline))
+    }
+
+    if (load_kernel(s, p->files[VM_FILE_BIOS].buf, p->files[VM_FILE_BIOS].len))
+        return NULL;
+
+    if (setup_bootrom(s, p->cmdline))
         return NULL;
 
     s->mmio_start = p->mmio_start;
     s->mmio_end   = p->mmio_end;
 
     if (p->dump_memories) {
-      FILE *fd = fopen("BootRAM.hex", "w+");
-      if (fd==0) {
-        fprintf(stderr, "ERROR: could not create BootRAM.hex\n");
-        exit(-3);
-      }
+        FILE *fd = fopen("BootRAM.hex", "w+");
+        if (fd == 0) {
+            fprintf(stderr, "ERROR: could not create BootRAM.hex\n");
+            return NULL;
+        }
 
-      uint8_t *ram_ptr  = get_ram_ptr(s, ROM_BASE_ADDR);
-      for(int i=0;i<ROM_SIZE/4;++i) {
-        uint32_t *q_base = (uint32_t *)(ram_ptr + (BOOT_BASE_ADDR - ROM_BASE_ADDR));
-        fprintf(fd,"@%06x %08x\n",i, q_base[i]);
-      }
-      fclose(fd);
+        uint8_t *ram_ptr  = get_ram_ptr(s, ROM_BASE_ADDR);
+        for (int i = 0; i < ROM_SIZE / 4; ++i) {
+            uint32_t *q_base = (uint32_t *)(ram_ptr + (BOOT_BASE_ADDR - ROM_BASE_ADDR));
+            fprintf(fd, "@%06x %08x\n", i, q_base[i]);
+        }
+
+        fclose(fd);
     }
 
     return s;
