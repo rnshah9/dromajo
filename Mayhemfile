@@ -1,7 +1,6 @@
-project: rnshah9/dromajo
+project: dromajo
 target: dromajo
-tests: null
 
 cmds:
-  - cmd: /repo/build/dromajo @@
+  - cmd: /repo/build/dromajo /test.cfg
     filepath: /test.cfg
