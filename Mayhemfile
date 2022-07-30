@@ -2,5 +2,4 @@ project: dromajo
 target: dromajo
 
 cmds:
-  - cmd: /repo/build/dromajo /test.cfg
-    filepath: /test.cfg
+  - cmd: /dromajo @@
