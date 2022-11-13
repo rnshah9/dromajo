@@ -51,7 +51,8 @@ jobs:
       fail-fast: false
       matrix:
         mayhemfile:
-          - mayhem/Mayhemfile
+          - mayhem/Mayhemfile_json_parse_value
+          - mayhem/Mayhemfile_dromajo
 
     steps:
       - uses: actions/checkout@v2

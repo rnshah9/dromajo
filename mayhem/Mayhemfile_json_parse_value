@@ -1,0 +1,6 @@
+project: dromajo
+target: dromajo
+
+cmds:
+  - cmd: /fuzz_json_parse_value
+    libfuzzer: true
